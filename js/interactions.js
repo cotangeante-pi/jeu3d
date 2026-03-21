@@ -61,11 +61,11 @@ const Interactions = {
     const hit = Humans.getNearestHuman(State.posX, State.posZ, 2.2);
     if (!hit) return;
 
+    Humans.damageHuman(hit, hit.isPolice ? 8 : 15);
+
     if (hit.isPolice) {
-      // Frapper un policier = crime grave
       State.wanted = Math.min(3, State.wanted + 2);
     } else {
-      // Frapper un civil = crime mineur
       State.wanted = Math.min(3, State.wanted + 1);
     }
     State.wantedDecayTimer = 0;

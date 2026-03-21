@@ -109,14 +109,23 @@ const Humans = {
     g.position.set(x, 0, z);
     scene.add(g);
 
+    // ── Barre de vie au-dessus de la tête ──
+    const BAR_W = 0.55;
+    const hpBgMat   = new THREE.MeshBasicMaterial({ color: 0x222222 });
+    const hpFillMat = new THREE.MeshBasicMaterial({ color: 0x22cc22 });
+    const hpBg   = new THREE.Mesh(new THREE.BoxGeometry(BAR_W + 0.06, 0.10, 0.02), hpBgMat);
+    const hpFill = new THREE.Mesh(new THREE.BoxGeometry(BAR_W, 0.07, 0.02), hpFillMat);
+    scene.add(hpBg);
+    scene.add(hpFill);
+
     const baseSpeed = isPolice ? 2.4 : 0.8 + Math.random() * 1.0;
+    const maxHp     = isPolice ? 150 : 100;
 
     const h = {
       group: g, isPolice,
       x, z,
       roadType, roadVal, sideDir,
       targetX: x, targetZ: z,
-      // États : 'walking' | 'pausing' | 'flee' | 'chase' | 'alert'
       state: 'walking',
       pauseTimer: 0,
       alertTimer: 0,
@@ -124,10 +133,18 @@ const Humans = {
       baseSpeed,
       speed: baseSpeed,
       legLPivot, legRPivot, armLPivot, armRPivot,
+      hp: maxHp, maxHp,
+      hpBg, hpFill, hpFillMat, hpBarW: BAR_W,
     };
 
     this._pickWaypoint(h);
     return h;
+  },
+
+  // ── Inflige des dégâts à un humain (appelé depuis interactions.js) ──────────
+  damageHuman(h, amount) {
+    if (!h) return;
+    h.hp = Math.max(0, h.hp - amount);
   },
 
   // ─── Spawn voiture de police ─────────────────────────────────────────────────
@@ -295,22 +312,50 @@ const Humans = {
     h.targetZ = Math.max(-cityR, Math.min(cityR, h.targetZ));
   },
 
-  // ─── Choisir prochain waypoint pour une voiture ──────────────────────────────
+  // ─── Choisir prochain waypoint pour une voiture (toujours sur route) ─────────
   _pickCarWaypoint(car) {
-    const cityR = CONFIG.CITY_RADIUS * 1.4;
-    // Tourne parfois (40%)
-    if (Math.random() < 0.4) {
-      car.roadType = Math.random() < 0.5 ? 'v' : 'h';
-      car.roadVal  = this._randFrom(car.roadType === 'v' ? this._streetX : this._streetZ) || 14;
-      car.laneOff  = (Math.random() < 0.5 ? 1 : -1) * 3.2;
-    }
+    const step  = CONFIG.GRID_STEP;
+    const cityR = CONFIG.CITY_RADIUS;
+    // Avance de 3 à 6 blocs sur la route courante, puis tourne parfois
+    const blocksAhead = (3 + Math.floor(Math.random() * 4)) * step;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+
     if (car.roadType === 'v') {
+      // Avance le long de Z sur la route verticale
       car.targetX = car.roadVal + car.laneOff;
-      car.targetZ = (Math.random() - 0.5) * cityR;
+      car.targetZ  = Math.max(-cityR, Math.min(cityR, car.z + dir * blocksAhead));
     } else {
-      car.targetZ = car.roadVal + car.laneOff;
-      car.targetX = (Math.random() - 0.5) * cityR;
+      // Avance le long de X sur la route horizontale
+      car.targetZ  = car.roadVal + car.laneOff;
+      car.targetX  = Math.max(-cityR, Math.min(cityR, car.x + dir * blocksAhead));
     }
+  },
+
+  // ─── Tourne la voiture à l'intersection si proche ─────────────────────────────
+  _tryCarTurn(car) {
+    const step    = CONFIG.GRID_STEP;
+    if (Math.random() > 0.35) return; // 35 % de chance de tourner
+    if (car.roadType === 'v') {
+      // Cherche la rue horizontale la plus proche
+      const nearZ = this._streetZ.reduce((best, sz) =>
+        Math.abs(sz - car.z) < Math.abs(best - car.z) ? sz : best, this._streetZ[0]);
+      if (nearZ !== undefined && Math.abs(nearZ - car.z) < 3) {
+        car.roadType = 'h';
+        car.roadVal  = nearZ;
+        car.laneOff  = (Math.random() < 0.5 ? 1 : -1) * 3.2;
+        car.z = nearZ;
+      }
+    } else {
+      const nearX = this._streetX.reduce((best, sx) =>
+        Math.abs(sx - car.x) < Math.abs(best - car.x) ? sx : best, this._streetX[0]);
+      if (nearX !== undefined && Math.abs(nearX - car.x) < 3) {
+        car.roadType = 'v';
+        car.roadVal  = nearX;
+        car.laneOff  = (Math.random() < 0.5 ? 1 : -1) * 3.2;
+        car.x = nearX;
+      }
+    }
+    this._pickCarWaypoint(car);
   },
 
   // ─── Humain le plus proche dans un rayon ─────────────────────────────────────
@@ -376,9 +421,37 @@ const Humans = {
     });
   },
 
+  // ─── Mise à jour barre de vie ─────────────────────────────────────────────────
+  _updateHpBar(h) {
+    const pct = Math.max(0, h.hp / h.maxHp);
+    // Orienter vers la caméra
+    const camX = State.camera.position.x;
+    const camZ = State.camera.position.z;
+    const ang  = Math.atan2(camX - h.x, camZ - h.z);
+
+    h.hpBg.position.set(h.x, 2.35, h.z);
+    h.hpBg.rotation.y = ang;
+
+    // Décaler le fill pour qu'il parte de la gauche
+    const sinA = Math.sin(ang), cosA = Math.cos(ang);
+    const offset = -h.hpBarW / 2 * (1 - pct);
+    h.hpFill.position.set(h.x + sinA * offset, 2.35, h.z + cosA * offset);
+    h.hpFill.rotation.y = ang;
+    h.hpFill.scale.x = Math.max(0.001, pct);
+
+    if (pct > 0.6)      h.hpFillMat.color.setHex(0x22cc22);
+    else if (pct > 0.3) h.hpFillMat.color.setHex(0xffaa00);
+    else                h.hpFillMat.color.setHex(0xcc2222);
+
+    // Masquer si plein
+    h.hpBg.visible   = pct < 1.0;
+    h.hpFill.visible  = pct < 1.0;
+  },
+
   // ─── Tick humain (piéton ou policier) ────────────────────────────────────────
   _tickHuman(h, delta, isPolice) {
     h.walkTimer += delta;
+    this._updateHpBar(h);
 
     const pdx = State.posX - h.x;
     const pdz = State.posZ - h.z;
@@ -517,11 +590,16 @@ const Humans = {
     let tX, tZ, speed;
 
     if (car.state === 'pursuing') {
-      // Fonce vers le joueur (légère prédiction de position)
       tX    = State.posX + State.velX * 0.5;
       tZ    = State.posZ + State.velZ * 0.5;
       speed = car.speed * 1.5;
     } else {
+      // Snap à la route pour ne pas traverser les bâtiments
+      if (car.roadType === 'v') {
+        car.x = car.roadVal + car.laneOff;
+      } else {
+        car.z = car.roadVal + car.laneOff;
+      }
       tX    = car.targetX;
       tZ    = car.targetZ;
       speed = car.speed;
@@ -531,7 +609,8 @@ const Humans = {
     const dz   = tZ - car.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist < 1.5 && car.state === 'cruise') {
+    if (dist < 2.0 && car.state === 'cruise') {
+      this._tryCarTurn(car);
       this._pickCarWaypoint(car);
       return;
     }

@@ -49,15 +49,89 @@ const NPC = {
         { name: 'Voiture sport', price: 3000, badgeId: 'car_sport' },
       ]
     },
+    // ── Nouveaux bâtiments ──────────────────────────────────────────────────────
+    {
+      id: 'grocery_1', type: 'grocery', name: 'Supermarché', x: 28, z: 28, dir: 1,
+      stock: [
+        { name: 'Pomme',       price: 2,  hungerBonus: 15, healthBonus: 3 },
+        { name: 'Pain complet',price: 4,  hungerBonus: 25, healthBonus: 4 },
+        { name: 'Viande',      price: 10, hungerBonus: 45, healthBonus: 8 },
+        { name: 'Lait',        price: 3,  hungerBonus: 20, healthBonus: 5 },
+        { name: 'Pizza',       price: 12, hungerBonus: 55, healthBonus: 5 },
+      ]
+    },
+    {
+      id: 'restaurant_1', type: 'restaurant', name: 'Restaurant Le Gourmet', x: 28, z: 42, dir: 1,
+      stock: [
+        { name: 'Entrée',         price: 8,  hungerBonus: 25, healthBonus: 5  },
+        { name: 'Plat du jour',   price: 20, hungerBonus: 65, healthBonus: 15 },
+        { name: 'Dessert',        price: 6,  hungerBonus: 20, healthBonus: 3  },
+        { name: 'Menu complet',   price: 35, hungerBonus: 100, healthBonus: 25 },
+      ]
+    },
+    {
+      id: 'police_1', type: 'police_station', name: 'Commissariat de Police', x: 28, z: -28, dir: -1,
+    },
+    {
+      id: 'hospital_1', type: 'hospital', name: 'Hôpital Central', x: 28, z: 70, dir: 1,
+      treatments: [
+        { name: 'Pansement',    price: 15,  healthGain: 25  },
+        { name: 'Consultation', price: 40,  healthGain: 60  },
+        { name: 'Opération',    price: 120, healthGain: 100 },
+      ]
+    },
+    {
+      id: 'gym_1', type: 'gym', name: 'Salle de Sport FitCity', x: 42, z: 28, dir: 1,
+      trainings: [
+        { name: 'Musculation',   price: 30,  stat: 'strength',  gain: 5  },
+        { name: 'Sprint',        price: 25,  stat: 'speed',     gain: 4  },
+        { name: 'Cardio',        price: 20,  stat: 'endurance', gain: 5  },
+        { name: 'Full training', price: 60,  stat: 'all',       gain: 3  },
+      ]
+    },
+    {
+      id: 'bank_1', type: 'bank', name: 'Banque Nationale', x: 28, z: -42, dir: -1,
+    },
+    // ── Nouveaux employeurs ────────────────────────────────────────────────────
+    {
+      id: 'employer_5', type: 'employer', name: 'Commissariat (guichet)', x: 42, z: -28, dir: -1,
+      job: { id: 'security', name: 'Agent de sécurité', salary: 20, iqRequired: 0, strengthRequired: 20 }
+    },
+    {
+      id: 'employer_6', type: 'employer', name: 'Cuisine du Restaurant', x: 42, z: 42, dir: 1,
+      job: { id: 'chef', name: 'Cuisinier', salary: 28, iqRequired: 10, strengthRequired: 0 }
+    },
+    {
+      id: 'employer_7', type: 'employer', name: 'Service Médical', x: 42, z: 70, dir: 1,
+      job: { id: 'doctor', name: 'Médecin', salary: 45, iqRequired: 60, strengthRequired: 0 }
+    },
+    {
+      id: 'employer_8', type: 'employer', name: 'Agence Bancaire', x: 42, z: -42, dir: -1,
+      job: { id: 'banker', name: 'Banquier', salary: 55, iqRequired: 80, strengthRequired: 0 }
+    },
+    {
+      id: 'employer_9', type: 'employer', name: 'Supermarché (caisse)', x: 42, z: 0, dir: 1,
+      job: { id: 'cashier', name: 'Caissier', salary: 12, iqRequired: 0, strengthRequired: 0 }
+    },
+    {
+      id: 'employer_10', type: 'employer', name: 'Salle de Musculation', x: 0, z: 84, dir: 1,
+      job: { id: 'coach', name: 'Coach sportif', salary: 22, iqRequired: 0, strengthRequired: 30 }
+    },
   ],
 
   _list: [],
 
   _palette: {
-    merchant: { wall: 0xd4a96a, roof: 0x7a4f1e, floor: 0xc8a878, sign: '#7a3a00' },
-    school:   { wall: 0xe8e0cc, roof: 0x3a5a80, floor: 0xd0c8a0, sign: '#004080' },
-    employer: { wall: 0xd0d0d0, roof: 0x444444, floor: 0xbbbbbb, sign: '#333333' },
-    cardeal:  { wall: 0xddeeff, roof: 0x1133aa, floor: 0xccddee, sign: '#0a2266' },
+    merchant:       { wall: 0xd4a96a, roof: 0x7a4f1e, floor: 0xc8a878, sign: '#7a3a00' },
+    school:         { wall: 0xe8e0cc, roof: 0x3a5a80, floor: 0xd0c8a0, sign: '#004080' },
+    employer:       { wall: 0xd0d0d0, roof: 0x444444, floor: 0xbbbbbb, sign: '#333333' },
+    cardeal:        { wall: 0xddeeff, roof: 0x1133aa, floor: 0xccddee, sign: '#0a2266' },
+    grocery:        { wall: 0xfff0cc, roof: 0x228833, floor: 0xeeeedd, sign: '#115522' },
+    restaurant:     { wall: 0xffe0cc, roof: 0xaa3311, floor: 0xf5d5bb, sign: '#7a1100' },
+    police_station: { wall: 0xccddee, roof: 0x1a237e, floor: 0xbbd0e8, sign: '#0a1a5e' },
+    hospital:       { wall: 0xffffff, roof: 0xcc2222, floor: 0xf0f8ff, sign: '#aa0000' },
+    gym:            { wall: 0xddeedd, roof: 0x224422, floor: 0xcceecc, sign: '#113311' },
+    bank:           { wall: 0xf5f0e0, roof: 0x8b6914, floor: 0xece7d4, sign: '#6b4e0a' },
   },
 
   init(scene) {
@@ -210,6 +284,81 @@ const NPC = {
       desk.position.set(cx, 0.82, backZ - dir * 2);
       desk.castShadow = true;
       scene.add(desk);
+    } else if (type === 'grocery') {
+      // Rayonnages d'épicerie
+      const shelfMat = new THREE.MeshLambertMaterial({ color: 0x8b6914 });
+      for (let i = -1; i <= 1; i++) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.8, 4.5), shelfMat);
+        shelf.position.set(cx + i * 2.2, 0.9, midZ - dir * 1.5);
+        scene.add(shelf);
+      }
+      // Caisse
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.85, 0.8), brownMat);
+      desk.position.set(cx, 0.425, backZ - dir * 1.5);
+      scene.add(desk);
+    } else if (type === 'restaurant') {
+      // Tables rondes
+      const tMat = new THREE.MeshLambertMaterial({ color: 0xaa7755 });
+      [[-2, -1.5], [0, -1.5], [2, -1.5], [-2, 1.5], [2, 1.5]].forEach(([ox, oz]) => {
+        const table = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.06, 12), tMat);
+        table.position.set(cx + ox, 0.74, midZ + oz * dir);
+        scene.add(table);
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.74, 8), brownMat);
+        leg.position.set(cx + ox, 0.37, midZ + oz * dir);
+        scene.add(leg);
+      });
+    } else if (type === 'police_station') {
+      // Banque d'accueil
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.9, 1.0), brownMat);
+      desk.position.set(cx, 0.45, backZ - dir * 2);
+      scene.add(desk);
+      // Tableau de wanted
+      const board = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.0, 0.1),
+        new THREE.MeshLambertMaterial({ color: 0x223344 }));
+      board.position.set(cx, 2.2, backZ + dir * 0.1);
+      scene.add(board);
+    } else if (type === 'hospital') {
+      // Lits
+      const bedMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      const bedFr  = new THREE.MeshLambertMaterial({ color: 0xaaccee });
+      [-1.8, 1.8].forEach(ox => {
+        const bed = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.4, 2.2), bedMat);
+        bed.position.set(cx + ox, 0.2, midZ);
+        scene.add(bed);
+        const blanket = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.15, 2.0), bedFr);
+        blanket.position.set(cx + ox, 0.42, midZ);
+        scene.add(blanket);
+      });
+      // Comptoir médical
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.85, 0.85), brownMat);
+      desk.position.set(cx, 0.425, backZ - dir * 2);
+      scene.add(desk);
+    } else if (type === 'gym') {
+      // Appareils de musculation
+      const gymMat = new THREE.MeshLambertMaterial({ color: 0x444455 });
+      [-2.5, 0, 2.5].forEach(ox => {
+        const machine = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 1.1), gymMat);
+        machine.position.set(cx + ox, 0.7, midZ - dir);
+        scene.add(machine);
+      });
+      // Tapis de course
+      const tapis = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 2.0),
+        new THREE.MeshLambertMaterial({ color: 0x222222 }));
+      tapis.position.set(cx, 0.125, midZ + dir * 1.5);
+      scene.add(tapis);
+    } else if (type === 'bank') {
+      // Guichets
+      const gMat = new THREE.MeshLambertMaterial({ color: 0xc8b060 });
+      [-2, 0, 2].forEach(ox => {
+        const guichet = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.6), gMat);
+        guichet.position.set(cx + ox, 0.5, backZ - dir * 2);
+        scene.add(guichet);
+      });
+      // Coffre-fort
+      const safe = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, 0.8),
+        new THREE.MeshLambertMaterial({ color: 0x556677 }));
+      safe.position.set(cx + 3, 0.7, backZ + dir * 0.3);
+      scene.add(safe);
     } else if (type === 'cardeal') {
       // Voiture exposée dans le showroom
       const carColors = [0xcc2200, 0x2244cc, 0x228822, 0x111111, 0xcccccc];

@@ -31,6 +31,7 @@ const World = {
     this._buildForest(scene);
     this._buildBorders();
     this._spawnFood(scene);
+    this._buildBoats(scene);
   },
 
   _buildGround(scene) {
@@ -68,8 +69,13 @@ const World = {
 
   // Tuiles réservées aux bâtiments NPC (ne pas générer de bâtiment city dessus)
   _npcTiles: new Set([
+    // Bâtiments originaux
     '0_28', '-28_28', '0_-28', '-28_-28',
-    '0_42', '-28_-42', '0_-70', '-28_70'
+    '0_42', '-28_-42', '0_-70', '-28_70',
+    // Nouveaux bâtiments
+    '28_28',  '28_42',  '28_-28', '28_70',
+    '42_28',  '28_-42', '42_-28', '42_42',
+    '42_70',  '42_-42', '42_0',   '0_84',
   ]),
 
   _buildCity(scene) {
@@ -130,6 +136,32 @@ const World = {
         const door = new THREE.Mesh(doorGeo, doorMat);
         door.position.set(cx, doorH / 2, cz + bSize / 2 + 0.05);
         scene.add(door);
+
+        // Fenêtres (verre bleuté sur les façades)
+        const winMat = new THREE.MeshLambertMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.65 });
+        const floors = Math.max(1, Math.floor(h / 3.2));
+        for (let fl = 0; fl < floors; fl++) {
+          const wy = 1.2 + fl * 3.2;
+          if (wy + 0.9 > h) continue;
+          // Façades nord et sud
+          [-1, 1].forEach(side => {
+            const w = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 0.08), winMat);
+            w.position.set(cx + side * 2.0, wy, cz + bSize / 2 + 0.01);
+            scene.add(w);
+            const w2 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 0.08), winMat);
+            w2.position.set(cx + side * 2.0, wy, cz - bSize / 2 - 0.01);
+            scene.add(w2);
+          });
+          // Façades est et ouest
+          [-1, 1].forEach(side => {
+            const w = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 1.4), winMat);
+            w.position.set(cx + bSize / 2 + 0.01, wy, cz + side * 2.0);
+            scene.add(w);
+            const w2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 1.4), winMat);
+            w2.position.set(cx - bSize / 2 - 0.01, wy, cz + side * 2.0);
+            scene.add(w2);
+          });
+        }
       }
     }
   },
@@ -242,42 +274,116 @@ const World = {
 
   _addBridge(scene, roadZ, roadW, rxMin, rxMax, riverW, bridgeCX, dashMat) {
     const concreteMat = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
+    const steelMat    = new THREE.MeshLambertMaterial({ color: 0x556677 });
     const railMat     = new THREE.MeshLambertMaterial({ color: 0x787878 });
 
-    // Tablier béton
+    // ── Tablier béton (plat, praticable) ──
     const deck = new THREE.Mesh(new THREE.PlaneGeometry(riverW, roadW), concreteMat);
     deck.rotation.x = -Math.PI / 2;
     deck.position.set(bridgeCX, 0.07, roadZ);
     scene.add(deck);
 
-    // Tirets sur le pont
+    // Tirets routiers sur le pont
     for (let dx = rxMin + 3; dx < rxMax; dx += 10) {
       const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
       d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.09, roadZ); scene.add(d);
     }
 
-    // Garde-corps (côtés nord et sud)
+    // ── Arche en acier au-dessus du tablier (2 arches en croix) ──
+    const archH   = 9;    // hauteur du sommet de l'arche
+    const archSegs = 7;   // segments par demi-arche
+    for (let a = 0; a < 2; a++) {            // deux plans d'arches (nord/sud)
+      const zOff = (a === 0 ? -1 : 1) * (roadW * 0.3);
+      for (let side = -1; side <= 1; side += 2) {  // côté gauche/droite (rives)
+        for (let s = 0; s < archSegs; s++) {
+          const t0 = s / archSegs;
+          const t1 = (s + 1) / archSegs;
+          // Arc en demi-cercle: x va de rive à centre, y monte
+          const x0 = (side === -1 ? rxMin : rxMax) + side * -1 * (riverW / 2) * t0;
+          const y0 = archH * Math.sin(Math.PI * t0 * 0.5);
+          const x1 = (side === -1 ? rxMin : rxMax) + side * -1 * (riverW / 2) * t1;
+          const y1 = archH * Math.sin(Math.PI * t1 * 0.5);
+          const segL = Math.hypot(x1 - x0, y1 - y0);
+          const ang  = Math.atan2(y1 - y0, x1 - x0);
+          const seg = new THREE.Mesh(new THREE.BoxGeometry(segL + 0.05, 0.45, 0.45), steelMat);
+          seg.position.set((x0 + x1) / 2, (y0 + y1) / 2, roadZ + zOff);
+          seg.rotation.z = ang;
+          scene.add(seg);
+        }
+      }
+    }
+    // Membrures verticales reliant tablier → arche (tous les 10m)
+    for (let dx = rxMin + 8; dx < rxMax - 2; dx += 10) {
+      const t = (dx - rxMin) / riverW;
+      const archY = archH * Math.sin(Math.PI * t);
+      [-1, 1].forEach(side => {
+        const rod = new THREE.Mesh(new THREE.BoxGeometry(0.18, archY, 0.18), steelMat);
+        rod.position.set(dx, archY / 2, roadZ + side * roadW * 0.3);
+        scene.add(rod);
+      });
+    }
+
+    // ── Garde-corps (côtés nord et sud) — solides (colliders) ──
+    const railH = 1.0, railThick = 0.22;
     [-1, 1].forEach(side => {
-      const zOff = side * (roadW / 2 - 0.15);
-      // Muret continu
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(riverW, 0.85, 0.22), railMat);
-      rail.position.set(bridgeCX, 0.5, roadZ + zOff);
+      const zOff = side * (roadW / 2 - 0.11);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(riverW, railH, railThick), railMat);
+      rail.position.set(bridgeCX, railH / 2 + 0.07, roadZ + zOff);
       scene.add(rail);
-      // Poteaux tous les 8 m
+      // Poteaux
       for (let px = rxMin; px <= rxMax + 0.1; px += 8) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.1, 0.28), railMat);
-        post.position.set(px, 0.62, roadZ + zOff);
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, railH + 0.1, 0.28), railMat);
+        post.position.set(px, (railH + 0.1) / 2 + 0.07, roadZ + zOff);
         scene.add(post);
       }
+      // Collider garde-corps
+      State.colliders.push(new THREE.Box3(
+        new THREE.Vector3(rxMin, 0, roadZ + zOff - railThick / 2),
+        new THREE.Vector3(rxMax, railH + 0.2, roadZ + zOff + railThick / 2)
+      ));
     });
 
-    // Poutres latérales sous le tablier (aux deux rives)
+    // ── Culées béton aux rives ──
     [-1, 1].forEach(side => {
-      const bx = side === -1 ? rxMin + 0.3 : rxMax - 0.3;
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, roadW), railMat);
-      beam.position.set(bx, -0.2, roadZ);
-      scene.add(beam);
+      const bx = side === -1 ? rxMin - 0.5 : rxMax + 0.5;
+      const cul = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, roadW + 0.8), concreteMat);
+      cul.position.set(bx, 0.9, roadZ);
+      scene.add(cul);
     });
+  },
+
+  _buildBoats(scene) {
+    const boatMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+    const sailMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const rx      = CONFIG.RIVER_CENTER_X;
+
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.Group();
+      // Coque
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 5.5), boatMat);
+      hull.position.y = 0.5;
+      g.add(hull);
+      // Bord de coque (rebord)
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.14, 5.9),
+        new THREE.MeshLambertMaterial({ color: 0x5a2d0c }));
+      rim.position.y = 0.82;
+      g.add(rim);
+      // Mât
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(0.12, 5, 0.12),
+        new THREE.MeshLambertMaterial({ color: 0x6b3a1a }));
+      mast.position.set(0, 3.3, 0);
+      g.add(mast);
+      // Voile
+      const sail = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 3.8), sailMat);
+      sail.position.set(0, 3.2, 0.5);
+      g.add(sail);
+
+      const startZ = (i - 1) * 400;
+      g.position.set(rx + (Math.random() - 0.5) * 20, 0, startZ);
+      scene.add(g);
+
+      State.boats.push({ group: g, speed: 4 + Math.random() * 3, dir: i % 2 === 0 ? 1 : -1 });
+    }
   },
 
   _buildForest(scene) {

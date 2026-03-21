@@ -88,10 +88,34 @@ const Player = {
       State.onGround = false;
     }
 
-    // Saut
+    // ── Saut & escalade ──
     if (State.keys['Space'] && State.onGround) {
       State.velY = CONFIG.JUMP_FORCE;
       State.onGround = false;
+      State.climbTimer = 0;
+      State.isClimbing = false;
+    } else if (State.keys['Space'] && !State.onGround) {
+      // Espace maintenu en l'air → escalade si un mur est devant
+      State.climbTimer += delta;
+      if (State.climbTimer > 0.55) {
+        // Teste s'il y a un mur à portée devant le joueur
+        const fwdX = -Math.sin(State.yaw) * 1.1;
+        const fwdZ = -Math.cos(State.yaw) * 1.1;
+        const testBox = new THREE.Box3(
+          new THREE.Vector3(State.posX + fwdX - 0.28, State.posY - 0.5, State.posZ + fwdZ - 0.28),
+          new THREE.Vector3(State.posX + fwdX + 0.28, State.posY + 1.5, State.posZ + fwdZ + 0.28)
+        );
+        const wallFound = nearColliders.some(c => c.intersectsBox(testBox));
+        if (wallFound) {
+          State.isClimbing = true;
+          State.velY = 2.8;
+        } else {
+          State.isClimbing = false;
+        }
+      }
+    } else {
+      State.climbTimer = 0;
+      State.isClimbing = false;
     }
 
     // --- Détection rivière (ponts exclus) ---

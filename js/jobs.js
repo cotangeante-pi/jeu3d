@@ -5,6 +5,14 @@ const Jobs = {
   _ZONES: {
     baker:      { xMin: -32, xMax: -24, zMin: -36, zMax: -28 },
     consultant: { xMin:  -4, xMax:   4, zMin:  42, zMax:  50 },
+    security:   { xMin:  38, xMax:  46, zMin: -36, zMax: -28 },
+    chef:       { xMin:  38, xMax:  46, zMin:  42, zMax:  50 },
+    doctor:     { xMin:  38, xMax:  46, zMin:  70, zMax:  78 },
+    banker:     { xMin:  38, xMax:  46, zMin: -50, zMax: -42 },
+    cashier:    { xMin:  38, xMax:  46, zMin:  -4, zMax:   8 },
+    coach:      { xMin:  -4, xMax:   4, zMin:  84, zMax:  92 },
+    worker:     { xMin: -32, xMax: -24, zMin: -50, zMax: -42 },
+    nurse:      { xMin:  -4, xMax:   4, zMin: -78, zMax: -70 },
   },
 
   tick(delta) {
@@ -61,7 +69,10 @@ const Jobs = {
                        State.posZ >= zone.zMin && State.posZ <= zone.zMax;
         if (inZone) {
           task.phase = 'active';
-          this._notify('Tu es dans le bureau — Maintenez T !', '#88ccff');
+          const msg = task.type === 'hold_t'
+            ? 'Tu es dans le bureau — Maintenez T !'
+            : 'Tu es à ton poste — reste ici !';
+          this._notify(msg, '#88ccff');
           HUD.update();
         }
       }
@@ -82,18 +93,21 @@ const Jobs = {
       const zone = this._ZONES.consultant;
       const inZone = State.posX >= zone.xMin && State.posX <= zone.xMax &&
                      State.posZ >= zone.zMin && State.posZ <= zone.zMax;
-
-      if (!inZone) {
-        this._failTask('Tu as quitté le bureau pendant ta session !');
-        return;
-      }
-
+      if (!inZone) { this._failTask('Tu as quitté le bureau pendant ta session !'); return; }
       if (State.keys['KeyT'] && !State.paused) {
         task.held += delta;
-        if (task.held >= task.required) {
-          this._completeTask();
-        }
+        if (task.held >= task.required) this._completeTask();
       }
+    }
+
+    if (task.type === 'presence') {
+      const zone = this._ZONES[State.currentJob.id];
+      if (!zone) { this._completeTask(); return; }
+      const inZone = State.posX >= zone.xMin && State.posX <= zone.xMax &&
+                     State.posZ >= zone.zMin && State.posZ <= zone.zMax;
+      if (!inZone) { this._failTask('Tu as quitté ton poste de travail !'); return; }
+      task.held += delta;
+      if (task.held >= task.required) this._completeTask();
     }
 
     HUD.update();
@@ -144,18 +158,42 @@ const Jobs = {
   // ─── Internes ─────────────────────────────────────────────────────────────────
   _createTask(jobId) {
     if (jobId === 'baker') {
-      const n = 2 + Math.floor(Math.random() * 3); // 2-4 pommes
+      const n = 2 + Math.floor(Math.random() * 3);
       return { type: 'fetch_apples', required: n, timeLimit: 180, elapsed: 0, phase: 'active' };
     }
     if (jobId === 'consultant') {
       return {
         type: 'hold_t',
-        phase: 'travel',      // d'abord rejoindre le bureau
-        travelLimit: 45,      // secondes pour y arriver
+        phase: 'travel',
+        travelLimit: 45,
         travelElapsed: 0,
-        required: 20,         // secondes de T à maintenir
+        required: 20,
         held: 0,
-        timeLimit: 60,        // secondes pour finir une fois au bureau
+        timeLimit: 60,
+        elapsed: 0,
+      };
+    }
+    // Tâche de présence : rejoindre le bureau puis rester dedans
+    const presenceJobs = {
+      security: { required: 25, travelLimit: 60, timeLimit: 90  },
+      chef:     { required: 30, travelLimit: 60, timeLimit: 100 },
+      doctor:   { required: 20, travelLimit: 60, timeLimit: 80  },
+      banker:   { required: 35, travelLimit: 60, timeLimit: 110 },
+      cashier:  { required: 20, travelLimit: 60, timeLimit: 80  },
+      coach:    { required: 30, travelLimit: 60, timeLimit: 100 },
+      worker:   { required: 25, travelLimit: 60, timeLimit: 90  },
+      nurse:    { required: 20, travelLimit: 60, timeLimit: 80  },
+    };
+    if (presenceJobs[jobId]) {
+      const cfg = presenceJobs[jobId];
+      return {
+        type: 'presence',
+        phase: 'travel',
+        travelLimit: cfg.travelLimit,
+        travelElapsed: 0,
+        required: cfg.required,
+        held: 0,
+        timeLimit: cfg.timeLimit,
         elapsed: 0,
       };
     }

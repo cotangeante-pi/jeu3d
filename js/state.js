@@ -71,4 +71,12 @@ const State = {
   // Timers
   autoSaveTimer: 0,
   salaryTimer: 0,
+
+  // Escalade
+  climbTimer: 0,
+  isClimbing: false,
+
+  // Bateaux / ponts
+  bridgeZs: [],
+  boats: [],
 };

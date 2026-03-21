@@ -103,6 +103,19 @@ const HUD = {
       bar.style.width = Math.min(100, (apples / task.required) * 100) + '%';
       bar.style.background = '#e67e22';
 
+    } else if (task.type === 'presence') {
+      const zone = Jobs._ZONES[State.currentJob ? State.currentJob.id : ''] || {};
+      const inZone = State.posX >= (zone.xMin||0) && State.posX <= (zone.xMax||0) &&
+                     State.posZ >= (zone.zMin||0) && State.posZ <= (zone.zMax||0);
+      document.getElementById('jt-title').textContent = '🏢 Mission Présence';
+      document.getElementById('jt-desc').textContent = inZone
+        ? `Au poste — Reste ici (${Math.floor(task.held)}/${task.required}s)`
+        : '⚠ Rejoins ton poste de travail !';
+      document.getElementById('jt-time').textContent = `⏱ ${timeLeft}s`;
+      const bar = document.getElementById('jt-bar-fill');
+      bar.style.width = Math.min(100, (task.held / task.required) * 100) + '%';
+      bar.style.background = inZone ? '#2980b9' : '#c0392b';
+
     } else if (task.type === 'hold_t') {
       const zone = Jobs._ZONES.consultant;
       const inZone = State.posX >= zone.xMin && State.posX <= zone.xMax &&
@@ -188,9 +201,15 @@ const HUD = {
   _badgeName(id) {
     const names = {
       baker:            '🍞 Boulanger',
-      consultant:       '💼 Consultant',
+      consultant:       '💼 Comptable',
       worker:           '🔨 Ouvrier',
       nurse:            '💉 Infirmier',
+      security:         '🛡 Agent de sécurité',
+      chef:             '👨‍🍳 Cuisinier',
+      doctor:           '🩺 Médecin',
+      banker:           '🏦 Banquier',
+      cashier:          '🛒 Caissier',
+      coach:            '💪 Coach sportif',
       health_insurance: '🏥 Assurance maladie',
       car_basic:        '🚗 Citadine',
       car_sedan:        '🚙 Berline',

@@ -149,6 +149,97 @@ const UI = {
         optDiv.appendChild(quitBtn);
       }
 
+    } else if (npc.type === 'grocery') {
+      descEl.textContent = 'Bienvenue au supermarché ! (Ton argent : $' + Math.floor(State.money) + ')';
+      npc.stock.forEach(item => {
+        const btn = document.createElement('button');
+        btn.textContent = `${item.name} — ${item.price}$ (+${item.hungerBonus} faim, +${item.healthBonus} vie)`;
+        btn.onclick = () => {
+          const ok = Interactions.buyFood(item);
+          if (ok) descEl.textContent = 'Acheté ! (Argent restant : $' + Math.floor(State.money) + ')';
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'restaurant') {
+      descEl.textContent = 'Bienvenue au restaurant ! (Ton argent : $' + Math.floor(State.money) + ')';
+      npc.stock.forEach(item => {
+        const btn = document.createElement('button');
+        btn.textContent = `${item.name} — ${item.price}$ (+${item.hungerBonus} faim, +${item.healthBonus} vie)`;
+        btn.onclick = () => {
+          const ok = Interactions.buyFood(item);
+          if (ok) descEl.textContent = 'Bon appétit ! (Argent restant : $' + Math.floor(State.money) + ')';
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'police_station') {
+      const w = State.wanted;
+      descEl.textContent = w === 0
+        ? 'Bienvenue au commissariat. Tu n\'as aucun casier.'
+        : `Niveau de recherche : ${'★'.repeat(w)} — Payer une amende pour effacer ?`;
+      if (w > 0) {
+        const fine = w * 150;
+        const btn = document.createElement('button');
+        btn.textContent = `Payer l'amende — ${fine}$`;
+        btn.onclick = () => {
+          if (State.money < fine) {
+            descEl.textContent = 'Pas assez d\'argent pour payer l\'amende !';
+          } else {
+            State.money -= fine;
+            State.wanted = 0;
+            State.wantedDecayTimer = 0;
+            HUD.update(); Save.write();
+            descEl.textContent = 'Amende payée. Tu es libre !';
+            btn.remove();
+          }
+        };
+        optDiv.appendChild(btn);
+      }
+
+    } else if (npc.type === 'hospital') {
+      descEl.textContent = `Hôpital — Vie actuelle : ${Math.floor(State.health)}% | Argent : $${Math.floor(State.money)}`;
+      npc.treatments.forEach(t => {
+        const btn = document.createElement('button');
+        btn.textContent = `${t.name} — ${t.price}$ (+${t.healthGain} vie)`;
+        btn.onclick = () => {
+          if (State.money < t.price) { descEl.textContent = 'Pas assez d\'argent !'; return; }
+          State.money -= t.price;
+          State.health = Math.min(100, State.health + t.healthGain);
+          HUD.update(); Save.write();
+          descEl.textContent = `Soigné ! Vie : ${Math.floor(State.health)}%`;
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'gym') {
+      const s = State.physicalStats;
+      descEl.textContent = `Salle de sport | Force: ${s.strength} Vitesse: ${s.speed} Endurance: ${s.endurance}`;
+      npc.trainings.forEach(t => {
+        const btn = document.createElement('button');
+        btn.textContent = t.stat === 'all'
+          ? `${t.name} — ${t.price}$ (+${t.gain} à tout)`
+          : `${t.name} — ${t.price}$ (+${t.gain} ${t.stat})`;
+        btn.onclick = () => {
+          if (State.money < t.price) { descEl.textContent = 'Pas assez d\'argent !'; return; }
+          State.money -= t.price;
+          if (t.stat === 'all') {
+            s.strength += t.gain; s.speed += t.gain; s.endurance += t.gain;
+          } else { s[t.stat] += t.gain; }
+          HUD.update(); Save.write();
+          descEl.textContent = `Entraînement fait ! Force:${s.strength} Vitesse:${s.speed} Endurance:${s.endurance}`;
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'bank') {
+      descEl.textContent = `Banque — Solde : $${Math.floor(State.money)}`;
+      // Simple ATM — affiche juste le solde, pas de fonctionnalité supplémentaire
+      const info = document.createElement('p');
+      info.textContent = 'Vos fonds sont en sécurité ici. Revenez souvent !';
+      info.style.color = '#aaa';
+      optDiv.appendChild(info);
+
     } else if (npc.type === 'cardeal') {
       descEl.textContent = `Concession automobile | Ton argent : $${Math.floor(State.money)}`;
       npc.cars.forEach(car => {
