@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeu 3D</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/hud.css">
+</head>
+<body>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="money-display">$ 50</div>
+
+    <div id="top-right">
+      <button id="btn-pause">⏸</button>
+      <div id="iq-display">QI : 0</div>
+      <div id="badges-container"></div>
+      <button id="btn-capacities">Capacités physiques</button>
+    </div>
+
+    <div id="bottom-bars">
+      <div id="oxygen-bar">
+        <div class="oxy-dot full" id="oxy-0"></div>
+        <div class="oxy-dot full" id="oxy-1"></div>
+        <div class="oxy-dot full" id="oxy-2"></div>
+        <div class="oxy-dot full" id="oxy-3"></div>
+        <div class="oxy-dot full" id="oxy-4"></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label">Nourriture</div>
+        <div class="bar-bg"><div class="bar-fill hunger-fill" id="bar-hunger"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label">Vie</div>
+        <div class="bar-bg"><div class="bar-fill health-fill" id="bar-health"></div></div>
+      </div>
+    </div>
+
+    <div id="interact-hint" style="display:none">Appuyer sur E pour interagir</div>
+  </div>
+
+  <!-- Overlays -->
+  <div id="pause-menu" style="display:none">
+    <div class="overlay-box">
+      <h2>Pause</h2>
+      <button id="btn-resume">Reprendre</button>
+      <button id="btn-quit">Quitter (sauvegarder)</button>
+    </div>
+  </div>
+
+  <div id="gameover-overlay" style="display:none">
+    <div class="overlay-box">
+      <h2>Game Over</h2>
+      <p id="gameover-reason"></p>
+      <button id="btn-restart">Recommencer</button>
+    </div>
+  </div>
+
+  <div id="capacities-panel" style="display:none">
+    <div class="overlay-box">
+      <h2>Capacités physiques</h2>
+      <div id="capacities-content"></div>
+      <button id="btn-close-cap">Fermer</button>
+    </div>
+  </div>
+
+  <div id="dialog-box" style="display:none">
+    <div class="overlay-box dialog-inner">
+      <h3 id="dialog-title"></h3>
+      <p id="dialog-desc"></p>
+      <div id="dialog-options"></div>
+      <button id="btn-close-dialog">Fermer</button>
+    </div>
+  </div>
+
+  <!-- Canvas Three.js -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Three.js (local) -->
+  <script src="js/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.body.innerHTML = '<div style="color:#fff;background:#1a1a2e;padding:40px;font-family:Arial;font-size:1.2em;text-align:center;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
+        '<h2 style="color:#e74c3c;margin-bottom:20px">Erreur de chargement</h2>' +
+        '<p>Three.js (librairie 3D) n\'a pas pu charger depuis Internet.</p>' +
+        '<p style="margin-top:12px;color:#aaa">Vérifie ta connexion Internet puis recharge la page.</p>' +
+        '</div>';
+    }
+  </script>
+
+  <!-- Modules du jeu (ordre important) -->
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/npc.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/interactions.js"></script>
+  <script src="js/jobs.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>
