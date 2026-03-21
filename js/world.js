@@ -123,6 +123,7 @@ const World = {
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x4a2900 });
     const leafMat  = new THREE.MeshLambertMaterial({ color: 0x2d6e20 });
     const cityR = CONFIG.CITY_RADIUS + 20;
+    this._treePositions = [];
 
     for (let i = 0; i < 300; i++) {
       const x = (Math.random() - 0.5) * CONFIG.WORLD_SIZE * 2;
@@ -147,11 +148,12 @@ const World = {
       leaf.castShadow = true;
       scene.add(leaf);
 
-      // Collider tronc uniquement
       State.colliders.push(new THREE.Box3(
         new THREE.Vector3(x - 0.35, 0, z - 0.35),
         new THREE.Vector3(x + 0.35, trunkH + leafH, z + 0.35)
       ));
+
+      this._treePositions.push({ x, z });
     }
   },
 
@@ -168,28 +170,40 @@ const World = {
   },
 
   _spawnFood(scene) {
-    const foodMat = new THREE.MeshLambertMaterial({ color: 0xff4400 });
-    const cityR = CONFIG.CITY_RADIUS;
+    // Les pommes poussent près des arbres dans la nature
+    if (!this._treePositions || this._treePositions.length === 0) return;
 
-    for (let i = 0; i < 25; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 10 + Math.random() * (cityR - 10);
-      const x = Math.cos(angle) * dist;
-      const z = Math.sin(angle) * dist;
+    const foodMat = new THREE.MeshLambertMaterial({ color: 0xdd2200 });
+    const leafMat = new THREE.MeshLambertMaterial({ color: 0x55aa22 });
+    const count = Math.min(30, this._treePositions.length);
 
-      const geo = new THREE.SphereGeometry(0.22, 8, 8);
-      const mesh = new THREE.Mesh(geo, foodMat);
-      mesh.position.set(x, 0.22, z);
-      mesh.castShadow = true;
-      scene.add(mesh);
+    // Choisir des arbres aléatoires et poser 1-2 pommes près de chacun
+    const shuffled = this._treePositions.slice().sort(() => Math.random() - 0.5);
 
-      State.pickups.push({
-        name: 'Pomme',
-        hungerBonus: 25,
-        healthBonus: 5,
-        mesh,
-        pos: new THREE.Vector3(x, 0, z)
-      });
+    for (let i = 0; i < count; i++) {
+      const tree = shuffled[i];
+      // 1 ou 2 pommes par arbre
+      const n = Math.random() < 0.4 ? 2 : 1;
+      for (let j = 0; j < n; j++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 0.6 + Math.random() * 1.2;
+        const x = tree.x + Math.cos(angle) * dist;
+        const z = tree.z + Math.sin(angle) * dist;
+
+        const geo = new THREE.SphereGeometry(0.2, 7, 7);
+        const mesh = new THREE.Mesh(geo, foodMat);
+        mesh.position.set(x, 0.2, z);
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        State.pickups.push({
+          name: 'Pomme',
+          hungerBonus: 25,
+          healthBonus: 5,
+          mesh,
+          pos: new THREE.Vector3(x, 0, z)
+        });
+      }
     }
   }
 };
