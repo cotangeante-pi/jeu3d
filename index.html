@@ -20,6 +20,17 @@
       <button id="btn-capacities">Capacités physiques</button>
     </div>
 
+    <div id="hotbar">
+      <div class="hb-slot" id="hb-0"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-1"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-2"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-3"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-4"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-5"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-6"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-7"><div class="hb-icon"></div><span class="hb-count"></span></div>
+    </div>
+
     <div id="bottom-bars">
       <div id="oxygen-bar">
         <div class="oxy-dot full" id="oxy-0"></div>
@@ -36,6 +47,28 @@
         <div class="bar-label">Vie</div>
         <div class="bar-bg"><div class="bar-fill health-fill" id="bar-health"></div></div>
       </div>
+    </div>
+
+    <div id="wanted-stars" style="display:none"></div>
+
+    <!-- Notification de tâche (temporaire, centre haut) -->
+    <div id="job-notify" style="display:none"></div>
+
+    <!-- Panneau tâche en cours -->
+    <div id="job-task-panel" style="display:none">
+      <div id="jt-title"></div>
+      <div id="jt-desc"></div>
+      <div id="jt-bar-bg"><div id="jt-bar-fill"></div></div>
+      <div id="jt-time"></div>
+    </div>
+
+    <!-- Barre de progression "hold T" (centre écran, visible uniquement au bureau) -->
+    <div id="hold-t-bar" style="display:none">
+      <div id="hold-t-label">Traitement du dossier…</div>
+      <div id="hold-t-track">
+        <div id="hold-t-fill"></div>
+      </div>
+      <div id="hold-t-pct">0 %</div>
     </div>
 
     <div id="interact-hint" style="display:none">Appuyer sur E pour interagir</div>
@@ -99,6 +132,7 @@
   <script src="js/player.js"></script>
   <script src="js/input.js"></script>
   <script src="js/humans.js"></script>
+  <script src="js/cars.js"></script>
   <script src="js/interactions.js"></script>
   <script src="js/jobs.js"></script>
   <script src="js/hud.js"></script>

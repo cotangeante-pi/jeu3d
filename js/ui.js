@@ -101,11 +101,31 @@ const UI = {
 
     } else if (npc.type === 'employer') {
       const job = npc.job;
+      const isMyJob = State.currentJob && State.currentJob.id === job.id;
       descEl.textContent = `Poste : ${job.name} | Salaire : ${job.salary}$ / min | QI requis : ${job.iqRequired}`;
+
+      // Bouton livraison pommes (boulanger)
+      const task = State.jobTask;
+      if (isMyJob && task && task.type === 'fetch_apples' && task.phase === 'active') {
+        let apples = 0;
+        State.inventory.forEach(s => { if (s && s.name === 'Pomme') apples += s.count; });
+        const delivBtn = document.createElement('button');
+        delivBtn.textContent = `Livrer les pommes (${apples}/${task.required} en stock)`;
+        delivBtn.style.background = apples >= task.required ? '#1a6a1a' : '#555';
+        delivBtn.onclick = () => {
+          const ok = Jobs.tryDeliverApples();
+          if (ok) {
+            descEl.textContent = 'Livraison effectuée ! Bonus reçu.';
+            delivBtn.remove();
+          } else {
+            descEl.textContent = `Pas assez de pommes ! (${apples}/${task.required})`;
+          }
+        };
+        optDiv.appendChild(delivBtn);
+      }
+
       const btn = document.createElement('button');
-      btn.textContent = State.currentJob && State.currentJob.id === job.id
-        ? 'Tu travailles déjà ici'
-        : 'Postuler';
+      btn.textContent = isMyJob ? 'Tu travailles déjà ici' : 'Postuler';
       btn.onclick = () => {
         const ok = Interactions.applyForJob(npc);
         if (ok) {

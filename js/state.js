@@ -50,6 +50,24 @@ const State = {
   pickups: [],
   npcs: [],
 
+  // Inventaire hotbar
+  inventory: Array(8).fill(null),
+  selectedSlot: 0,
+
+  // Système de crime (0=innocent, 1=mineur, 2=recherché, 3=très recherché)
+  wanted: 0,
+  wantedDecayTimer: 0,
+
+  // Tâches de travail
+  jobTask: null,       // objet tâche en cours
+  jobTaskTimer: 0,     // temps avant la prochaine tâche
+
+  // Voiture conduite
+  inCar: false,
+  drivingCar: null,
+  nearCar: null,
+  carPositions: {},   // { 'car_basic': {x, z, angle}, ... }
+
   // Timers
   autoSaveTimer: 0,
   salaryTimer: 0,

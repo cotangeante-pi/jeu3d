@@ -5,7 +5,7 @@ const World = {
 
     // Ciel et brouillard
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 80, 280);
+    scene.fog = new THREE.Fog(0x87ceeb, 300, 1400);
 
     // Lumières
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
@@ -17,11 +17,11 @@ const World = {
     sun.shadow.mapSize.width = 2048;
     sun.shadow.mapSize.height = 2048;
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 600;
-    sun.shadow.camera.left = -200;
-    sun.shadow.camera.right = 200;
-    sun.shadow.camera.top = 200;
-    sun.shadow.camera.bottom = -200;
+    sun.shadow.camera.far = 2000;
+    sun.shadow.camera.left = -800;
+    sun.shadow.camera.right = 800;
+    sun.shadow.camera.top = 800;
+    sun.shadow.camera.bottom = -800;
     scene.add(sun);
 
     this._buildGround(scene);
@@ -34,7 +34,7 @@ const World = {
   },
 
   _buildGround(scene) {
-    const geo = new THREE.PlaneGeometry(800, 800);
+    const geo = new THREE.PlaneGeometry(3000, 3000);
     const mat = new THREE.MeshLambertMaterial({ color: 0x4a7c3f });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
@@ -66,6 +66,12 @@ const World = {
     );
   },
 
+  // Tuiles réservées aux bâtiments NPC (ne pas générer de bâtiment city dessus)
+  _npcTiles: new Set([
+    '0_28', '-28_28', '0_-28', '-28_-28',
+    '0_42', '-28_-42', '0_-70', '-28_70'
+  ]),
+
   _buildCity(scene) {
     const step = CONFIG.GRID_STEP;
     const bSize = CONFIG.BUILDING_SIZE;
@@ -92,7 +98,10 @@ const World = {
         const cz = row * step;
         if (Math.sqrt(cx * cx + cz * cz) > cityR) continue;
 
-        const h = 4 + Math.random() * 14;
+        // Réservé aux bâtiments NPC
+        if (this._npcTiles.has(`${cx}_${cz}`)) continue;
+
+        const h = 4 + Math.random() * 50;
         const color = grays[Math.floor(Math.random() * grays.length)];
         const geo = new THREE.BoxGeometry(bSize, h, bSize);
         const mat = new THREE.MeshLambertMaterial({ color });
@@ -149,7 +158,7 @@ const World = {
         scene.add(sw);
       });
       // Tirets centre (vertical)
-      for (let dz = -cityR; dz <= cityR; dz += 4) {
+      for (let dz = -cityR; dz <= cityR; dz += 10) {
         const d = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 2), dashMat);
         d.rotation.x = -Math.PI / 2; d.position.set(pos, 0.018, dz); scene.add(d);
       }
@@ -171,7 +180,7 @@ const World = {
         sw.position.set(0, 0.014, pos + side * (roadW / 2 + sidewalk / 2));
         scene.add(sw);
       });
-      for (let dx = -cityR; dx <= cityR; dx += 4) {
+      for (let dx = -cityR; dx <= cityR; dx += 10) {
         const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
         d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.018, pos); scene.add(d);
       }
@@ -190,7 +199,7 @@ const World = {
     const cityR = CONFIG.CITY_RADIUS + 20;
     this._treePositions = [];
 
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 1200; i++) {
       const x = (Math.random() - 0.5) * CONFIG.WORLD_SIZE * 2;
       const z = (Math.random() - 0.5) * CONFIG.WORLD_SIZE * 2;
       if (Math.sqrt(x * x + z * z) < cityR) continue;
@@ -263,6 +272,8 @@ const World = {
 
         State.pickups.push({
           name: 'Pomme',
+          color: '#dd2200',
+          type: 'food',
           hungerBonus: 25,
           healthBonus: 5,
           mesh,

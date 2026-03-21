@@ -12,6 +12,20 @@ const Player = {
   update(delta) {
     if (State.paused || State.gameOver) return;
 
+    // --- En voiture : Cars gère mouvement + caméra ---
+    if (State.inCar) {
+      // Drains passifs et game over toujours actifs
+      State.hunger -= CONFIG.HUNGER_DRAIN * delta;
+      if (State.hunger < 0) State.hunger = 0;
+      if (State.hunger > 30) {
+        State.health += CONFIG.HEALTH_REGEN * delta;
+        if (State.health > 100) State.health = 100;
+      }
+      if (State.health <= 0) { UI.showGameOver('Tu es mort de blessures.'); return; }
+      if (State.hunger <= 0) { UI.showGameOver('Tu es mort de faim.'); return; }
+      return;
+    }
+
     // --- Rotation caméra ---
     if (State.pointerLocked) {
       State.yaw   -= State.mouseDX * CONFIG.SENSITIVITY;

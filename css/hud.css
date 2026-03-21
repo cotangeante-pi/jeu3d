@@ -152,10 +152,192 @@
   box-shadow: none;
 }
 
+/* ── Barre hold-T (cast bar comptable) ── */
+#hold-t-bar {
+  position: fixed;
+  bottom: 240px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 360px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(100, 180, 255, 0.45);
+  border-radius: 10px;
+  padding: 10px 14px 12px;
+  pointer-events: none;
+  text-align: center;
+}
+
+#hold-t-label {
+  font-size: 0.85em;
+  color: #aaddff;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  text-shadow: 0 0 8px rgba(80, 160, 255, 0.8);
+}
+
+#hold-t-track {
+  width: 100%;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+#hold-t-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #1a6fa8, #4fc3f7);
+  box-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
+  transition: width 0.1s linear;
+}
+
+#hold-t-pct {
+  font-size: 0.75em;
+  color: #88ccff;
+  margin-top: 5px;
+}
+
+/* Animation pulse sur la barre quand active */
+@keyframes hold-t-pulse {
+  0%   { box-shadow: 0 0 8px rgba(79,195,247,0.6); }
+  50%  { box-shadow: 0 0 18px rgba(79,195,247,1.0); }
+  100% { box-shadow: 0 0 8px rgba(79,195,247,0.6); }
+}
+
+#hold-t-fill.active {
+  animation: hold-t-pulse 0.9s ease-in-out infinite;
+}
+
+/* Notification de tâche */
+#job-notify {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  padding: 8px 22px;
+  font-size: 1em;
+  font-weight: bold;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+}
+
+/* Panneau tâche en cours */
+#job-task-panel {
+  position: fixed;
+  top: 16px;
+  right: 130px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-width: 220px;
+  pointer-events: none;
+}
+
+#jt-title {
+  font-size: 0.88em;
+  font-weight: bold;
+  color: #f1c40f;
+  margin-bottom: 4px;
+}
+
+#jt-desc {
+  font-size: 0.78em;
+  color: #ddd;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+#jt-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+#jt-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  transition: width 0.2s ease, background 0.3s ease;
+}
+
+#jt-time {
+  font-size: 0.72em;
+  color: #aaa;
+  text-align: right;
+}
+
+/* Étoiles wanted */
+#wanted-stars {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.8em;
+  color: #ffcc00;
+  text-shadow: 0 0 8px rgba(255, 100, 0, 0.9), 1px 1px 3px rgba(0,0,0,0.9);
+  pointer-events: none;
+  letter-spacing: 4px;
+}
+
+/* Hotbar inventaire */
+#hotbar {
+  position: fixed;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.hb-slot {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #666;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hb-slot.selected {
+  border: 2px solid #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.hb-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+}
+
+.hb-count {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9);
+  line-height: 1;
+}
+
 /* Hint interaction */
 #interact-hint {
   position: fixed;
-  bottom: 120px;
+  bottom: 185px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.65);

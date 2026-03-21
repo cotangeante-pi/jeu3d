@@ -1,6 +1,7 @@
 const Save = {
   _fields: ['health', 'hunger', 'money', 'iq', 'badges', 'physicalStats', 'currentJob',
-            'posX', 'posY', 'posZ', 'yaw', 'pitch'],
+            'posX', 'posY', 'posZ', 'yaw', 'pitch', 'inventory', 'selectedSlot',
+            'carPositions', 'jobTask', 'jobTaskTimer'],
 
   write() {
     const data = {};

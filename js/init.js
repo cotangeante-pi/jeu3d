@@ -14,6 +14,9 @@
   // 4b. Initialiser les humains et la police
   Humans.init(State.scene);
 
+  // 4c. Initialiser les voitures du joueur
+  Cars.init(State.scene);
+
   // 4c. Initialiser les objets Three.js du joueur
   Player.init();
 

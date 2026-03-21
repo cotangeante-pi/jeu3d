@@ -1,7 +1,7 @@
 const CONFIG = Object.freeze({
   // Monde
-  WORLD_SIZE: 400,
-  CITY_RADIUS: 80,
+  WORLD_SIZE: 1500,
+  CITY_RADIUS: 320,
   GRID_STEP: 14,
   BUILDING_SIZE: 8,
 
@@ -35,6 +35,6 @@ const CONFIG = Object.freeze({
 
   // Rivière
   RIVER_CENTER_X: -180,
-  RIVER_WIDTH: 60,
-  RIVER_LENGTH: 200,
+  RIVER_WIDTH: 80,
+  RIVER_LENGTH: 3000,
 });

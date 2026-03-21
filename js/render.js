@@ -40,6 +40,7 @@ const Render = {
 
     if (!State.paused && !State.gameOver) {
       Player.update(delta);
+      Cars.update(delta);
       Jobs.tick(delta);
       Humans.update(delta);
 

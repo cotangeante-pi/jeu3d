@@ -1,7 +1,7 @@
 const NPC = {
   DEFS: [
     {
-      id: 'merchant_1', type: 'merchant', name: 'Marchand Ali', x: 14, z: 30, dir: -1,
+      id: 'merchant_1', type: 'merchant', name: 'Marchand Ali', x: 0, z: 28, dir: 1,
       stock: [
         { name: 'Pain',          price: 5,  hungerBonus: 20, healthBonus: 3  },
         { name: 'Repas complet', price: 15, hungerBonus: 60, healthBonus: 10 },
@@ -9,7 +9,7 @@ const NPC = {
       ]
     },
     {
-      id: 'merchant_2', type: 'merchant', name: 'Épicerie Lulu', x: -14, z: 30, dir: -1,
+      id: 'merchant_2', type: 'merchant', name: 'Épicerie Lulu', x: -28, z: 28, dir: 1,
       stock: [
         { name: 'Fruits',   price: 4, hungerBonus: 18, healthBonus: 4 },
         { name: 'Sandwich', price: 8, hungerBonus: 35, healthBonus: 6 },
@@ -17,7 +17,7 @@ const NPC = {
       ]
     },
     {
-      id: 'school_1', type: 'school', name: 'École publique', x: 14, z: -30, dir: 1,
+      id: 'school_1', type: 'school', name: 'École publique', x: 0, z: -28, dir: -1,
       courses: [
         { name: 'Cours de base',   price: 20,  iqGain: 5,  iqRequired: 0   },
         { name: 'Cours avancé',    price: 50,  iqGain: 15, iqRequired: 20  },
@@ -26,23 +26,23 @@ const NPC = {
       ]
     },
     {
-      id: 'employer_1', type: 'employer', name: 'Boulangerie', x: -14, z: -20, dir: 1,
+      id: 'employer_1', type: 'employer', name: 'Boulangerie', x: -28, z: -28, dir: -1,
       job: { id: 'baker', name: 'Boulanger', salary: 10, iqRequired: 0, strengthRequired: 0 }
     },
     {
-      id: 'employer_2', type: 'employer', name: 'Cabinet conseil', x: 14, z: 60, dir: -1,
-      job: { id: 'consultant', name: 'Consultant', salary: 35, iqRequired: 40, strengthRequired: 0 }
+      id: 'employer_2', type: 'employer', name: 'Cabinet comptable', x: 0, z: 42, dir: 1,
+      job: { id: 'consultant', name: 'Comptable', salary: 35, iqRequired: 40, strengthRequired: 0 }
     },
     {
-      id: 'employer_3', type: 'employer', name: 'Chantier BTP', x: -14, z: -55, dir: 1,
+      id: 'employer_3', type: 'employer', name: 'Chantier BTP', x: -28, z: -42, dir: -1,
       job: { id: 'worker', name: 'Ouvrier', salary: 15, iqRequired: 0, strengthRequired: 15 }
     },
     {
-      id: 'employer_4', type: 'employer', name: 'Hôpital', x: 14, z: -60, dir: 1,
+      id: 'employer_4', type: 'employer', name: 'Hôpital', x: 0, z: -70, dir: -1,
       job: { id: 'nurse', name: 'Infirmier', salary: 25, iqRequired: 20, strengthRequired: 0 }
     },
     {
-      id: 'cardeal_1', type: 'cardeal', name: 'Concessionnaire Auto', x: -14, z: 70, dir: -1,
+      id: 'cardeal_1', type: 'cardeal', name: 'Concessionnaire Auto', x: -28, z: 70, dir: 1,
       cars: [
         { name: 'Citadine',      price: 500,  badgeId: 'car_basic' },
         { name: 'Berline',       price: 1200, badgeId: 'car_sedan' },
@@ -67,7 +67,7 @@ const NPC = {
   },
 
   _createBuilding(scene, def) {
-    const W = 10, D = 8, H = 4, T = 0.25; // largeur, profondeur, hauteur, épaisseur mur
+    const W = 8, D = 8, H = 4, T = 0.25; // largeur, profondeur, hauteur, épaisseur mur
     const DOOR_W = 1.6, DOOR_H = 2.6;
 
     const cx       = def.x;
