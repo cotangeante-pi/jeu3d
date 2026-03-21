@@ -77,6 +77,8 @@ const World = {
     const bSize = CONFIG.BUILDING_SIZE;
     const cityR = CONFIG.CITY_RADIUS;
     const range = Math.floor(cityR / step);
+    const rxMin = CONFIG.RIVER_CENTER_X - CONFIG.RIVER_WIDTH / 2;
+    const rxMax = CONFIG.RIVER_CENTER_X + CONFIG.RIVER_WIDTH / 2;
 
     // Sol asphalte sous les bâtiments
     const asphaltGeo = new THREE.PlaneGeometry(cityR * 2, cityR * 2);
@@ -100,6 +102,9 @@ const World = {
 
         // Réservé aux bâtiments NPC
         if (this._npcTiles.has(`${cx}_${cz}`)) continue;
+
+        // Pas de bâtiment dans la rivière
+        if (cx > rxMin && cx < rxMax) continue;
 
         const h = 4 + Math.random() * 50;
         const color = grays[Math.floor(Math.random() * grays.length)];
@@ -130,67 +135,149 @@ const World = {
   },
 
   _buildRoads(scene) {
-    const step = CONFIG.GRID_STEP;
+    const step  = CONFIG.GRID_STEP;
     const cityR = CONFIG.CITY_RADIUS;
     const range = Math.floor(cityR / step);
-    const roadMat  = new THREE.MeshLambertMaterial({ color: 0x202020 });
-    const dashMat  = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    const yellMat  = new THREE.MeshLambertMaterial({ color: 0xffcc00 });
-    const walkMat  = new THREE.MeshLambertMaterial({ color: 0x888888 });
-    const roadW = step;           // largeur de la chaussée (14m)
-    const sidewalk = 1.2;         // largeur trottoir
+    const roadMat = new THREE.MeshLambertMaterial({ color: 0x202020 });
+    const dashMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const yellMat = new THREE.MeshLambertMaterial({ color: 0xffcc00 });
+    const walkMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+    const roadW   = step;    // largeur chaussée (14 m)
+    const sw      = 1.2;    // largeur trottoir
+
+    const rxMin   = CONFIG.RIVER_CENTER_X - CONFIG.RIVER_WIDTH / 2;
+    const rxMax   = CONFIG.RIVER_CENTER_X + CONFIG.RIVER_WIDTH / 2;
+    const riverW  = rxMax - rxMin;
+    const bridgeCX = (rxMin + rxMax) / 2;
+
+    const bridgeZs = [];
 
     for (let n = -range; n <= range; n++) {
       if (Math.abs(n) % 3 !== 1) continue;
       const pos = n * step;
       if (Math.abs(pos) > cityR + step) continue;
-      const len = cityR * 2 + step * 2;
+      const halfLen = cityR + step;
+      const len     = halfLen * 2;
 
-      // Route verticale (le long de Z)
-      const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(roadW, len), roadMat);
-      vRoad.rotation.x = -Math.PI / 2; vRoad.position.set(pos, 0.013, 0);
-      scene.add(vRoad);
-      // Trottoirs verticaux
-      [-1, 1].forEach(side => {
-        const sw = new THREE.Mesh(new THREE.PlaneGeometry(sidewalk, len), walkMat);
-        sw.rotation.x = -Math.PI / 2;
-        sw.position.set(pos + side * (roadW / 2 + sidewalk / 2), 0.014, 0);
-        scene.add(sw);
-      });
-      // Tirets centre (vertical)
-      for (let dz = -cityR; dz <= cityR; dz += 10) {
-        const d = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 2), dashMat);
-        d.rotation.x = -Math.PI / 2; d.position.set(pos, 0.018, dz); scene.add(d);
+      // ── Route VERTICALE (le long de Z) at X = pos ──────────────────────────
+      // Sauter si le tracé passe dans la rivière (route noyée)
+      if (pos <= rxMin || pos >= rxMax) {
+        const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(roadW, len), roadMat);
+        vRoad.rotation.x = -Math.PI / 2; vRoad.position.set(pos, 0.013, 0);
+        scene.add(vRoad);
+        [-1, 1].forEach(side => {
+          const swMesh = new THREE.Mesh(new THREE.PlaneGeometry(sw, len), walkMat);
+          swMesh.rotation.x = -Math.PI / 2;
+          swMesh.position.set(pos + side * (roadW / 2 + sw / 2), 0.014, 0);
+          scene.add(swMesh);
+        });
+        for (let dz = -cityR; dz <= cityR; dz += 10) {
+          const d = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 2), dashMat);
+          d.rotation.x = -Math.PI / 2; d.position.set(pos, 0.018, dz); scene.add(d);
+        }
+        [-1, 1].forEach(side => {
+          const yl = new THREE.Mesh(new THREE.PlaneGeometry(0.15, len), yellMat);
+          yl.rotation.x = -Math.PI / 2;
+          yl.position.set(pos + side * (roadW / 2 - 0.5), 0.017, 0);
+          scene.add(yl);
+        });
       }
-      // Ligne jaune bord gauche/droite
-      [-1, 1].forEach(side => {
-        const yl = new THREE.Mesh(new THREE.PlaneGeometry(0.15, len), yellMat);
-        yl.rotation.x = -Math.PI / 2;
-        yl.position.set(pos + side * (roadW / 2 - 0.5), 0.017, 0);
-        scene.add(yl);
-      });
 
-      // Route horizontale (le long de X)
-      const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(len, roadW), roadMat);
-      hRoad.rotation.x = -Math.PI / 2; hRoad.position.set(0, 0.013, pos);
-      scene.add(hRoad);
-      [-1, 1].forEach(side => {
-        const sw = new THREE.Mesh(new THREE.PlaneGeometry(len, sidewalk), walkMat);
-        sw.rotation.x = -Math.PI / 2;
-        sw.position.set(0, 0.014, pos + side * (roadW / 2 + sidewalk / 2));
-        scene.add(sw);
-      });
-      for (let dx = -cityR; dx <= cityR; dx += 10) {
-        const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
-        d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.018, pos); scene.add(d);
+      // ── Route HORIZONTALE (le long de X) at Z = pos ────────────────────────
+      // Tronçon gauche (de -halfLen à rxMin)
+      const leftLen = rxMin + halfLen;
+      const leftCX  = (-halfLen + rxMin) / 2;
+      if (leftLen > 0) {
+        const r = new THREE.Mesh(new THREE.PlaneGeometry(leftLen, roadW), roadMat);
+        r.rotation.x = -Math.PI / 2; r.position.set(leftCX, 0.013, pos); scene.add(r);
+        [-1, 1].forEach(side => {
+          const swMesh = new THREE.Mesh(new THREE.PlaneGeometry(leftLen, sw), walkMat);
+          swMesh.rotation.x = -Math.PI / 2;
+          swMesh.position.set(leftCX, 0.014, pos + side * (roadW / 2 + sw / 2));
+          scene.add(swMesh);
+        });
+        for (let dx = -halfLen; dx < rxMin; dx += 10) {
+          const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
+          d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.018, pos); scene.add(d);
+        }
+        [-1, 1].forEach(side => {
+          const yl = new THREE.Mesh(new THREE.PlaneGeometry(leftLen, 0.15), yellMat);
+          yl.rotation.x = -Math.PI / 2;
+          yl.position.set(leftCX, 0.017, pos + side * (roadW / 2 - 0.5));
+          scene.add(yl);
+        });
       }
-      [-1, 1].forEach(side => {
-        const yl = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.15), yellMat);
-        yl.rotation.x = -Math.PI / 2;
-        yl.position.set(0, 0.017, pos + side * (roadW / 2 - 0.5));
-        scene.add(yl);
-      });
+
+      // Pont sur la rivière
+      this._addBridge(scene, pos, roadW, rxMin, rxMax, riverW, bridgeCX, dashMat);
+      bridgeZs.push(pos);
+
+      // Tronçon droit (de rxMax à +halfLen)
+      const rightLen = halfLen - rxMax;
+      const rightCX  = (rxMax + halfLen) / 2;
+      if (rightLen > 0) {
+        const r = new THREE.Mesh(new THREE.PlaneGeometry(rightLen, roadW), roadMat);
+        r.rotation.x = -Math.PI / 2; r.position.set(rightCX, 0.013, pos); scene.add(r);
+        [-1, 1].forEach(side => {
+          const swMesh = new THREE.Mesh(new THREE.PlaneGeometry(rightLen, sw), walkMat);
+          swMesh.rotation.x = -Math.PI / 2;
+          swMesh.position.set(rightCX, 0.014, pos + side * (roadW / 2 + sw / 2));
+          scene.add(swMesh);
+        });
+        for (let dx = rxMax; dx <= halfLen; dx += 10) {
+          const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
+          d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.018, pos); scene.add(d);
+        }
+        [-1, 1].forEach(side => {
+          const yl = new THREE.Mesh(new THREE.PlaneGeometry(rightLen, 0.15), yellMat);
+          yl.rotation.x = -Math.PI / 2;
+          yl.position.set(rightCX, 0.017, pos + side * (roadW / 2 - 0.5));
+          scene.add(yl);
+        });
+      }
     }
+
+    State.bridgeZs = bridgeZs;
+  },
+
+  _addBridge(scene, roadZ, roadW, rxMin, rxMax, riverW, bridgeCX, dashMat) {
+    const concreteMat = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
+    const railMat     = new THREE.MeshLambertMaterial({ color: 0x787878 });
+
+    // Tablier béton
+    const deck = new THREE.Mesh(new THREE.PlaneGeometry(riverW, roadW), concreteMat);
+    deck.rotation.x = -Math.PI / 2;
+    deck.position.set(bridgeCX, 0.07, roadZ);
+    scene.add(deck);
+
+    // Tirets sur le pont
+    for (let dx = rxMin + 3; dx < rxMax; dx += 10) {
+      const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
+      d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.09, roadZ); scene.add(d);
+    }
+
+    // Garde-corps (côtés nord et sud)
+    [-1, 1].forEach(side => {
+      const zOff = side * (roadW / 2 - 0.15);
+      // Muret continu
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(riverW, 0.85, 0.22), railMat);
+      rail.position.set(bridgeCX, 0.5, roadZ + zOff);
+      scene.add(rail);
+      // Poteaux tous les 8 m
+      for (let px = rxMin; px <= rxMax + 0.1; px += 8) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1.1, 0.28), railMat);
+        post.position.set(px, 0.62, roadZ + zOff);
+        scene.add(post);
+      }
+    });
+
+    // Poutres latérales sous le tablier (aux deux rives)
+    [-1, 1].forEach(side => {
+      const bx = side === -1 ? rxMin + 0.3 : rxMax - 0.3;
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, roadW), railMat);
+      beam.position.set(bx, -0.2, roadZ);
+      scene.add(beam);
+    });
   },
 
   _buildForest(scene) {

@@ -94,13 +94,15 @@ const Player = {
       State.onGround = false;
     }
 
-    // --- Détection rivière ---
+    // --- Détection rivière (ponts exclus) ---
     const rHalfW = CONFIG.RIVER_WIDTH / 2;
     const rHalfL = CONFIG.RIVER_LENGTH / 2;
-    State.isUnderwater = (
-      Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
-      Math.abs(State.posZ) < rHalfL
-    );
+    const inRiver = Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
+                    Math.abs(State.posZ) < rHalfL;
+    const roadHalfW = CONFIG.GRID_STEP / 2;
+    const onBridge  = inRiver && State.bridgeZs &&
+                      State.bridgeZs.some(bz => Math.abs(State.posZ - bz) < roadHalfW);
+    State.isUnderwater = inRiver && !onBridge;
 
     // --- Drains ---
     if (State.isUnderwater) {
