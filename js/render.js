@@ -41,6 +41,7 @@ const Render = {
     if (!State.paused && !State.gameOver) {
       Player.update(delta);
       Jobs.tick(delta);
+      Humans.update(delta);
 
       this._autoSaveTimer += delta;
       if (this._autoSaveTimer >= CONFIG.AUTOSAVE_INTERVAL) {

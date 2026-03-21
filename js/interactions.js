@@ -52,6 +52,16 @@ const Interactions = {
     return true;
   },
 
+  buyCar(car) {
+    if (State.money < car.price) { this._msg("Pas assez d'argent !"); return false; }
+    if (State.badges.includes(car.badgeId)) { this._msg('Tu possèdes déjà ce véhicule !'); return false; }
+    State.money -= car.price;
+    State.badges.push(car.badgeId);
+    HUD.update();
+    Save.write();
+    return true;
+  },
+
   applyForJob(employer) {
     const job = employer.job;
     if (State.currentJob && State.currentJob.id === job.id) {

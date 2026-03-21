@@ -128,6 +128,26 @@ const UI = {
         };
         optDiv.appendChild(quitBtn);
       }
+
+    } else if (npc.type === 'cardeal') {
+      descEl.textContent = `Concession automobile | Ton argent : $${Math.floor(State.money)}`;
+      npc.cars.forEach(car => {
+        const btn = document.createElement('button');
+        const owned = State.badges.includes(car.badgeId);
+        btn.textContent = owned
+          ? `${car.name} — Déjà possédée ✓`
+          : `${car.name} — ${car.price}$`;
+        btn.disabled = owned;
+        btn.onclick = () => {
+          const ok = Interactions.buyCar(car);
+          if (ok) {
+            descEl.textContent = `Félicitations ! Tu possèdes maintenant une ${car.name}.`;
+            btn.textContent = `${car.name} — Déjà possédée ✓`;
+            btn.disabled = true;
+          }
+        };
+        optDiv.appendChild(btn);
+      });
     }
 
     document.getElementById('dialog-box').style.display = 'flex';

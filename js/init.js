@@ -11,7 +11,10 @@
   // 4. Placer les NPCs
   NPC.init(State.scene);
 
-  // 4b. Initialiser les objets Three.js du joueur
+  // 4b. Initialiser les humains et la police
+  Humans.init(State.scene);
+
+  // 4c. Initialiser les objets Three.js du joueur
   Player.init();
 
   // 5. Écouter les contrôles

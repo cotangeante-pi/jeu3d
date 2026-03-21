@@ -41,6 +41,14 @@ const NPC = {
       id: 'employer_4', type: 'employer', name: 'Hôpital', x: 14, z: -60, dir: 1,
       job: { id: 'nurse', name: 'Infirmier', salary: 25, iqRequired: 20, strengthRequired: 0 }
     },
+    {
+      id: 'cardeal_1', type: 'cardeal', name: 'Concessionnaire Auto', x: -14, z: 70, dir: -1,
+      cars: [
+        { name: 'Citadine',      price: 500,  badgeId: 'car_basic' },
+        { name: 'Berline',       price: 1200, badgeId: 'car_sedan' },
+        { name: 'Voiture sport', price: 3000, badgeId: 'car_sport' },
+      ]
+    },
   ],
 
   _list: [],
@@ -49,6 +57,7 @@ const NPC = {
     merchant: { wall: 0xd4a96a, roof: 0x7a4f1e, floor: 0xc8a878, sign: '#7a3a00' },
     school:   { wall: 0xe8e0cc, roof: 0x3a5a80, floor: 0xd0c8a0, sign: '#004080' },
     employer: { wall: 0xd0d0d0, roof: 0x444444, floor: 0xbbbbbb, sign: '#333333' },
+    cardeal:  { wall: 0xddeeff, roof: 0x1133aa, floor: 0xccddee, sign: '#0a2266' },
   },
 
   init(scene) {
@@ -201,6 +210,38 @@ const NPC = {
       desk.position.set(cx, 0.82, backZ - dir * 2);
       desk.castShadow = true;
       scene.add(desk);
+    } else if (type === 'cardeal') {
+      // Voiture exposée dans le showroom
+      const carColors = [0xcc2200, 0x2244cc, 0x228822, 0x111111, 0xcccccc];
+      const carColor = carColors[Math.floor(Math.random() * carColors.length)];
+      const carMat = new THREE.MeshLambertMaterial({ color: carColor });
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+      const glassMat = new THREE.MeshLambertMaterial({ color: 0x88ccff, transparent: true, opacity: 0.6 });
+
+      // Carrosserie
+      const carBody = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.65, 3.8), carMat);
+      carBody.position.set(cx, 0.55, midZ);
+      carBody.castShadow = true; scene.add(carBody);
+      // Toit
+      const carTop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.55, 2.2), carMat);
+      carTop.position.set(cx, 1.1, midZ + dir * 0.2);
+      scene.add(carTop);
+      // Pare-brise / vitre arrière
+      const windGeo = new THREE.BoxGeometry(1.55, 0.5, 0.08);
+      [-1, 1].forEach(side => {
+        const wind = new THREE.Mesh(windGeo, glassMat);
+        wind.position.set(cx, 1.1, midZ + side * dir * 1.05);
+        wind.rotation.y = side * 0.25;
+        scene.add(wind);
+      });
+      // 4 roues
+      const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.22, 12);
+      [[-1.1, -1.4], [-1.1, 1.4], [1.1, -1.4], [1.1, 1.4]].forEach(([dx, dz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, darkMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(cx + dx, 0.3, midZ + dz * dir);
+        scene.add(wheel);
+      });
     }
   },
 

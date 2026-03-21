@@ -61,6 +61,9 @@ const HUD = {
       worker:           '🔨 Ouvrier',
       nurse:            '💉 Infirmier',
       health_insurance: '🏥 Assurance maladie',
+      car_basic:        '🚗 Citadine',
+      car_sedan:        '🚙 Berline',
+      car_sport:        '🏎 Voiture sport',
     };
     return names[id] || id;
   }
