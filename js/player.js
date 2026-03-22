@@ -118,15 +118,13 @@ const Player = {
       State.isClimbing = false;
     }
 
-    // --- Détection rivière (ponts exclus) ---
-    const rHalfW = CONFIG.RIVER_WIDTH / 2;
-    const rHalfL = CONFIG.RIVER_LENGTH / 2;
+    // --- Détection noyade : uniquement si la caméra passe sous la surface ---
+    const rHalfW  = CONFIG.RIVER_WIDTH / 2;
+    const rHalfL  = CONFIG.RIVER_LENGTH / 2;
+    const eyeY    = State.posY + (CONFIG.PLAYER_EYE_H - CONFIG.PLAYER_HALF_H);
     const inRiver = Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
                     Math.abs(State.posZ) < rHalfL;
-    const roadHalfW = CONFIG.GRID_STEP / 2;
-    const onBridge  = inRiver && State.bridgeZs &&
-                      State.bridgeZs.some(bz => Math.abs(State.posZ - bz) < roadHalfW);
-    State.isUnderwater = inRiver && !onBridge;
+    State.isUnderwater = inRiver && eyeY < 0.1;  // sous la surface (y≈0.05)
 
     // --- Drains ---
     if (State.isUnderwater) {

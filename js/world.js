@@ -47,15 +47,26 @@ const World = {
     const rx = CONFIG.RIVER_CENTER_X;
     const rw = CONFIG.RIVER_WIDTH;
     const rl = CONFIG.RIVER_LENGTH;
+    const depth = 5;
 
-    // Surface visible
-    const surfGeo = new THREE.PlaneGeometry(rw, rl);
-    const surfMat = new THREE.MeshLambertMaterial({
-      color: 0x1a6fa8,
-      transparent: true,
-      opacity: 0.8
+    // Fond de la rivière (lit visible sous la surface)
+    const bedMat = new THREE.MeshLambertMaterial({ color: 0x0a3d5c });
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(rw, depth, rl), bedMat);
+    bed.position.set(rx, -depth / 2, 0);
+    scene.add(bed);
+
+    // Berges inclinées (talus de chaque côté)
+    const bankMat = new THREE.MeshLambertMaterial({ color: 0x4a7c3f });
+    [-1, 1].forEach(side => {
+      const bank = new THREE.Mesh(new THREE.BoxGeometry(6, depth + 0.3, rl), bankMat);
+      bank.position.set(rx + side * (rw / 2 + 3), -depth / 2, 0);
+      bank.rotation.z = side * 0.35;
+      scene.add(bank);
     });
-    const surf = new THREE.Mesh(surfGeo, surfMat);
+
+    // Surface de l'eau (semi-transparente)
+    const surfMat = new THREE.MeshLambertMaterial({ color: 0x1a6fa8, transparent: true, opacity: 0.78 });
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(rw, rl), surfMat);
     surf.rotation.x = -Math.PI / 2;
     surf.position.set(rx, 0.05, 0);
     scene.add(surf);
@@ -97,6 +108,14 @@ const World = {
 
     const grays = [0x888888, 0x999999, 0xaaaaaa, 0x777777, 0xbbbbbb, 0x666666];
 
+    // ── Fenêtres via InstancedMesh (2 draw calls pour toutes les vitres) ──
+    const winMat  = new THREE.MeshLambertMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.65 });
+    const MAX_WIN = 45000;
+    const iWinNS  = new THREE.InstancedMesh(new THREE.BoxGeometry(1.4, 1.1, 0.08), winMat, MAX_WIN);
+    const iWinEW  = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 1.1, 1.4), winMat, MAX_WIN);
+    const _dummy  = new THREE.Object3D();
+    let   idxNS = 0, idxEW = 0;
+
     for (let row = -range; row <= range; row++) {
       for (let col = -range; col <= range; col++) {
         // Rues : on skip si row ou col ≡ 1 (mod 3)
@@ -137,33 +156,33 @@ const World = {
         door.position.set(cx, doorH / 2, cz + bSize / 2 + 0.05);
         scene.add(door);
 
-        // Fenêtres (verre bleuté sur les façades)
-        const winMat = new THREE.MeshLambertMaterial({ color: 0x88bbdd, transparent: true, opacity: 0.65 });
+        // Fenêtres — instances collectées (pas de nouveau Mesh par fenêtre)
         const floors = Math.max(1, Math.floor(h / 3.2));
         for (let fl = 0; fl < floors; fl++) {
           const wy = 1.2 + fl * 3.2;
           if (wy + 0.9 > h) continue;
-          // Façades nord et sud
-          [-1, 1].forEach(side => {
-            const w = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 0.08), winMat);
-            w.position.set(cx + side * 2.0, wy, cz + bSize / 2 + 0.01);
-            scene.add(w);
-            const w2 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 0.08), winMat);
-            w2.position.set(cx + side * 2.0, wy, cz - bSize / 2 - 0.01);
-            scene.add(w2);
-          });
-          // Façades est et ouest
-          [-1, 1].forEach(side => {
-            const w = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 1.4), winMat);
-            w.position.set(cx + bSize / 2 + 0.01, wy, cz + side * 2.0);
-            scene.add(w);
-            const w2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 1.4), winMat);
-            w2.position.set(cx - bSize / 2 - 0.01, wy, cz + side * 2.0);
-            scene.add(w2);
-          });
+          for (const side of [-1, 1]) {
+            for (const fz of [cz + bSize / 2 + 0.01, cz - bSize / 2 - 0.01]) {
+              if (idxNS < MAX_WIN) {
+                _dummy.position.set(cx + side * 2.0, wy, fz);
+                _dummy.updateMatrix();
+                iWinNS.setMatrixAt(idxNS++, _dummy.matrix);
+              }
+            }
+            for (const fx of [cx + bSize / 2 + 0.01, cx - bSize / 2 - 0.01]) {
+              if (idxEW < MAX_WIN) {
+                _dummy.position.set(fx, wy, cz + side * 2.0);
+                _dummy.updateMatrix();
+                iWinEW.setMatrixAt(idxEW++, _dummy.matrix);
+              }
+            }
+          }
         }
       }
     }
+
+    iWinNS.count = idxNS; iWinNS.instanceMatrix.needsUpdate = true; scene.add(iWinNS);
+    iWinEW.count = idxEW; iWinEW.instanceMatrix.needsUpdate = true; scene.add(iWinEW);
   },
 
   _buildRoads(scene) {
@@ -274,8 +293,9 @@ const World = {
 
   _addBridge(scene, roadZ, roadW, rxMin, rxMax, riverW, bridgeCX, dashMat) {
     const concreteMat = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
-    const steelMat    = new THREE.MeshLambertMaterial({ color: 0x556677 });
+    const steelMat    = new THREE.MeshLambertMaterial({ color: 0x445566 });
     const railMat     = new THREE.MeshLambertMaterial({ color: 0x787878 });
+    const railH = 1.0, railThick = 0.22;
 
     // ── Tablier béton (plat, praticable) ──
     const deck = new THREE.Mesh(new THREE.PlaneGeometry(riverW, roadW), concreteMat);
@@ -283,72 +303,73 @@ const World = {
     deck.position.set(bridgeCX, 0.07, roadZ);
     scene.add(deck);
 
-    // Tirets routiers sur le pont
     for (let dx = rxMin + 3; dx < rxMax; dx += 10) {
       const d = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.14), dashMat);
       d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.09, roadZ); scene.add(d);
     }
 
-    // ── Arche en acier au-dessus du tablier (2 arches en croix) ──
-    const archH   = 9;    // hauteur du sommet de l'arche
-    const archSegs = 7;   // segments par demi-arche
-    for (let a = 0; a < 2; a++) {            // deux plans d'arches (nord/sud)
-      const zOff = (a === 0 ? -1 : 1) * (roadW * 0.3);
-      for (let side = -1; side <= 1; side += 2) {  // côté gauche/droite (rives)
-        for (let s = 0; s < archSegs; s++) {
-          const t0 = s / archSegs;
-          const t1 = (s + 1) / archSegs;
-          // Arc en demi-cercle: x va de rive à centre, y monte
-          const x0 = (side === -1 ? rxMin : rxMax) + side * -1 * (riverW / 2) * t0;
-          const y0 = archH * Math.sin(Math.PI * t0 * 0.5);
-          const x1 = (side === -1 ? rxMin : rxMax) + side * -1 * (riverW / 2) * t1;
-          const y1 = archH * Math.sin(Math.PI * t1 * 0.5);
-          const segL = Math.hypot(x1 - x0, y1 - y0);
-          const ang  = Math.atan2(y1 - y0, x1 - x0);
-          const seg = new THREE.Mesh(new THREE.BoxGeometry(segL + 0.05, 0.45, 0.45), steelMat);
-          seg.position.set((x0 + x1) / 2, (y0 + y1) / 2, roadZ + zOff);
-          seg.rotation.z = ang;
-          scene.add(seg);
-        }
-      }
-    }
-    // Membrures verticales reliant tablier → arche (tous les 10m)
-    for (let dx = rxMin + 8; dx < rxMax - 2; dx += 10) {
-      const t = (dx - rxMin) / riverW;
-      const archY = archH * Math.sin(Math.PI * t);
-      [-1, 1].forEach(side => {
-        const rod = new THREE.Mesh(new THREE.BoxGeometry(0.18, archY, 0.18), steelMat);
-        rod.position.set(dx, archY / 2, roadZ + side * roadW * 0.3);
-        scene.add(rod);
-      });
-    }
-
-    // ── Garde-corps (côtés nord et sud) — solides (colliders) ──
-    const railH = 1.0, railThick = 0.22;
-    [-1, 1].forEach(side => {
-      const zOff = side * (roadW / 2 - 0.11);
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(riverW, railH, railThick), railMat);
-      rail.position.set(bridgeCX, railH / 2 + 0.07, roadZ + zOff);
-      scene.add(rail);
-      // Poteaux
-      for (let px = rxMin; px <= rxMax + 0.1; px += 8) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, railH + 0.1, 0.28), railMat);
-        post.position.set(px, (railH + 0.1) / 2 + 0.07, roadZ + zOff);
-        scene.add(post);
-      }
-      // Collider garde-corps
-      State.colliders.push(new THREE.Box3(
-        new THREE.Vector3(rxMin, 0, roadZ + zOff - railThick / 2),
-        new THREE.Vector3(rxMax, railH + 0.2, roadZ + zOff + railThick / 2)
-      ));
-    });
-
-    // ── Culées béton aux rives ──
+    // ── Culées béton aux rives (sous la chaussée) ──
     [-1, 1].forEach(side => {
       const bx = side === -1 ? rxMin - 0.5 : rxMax + 0.5;
       const cul = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, roadW + 0.8), concreteMat);
       cul.position.set(bx, 0.9, roadZ);
       scene.add(cul);
+    });
+
+    // ── Arches en acier (partent au-dessus des garde-corps → apex 11m) ──
+    // L'arc démarre à y = archBase (> railH = 1.0) aux deux rives
+    // et monte jusqu'à archTop au centre → aucune obstruction à l'entrée du pont
+    const archBase = 2.5;   // hauteur de départ (au-dessus des rails)
+    const archTop  = 11.0;  // hauteur au sommet central
+    const archSegs = 8;
+    [-1, 1].forEach(sideZ => {            // deux arches (N et S du pont)
+      const zOff = sideZ * (roadW / 2 - 1.2);
+      for (let s = 0; s < archSegs; s++) {
+        const t0 = s / archSegs;
+        const t1 = (s + 1) / archSegs;
+        // x va de rxMin à rxMax; y suit une parabole
+        const x0 = rxMin + riverW * t0;
+        const y0 = archBase + (archTop - archBase) * Math.sin(Math.PI * t0);
+        const x1 = rxMin + riverW * t1;
+        const y1 = archBase + (archTop - archBase) * Math.sin(Math.PI * t1);
+        const segL = Math.hypot(x1 - x0, y1 - y0);
+        const ang  = Math.atan2(y1 - y0, x1 - x0);
+        const seg = new THREE.Mesh(new THREE.BoxGeometry(segL + 0.04, 0.5, 0.5), steelMat);
+        seg.position.set((x0 + x1) / 2, (y0 + y1) / 2, roadZ + zOff);
+        seg.rotation.z = ang;
+        scene.add(seg);
+      }
+    });
+
+    // Membrures verticales (suspentes reliant tablier → arche)
+    for (let dx = rxMin + 10; dx < rxMax - 2; dx += 10) {
+      const t    = (dx - rxMin) / riverW;
+      const topY = archBase + (archTop - archBase) * Math.sin(Math.PI * t);
+      [-1, 1].forEach(sideZ => {
+        const zOff = sideZ * (roadW / 2 - 1.2);
+        const rodH = topY - railH - 0.07;
+        if (rodH <= 0.1) return;
+        const rod = new THREE.Mesh(new THREE.BoxGeometry(0.16, rodH, 0.16), steelMat);
+        rod.position.set(dx, railH + 0.07 + rodH / 2, roadZ + zOff);
+        scene.add(rod);
+      });
+    }
+
+    // ── Garde-corps solides (colliders) ──
+    [-1, 1].forEach(side => {
+      const zOff = side * (roadW / 2 - 0.11);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(riverW, railH, railThick), railMat);
+      rail.position.set(bridgeCX, railH / 2 + 0.07, roadZ + zOff);
+      scene.add(rail);
+      for (let px = rxMin; px <= rxMax + 0.1; px += 8) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, railH + 0.1, 0.28), railMat);
+        post.position.set(px, (railH + 0.1) / 2 + 0.07, roadZ + zOff);
+        scene.add(post);
+      }
+      State.colliders.push(new THREE.Box3(
+        new THREE.Vector3(rxMin, 0, roadZ + zOff - railThick / 2),
+        new THREE.Vector3(rxMax, railH + 0.2, roadZ + zOff + railThick / 2)
+      ));
     });
   },
 
