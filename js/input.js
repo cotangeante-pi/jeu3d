@@ -6,6 +6,7 @@ const Input = {
     canvas.addEventListener('click', () => {
       if (!State.paused && !State.gameOver) {
         canvas.requestPointerLock();
+        Poki.start(); // Premier input joueur → signale à Poki que la partie est active
       }
     });
 

@@ -27,8 +27,10 @@ const UI = {
     document.getElementById('pause-menu').style.display = State.paused ? 'flex' : 'none';
     if (State.paused) {
       document.exitPointerLock();
+      Poki.stop();
     } else {
       this._reLock();
+      Poki.start();
     }
   },
 
@@ -36,13 +38,17 @@ const UI = {
     if (State.gameOver) return;
     State.gameOver = true;
     document.exitPointerLock();
+    Poki.stop();
     document.getElementById('gameover-reason').textContent = reason;
     document.getElementById('gameover-overlay').style.display = 'flex';
   },
 
   restart() {
-    Save.clear();
-    location.reload();
+    // Pub avant le redémarrage — moment naturel entre deux parties
+    Poki.ad(() => {
+      Save.clear();
+      location.reload();
+    });
   },
 
   showCapacities() {

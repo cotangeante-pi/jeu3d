@@ -111,6 +111,10 @@
   <!-- Canvas Three.js -->
   <canvas id="game-canvas"></canvas>
 
+  <!-- SDKs plateformes (chargés tous les deux — le wrapper détecte lequel est actif) -->
+  <script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
+
   <!-- Three.js (local) -->
   <script src="js/three.min.js"></script>
   <script>
@@ -124,6 +128,7 @@
   </script>
 
   <!-- Modules du jeu (ordre important) -->
+  <script src="js/poki.js"></script>
   <script src="js/config.js"></script>
   <script src="js/state.js"></script>
   <script src="js/save.js"></script>
