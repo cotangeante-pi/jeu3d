@@ -132,8 +132,21 @@ const Cars = {
     const spd = Math.hypot(car.vx, car.vz);
     if (spd > maxSpeed) { car.vx *= maxSpeed / spd; car.vz *= maxSpeed / spd; }
 
-    car.x += car.vx * delta;
-    car.z += car.vz * delta;
+    const nx = car.x + car.vx * delta;
+    const nz = car.z + car.vz * delta;
+
+    if (!this._carHits(nx, car.z)) {
+      car.x = nx;
+    } else {
+      car.vx *= -0.25;
+    }
+
+    if (!this._carHits(car.x, nz)) {
+      car.z = nz;
+    } else {
+      car.vz *= -0.25;
+    }
+
     car.mesh.position.set(car.x, 0, car.z);
     car.mesh.rotation.y = car.angle;
 
@@ -155,6 +168,23 @@ const Cars = {
       car.z + cosA * CAM_DIST
     );
     cam.lookAt(car.x, 1.4, car.z);
+  },
+
+  // ─── Collision cercle vs AABB ────────────────────────────────────────────────
+  _carHits(cx, cz) {
+    const R = 1.85; // rayon d'encombrement de la voiture
+    const nearby = State.colliders.filter(c => {
+      const bx = (c.min.x + c.max.x) / 2;
+      const bz = (c.min.z + c.max.z) / 2;
+      return Math.abs(bx - cx) < 30 && Math.abs(bz - cz) < 30;
+    });
+    for (const box of nearby) {
+      const nearX = Math.max(box.min.x, Math.min(cx, box.max.x));
+      const nearZ = Math.max(box.min.z, Math.min(cz, box.max.z));
+      const dx = cx - nearX, dz = cz - nearZ;
+      if (dx * dx + dz * dz < R * R) return true;
+    }
+    return false;
   },
 
   // ─── Construction du mesh voiture ────────────────────────────────────────────
