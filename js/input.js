@@ -90,8 +90,9 @@ const Input = {
       btn.addEventListener('touchend',   e => { State.keys[keyCode] = false; e.preventDefault(); }, { passive: false });
     };
 
-    hold(document.getElementById('btn-jump'), 'Space');
-    hold(document.getElementById('btn-work'), 'KeyT');
+    hold(document.getElementById('btn-jump'),  'Space');
+    hold(document.getElementById('btn-work'),  'KeyT');
+    hold(document.getElementById('btn-boost'), 'ShiftLeft');
 
     document.getElementById('btn-interact').addEventListener('touchstart', e => {
       if (State.nearPickup) Interactions.pickup();
