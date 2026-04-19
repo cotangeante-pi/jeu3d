@@ -61,5 +61,13 @@ const Input = {
     });
 
     document.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Bouton boost — maintenir enfoncé comme Shift
+    const btnBoost = document.getElementById('btn-boost');
+    if (btnBoost) {
+      btnBoost.addEventListener('mousedown', () => { State.keys['ShiftLeft'] = true;  btnBoost.classList.add('active'); });
+      btnBoost.addEventListener('mouseup',   () => { State.keys['ShiftLeft'] = false; btnBoost.classList.remove('active'); });
+      btnBoost.addEventListener('mouseleave',() => { State.keys['ShiftLeft'] = false; btnBoost.classList.remove('active'); });
+    }
   }
 };

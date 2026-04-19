@@ -46,6 +46,22 @@
   background: rgba(80, 80, 80, 0.8);
 }
 
+#btn-boost {
+  background: rgba(100, 0, 140, 0.6);
+  border: 1px solid #888;
+  color: #fff;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1em;
+  transition: background 0.15s;
+}
+
+#btn-boost.active {
+  background: rgba(180, 0, 220, 0.85);
+  box-shadow: 0 0 8px rgba(200, 0, 255, 0.7);
+}
+
 #iq-display {
   font-size: 1.1em;
   font-weight: bold;
