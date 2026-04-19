@@ -26,10 +26,9 @@ const UI = {
     State.paused = !State.paused;
     document.getElementById('pause-menu').style.display = State.paused ? 'flex' : 'none';
     if (State.paused) {
-      document.exitPointerLock();
       Poki.stop();
     } else {
-      this._reLock();
+      State.pointerLocked = true;
       Poki.start();
     }
   },
@@ -37,7 +36,7 @@ const UI = {
   showGameOver(reason) {
     if (State.gameOver) return;
     State.gameOver = true;
-    document.exitPointerLock();
+    State.pointerLocked = false;
     Poki.stop();
     document.getElementById('gameover-reason').textContent = reason;
     document.getElementById('gameover-overlay').style.display = 'flex';
@@ -272,8 +271,7 @@ const UI = {
 
   _reLock() {
     if (!State.paused && !State.gameOver) {
-      const canvas = document.getElementById('game-canvas');
-      canvas.requestPointerLock();
+      State.pointerLocked = true;
     }
   }
 };

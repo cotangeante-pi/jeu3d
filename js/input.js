@@ -32,6 +32,9 @@ const Input = {
     };
 
     document.addEventListener('touchstart', e => {
+      // Ne pas intercepter les touches sur les overlays/boutons UI
+      if (e.target.closest('.overlay-box, #dialog-box, #pause-menu, #gameover-overlay, #capacities-panel, #top-right, #btn-pause')) return;
+
       for (const t of e.changedTouches) {
         const leftZone = t.clientX < window.innerWidth * 0.42;
         if (leftZone && !this._joystickTouch) {
@@ -88,7 +91,9 @@ const Input = {
     hold(document.getElementById('btn-work'), 'KeyT');
 
     document.getElementById('btn-interact').addEventListener('touchstart', e => {
-      Interactions.interact(); e.preventDefault();
+      if (State.nearPickup) Interactions.pickup();
+      else Interactions.interact();
+      e.preventDefault();
     }, { passive: false });
 
     document.getElementById('btn-punch').addEventListener('touchstart', e => {

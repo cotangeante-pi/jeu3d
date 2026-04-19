@@ -3,7 +3,17 @@
   padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Bloquer le scroll/zoom sur le canvas uniquement */
+#game-canvas, #touch-controls {
   touch-action: none;
+}
+
+/* Les boutons et overlays doivent rester cliquables */
+button, .overlay-box, #dialog-options, #dialog-box, #pause-menu,
+#gameover-overlay, #capacities-panel {
+  touch-action: auto;
 }
 
 html, body {
