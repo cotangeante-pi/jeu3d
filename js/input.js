@@ -101,7 +101,7 @@ const Input = {
     }, { passive: false });
 
     document.getElementById('btn-punch').addEventListener('touchstart', e => {
-      Interactions.punch(); e.preventDefault();
+      Interactions.punch(); Hand.punch(); e.preventDefault();
     }, { passive: false });
 
     document.getElementById('btn-car').addEventListener('touchstart', e => {

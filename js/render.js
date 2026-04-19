@@ -44,6 +44,7 @@ const Render = {
       Jobs.tick(delta);
       Humans.update(delta);
       Fountain.update(delta);
+      Hand.update(delta);
       // Bateaux
       const riverHalf = CONFIG.RIVER_LENGTH / 2;
       State.boats.forEach(b => {
