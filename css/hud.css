@@ -240,8 +240,50 @@
   letter-spacing: 1vmin;
 }
 
-/* Hotbar cachée sur mobile */
-#hotbar { display: none; }
+/* Hotbar tactile */
+#hotbar {
+  position: fixed;
+  bottom: 27vh;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1.2vmin;
+  pointer-events: all;
+}
+
+.hb-slot {
+  position: relative;
+  width: 9vmin;
+  height: 9vmin;
+  background: rgba(0, 0, 0, 0.55);
+  border: 0.4vmin solid #666;
+  border-radius: 1.5vmin;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hb-slot.selected {
+  border: 0.4vmin solid #fff;
+  box-shadow: 0 0 2vmin rgba(255, 255, 255, 0.6);
+}
+
+.hb-icon {
+  width: 6vmin;
+  height: 6vmin;
+  border-radius: 1vmin;
+}
+
+.hb-count {
+  position: absolute;
+  bottom: 0.5vmin;
+  right: 0.8vmin;
+  font-size: 2.2vmin;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
+  line-height: 1;
+}
 
 /* Hint interaction */
 #interact-hint {

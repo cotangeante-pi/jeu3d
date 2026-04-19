@@ -110,6 +110,19 @@ const Input = {
       e.preventDefault();
     }, { passive: false });
 
+    // Hotbar tactile — tap sur un slot pour le sélectionner
+    for (let i = 0; i < 8; i++) {
+      const slot = document.getElementById('hb-' + i);
+      if (slot) {
+        slot.addEventListener('touchstart', e => {
+          State.selectedSlot = i;
+          HUD.update();
+          e.preventDefault();
+          e.stopPropagation();
+        }, { passive: false });
+      }
+    }
+
     // Clavier (fonctionne toujours pour tests sur desktop)
     document.addEventListener('keydown', e => {
       State.keys[e.code] = true;
