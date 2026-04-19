@@ -2,6 +2,12 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+html, body {
+  overscroll-behavior: none;
 }
 
 body {
@@ -37,18 +43,7 @@ body {
   cursor: pointer;
 }
 
-/* Viseur central */
-#hud::after {
-  content: '+';
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 22px;
-  pointer-events: none;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
-}
+/* Pas de viseur sur mobile — on vise avec le doigt */
 
 /* Overlays */
 #pause-menu,
@@ -120,3 +115,86 @@ body {
 #dialog-options button:hover {
   background: #2a5aaa;
 }
+
+/* ── Contrôles tactiles ─────────────────────────────────────── */
+#touch-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Joystick */
+#joystick-zone {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  width: 130px;
+  height: 130px;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#joystick-bg {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+}
+
+#joystick-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  transition: none;
+}
+
+/* Boutons action */
+#action-buttons {
+  position: absolute;
+  bottom: 20px;
+  right: 16px;
+  display: grid;
+  grid-template-columns: 56px 56px;
+  grid-template-rows: 56px 56px 56px;
+  gap: 8px;
+  pointer-events: all;
+}
+
+.act-btn {
+  border: none;
+  border-radius: 50%;
+  font-size: 1.3em;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.88;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.act-btn:active { opacity: 1; filter: brightness(1.3); }
+
+.btn-jump     { background: #1a5fb4; grid-column: 1 / 3; border-radius: 28px; width: 100%; }
+.btn-punch    { background: #c01c28; }
+.btn-interact { background: #26a269; }
+.btn-work     { background: #e5a50a; }
+.btn-car      { background: #555; }

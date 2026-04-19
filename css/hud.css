@@ -75,16 +75,16 @@
   background: rgba(80, 80, 80, 0.8);
 }
 
-/* Barres bas de l'écran */
+/* Barres bas de l'écran — remontées pour laisser place au joystick */
 #bottom-bars {
   position: fixed;
-  bottom: 20px;
+  bottom: 210px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   gap: 7px;
-  width: 320px;
+  width: 200px;
   pointer-events: none;
 }
 
@@ -231,7 +231,7 @@
 #job-task-panel {
   position: fixed;
   top: 16px;
-  right: 130px;
+  right: 90px;
   background: rgba(0, 0, 0, 0.65);
   border: 1px solid rgba(255,255,255,0.2);
   border-radius: 8px;
@@ -289,15 +289,9 @@
   letter-spacing: 4px;
 }
 
-/* Hotbar inventaire */
+/* Hotbar cachée sur mobile (sélection clavier non disponible) */
 #hotbar {
-  position: fixed;
-  bottom: 130px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 6px;
-  pointer-events: none;
+  display: none;
 }
 
 .hb-slot {
@@ -334,10 +328,10 @@
   line-height: 1;
 }
 
-/* Hint interaction */
+/* Hint interaction — remonté au-dessus des contrôles */
 #interact-hint {
   position: fixed;
-  bottom: 185px;
+  bottom: 220px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.65);

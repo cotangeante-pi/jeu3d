@@ -26,7 +26,7 @@ const Player = {
       return;
     }
 
-    // --- Rotation caméra ---
+    // --- Rotation caméra (touch: toujours actif car pointerLocked=true dès init) ---
     if (State.pointerLocked) {
       State.yaw   -= State.mouseDX * CONFIG.SENSITIVITY;
       State.pitch -= State.mouseDY * CONFIG.SENSITIVITY;

@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Jeu 3D</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/hud.css">
@@ -17,18 +17,7 @@
       <button id="btn-pause">⏸</button>
       <div id="iq-display">QI : 0</div>
       <div id="badges-container"></div>
-      <button id="btn-capacities">Capacités physiques</button>
-    </div>
-
-    <div id="hotbar">
-      <div class="hb-slot" id="hb-0"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-1"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-2"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-3"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-4"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-5"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-6"><div class="hb-icon"></div><span class="hb-count"></span></div>
-      <div class="hb-slot" id="hb-7"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <button id="btn-capacities">Capacités</button>
     </div>
 
     <div id="bottom-bars">
@@ -40,7 +29,7 @@
         <div class="oxy-dot full" id="oxy-4"></div>
       </div>
       <div class="bar-wrap">
-        <div class="bar-label">Nourriture</div>
+        <div class="bar-label">Nourr.</div>
         <div class="bar-bg"><div class="bar-fill hunger-fill" id="bar-hunger"></div></div>
       </div>
       <div class="bar-wrap">
@@ -50,11 +39,8 @@
     </div>
 
     <div id="wanted-stars" style="display:none"></div>
-
-    <!-- Notification de tâche (temporaire, centre haut) -->
     <div id="job-notify" style="display:none"></div>
 
-    <!-- Panneau tâche en cours -->
     <div id="job-task-panel" style="display:none">
       <div id="jt-title"></div>
       <div id="jt-desc"></div>
@@ -62,16 +48,32 @@
       <div id="jt-time"></div>
     </div>
 
-    <!-- Barre de progression "hold T" (centre écran, visible uniquement au bureau) -->
     <div id="hold-t-bar" style="display:none">
       <div id="hold-t-label">Traitement du dossier…</div>
-      <div id="hold-t-track">
-        <div id="hold-t-fill"></div>
-      </div>
+      <div id="hold-t-track"><div id="hold-t-fill"></div></div>
       <div id="hold-t-pct">0 %</div>
     </div>
 
-    <div id="interact-hint" style="display:none">Appuyer sur E pour interagir</div>
+    <div id="interact-hint" style="display:none">Toucher E pour interagir</div>
+  </div>
+
+  <!-- Contrôles tactiles -->
+  <div id="touch-controls">
+    <!-- Joystick gauche -->
+    <div id="joystick-zone">
+      <div id="joystick-bg">
+        <div id="joystick-handle"></div>
+      </div>
+    </div>
+
+    <!-- Boutons action droite -->
+    <div id="action-buttons">
+      <button id="btn-jump" class="act-btn btn-jump">↑</button>
+      <button id="btn-punch" class="act-btn btn-punch">👊</button>
+      <button id="btn-interact" class="act-btn btn-interact">E</button>
+      <button id="btn-work" class="act-btn btn-work">T</button>
+      <button id="btn-car" class="act-btn btn-car">🚗</button>
+    </div>
   </div>
 
   <!-- Overlays -->
@@ -111,19 +113,22 @@
   <!-- Canvas Three.js -->
   <canvas id="game-canvas"></canvas>
 
+  <!-- SDKs plateformes -->
+  <script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
+
   <!-- Three.js (local) -->
   <script src="js/three.min.js"></script>
   <script>
     if (typeof THREE === 'undefined') {
       document.body.innerHTML = '<div style="color:#fff;background:#1a1a2e;padding:40px;font-family:Arial;font-size:1.2em;text-align:center;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
         '<h2 style="color:#e74c3c;margin-bottom:20px">Erreur de chargement</h2>' +
-        '<p>Three.js (librairie 3D) n\'a pas pu charger depuis Internet.</p>' +
-        '<p style="margin-top:12px;color:#aaa">Vérifie ta connexion Internet puis recharge la page.</p>' +
-        '</div>';
+        '<p>Three.js (librairie 3D) n\'a pas pu charger.</p></div>';
     }
   </script>
 
-  <!-- Modules du jeu (ordre important) -->
+  <!-- Modules du jeu -->
+  <script src="js/poki.js"></script>
   <script src="js/config.js"></script>
   <script src="js/state.js"></script>
   <script src="js/save.js"></script>

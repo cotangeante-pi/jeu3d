@@ -9,6 +9,15 @@ const Humans = {
   SIDE_OFF: 7.8,
 
   init(scene) {
+    // Géométries et matériaux partagés — créés une seule fois pour tous les personnages
+    this._sharedEyeGeo   = new THREE.BoxGeometry(0.055, 0.048, 0.04);
+    this._sharedMouthGeo = new THREE.BoxGeometry(0.13,  0.033, 0.04);
+    this._sharedHandGeo  = new THREE.BoxGeometry(0.13,  0.11,  0.14);
+    this._sharedFootGeo  = new THREE.BoxGeometry(0.17,  0.085, 0.24);
+    this._sharedEyeMat   = new THREE.MeshLambertMaterial({ color: 0x111122 });
+    this._sharedMouthMat = new THREE.MeshLambertMaterial({ color: 0x7a2e2e });
+    this._sharedShoeMat  = new THREE.MeshLambertMaterial({ color: 0x1a1209 });
+
     const step = CONFIG.GRID_STEP;
     const range = Math.floor(CONFIG.CITY_RADIUS / step);
     for (let n = -range; n <= range; n++) {
@@ -57,22 +66,40 @@ const Humans = {
     body.castShadow = true;
     g.add(body);
 
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 8, 8),
-      new THREE.MeshLambertMaterial({ color: skinColor })
-    );
+    const skinMat = new THREE.MeshLambertMaterial({ color: skinColor });
+
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), skinMat);
     head.position.y = 1.72;
     g.add(head);
+
+    // Visage simple (géométries partagées — 0 RAM supplémentaire par personnage)
+    const eyeL = new THREE.Mesh(this._sharedEyeGeo, this._sharedEyeMat);
+    eyeL.position.set(-0.07, 1.755, 0.196);
+    g.add(eyeL);
+    const eyeR = new THREE.Mesh(this._sharedEyeGeo, this._sharedEyeMat);
+    eyeR.position.set(0.07, 1.755, 0.196);
+    g.add(eyeR);
+    const mouth = new THREE.Mesh(this._sharedMouthGeo, this._sharedMouthMat);
+    mouth.position.set(0, 1.664, 0.193);
+    g.add(mouth);
 
     const legMat = new THREE.MeshLambertMaterial({ color: legColor });
     const legGeo = new THREE.BoxGeometry(0.18, 0.62, 0.2);
 
     const legLPivot = new THREE.Group(); legLPivot.position.set(-0.13, 0.4, 0);
     const legL = new THREE.Mesh(legGeo, legMat); legL.position.y = -0.31; legLPivot.add(legL);
+    // Pied gauche (géométrie partagée, matériau chaussure partagé)
+    const footL = new THREE.Mesh(this._sharedFootGeo, this._sharedShoeMat);
+    footL.position.set(0, -0.665, 0.05);
+    legLPivot.add(footL);
     g.add(legLPivot);
 
     const legRPivot = new THREE.Group(); legRPivot.position.set(0.13, 0.4, 0);
     const legR = new THREE.Mesh(legGeo, legMat); legR.position.y = -0.31; legRPivot.add(legR);
+    // Pied droit
+    const footR = new THREE.Mesh(this._sharedFootGeo, this._sharedShoeMat);
+    footR.position.set(0, -0.665, 0.05);
+    legRPivot.add(footR);
     g.add(legRPivot);
 
     const armMat = new THREE.MeshLambertMaterial({ color: bodyColor });
@@ -80,10 +107,18 @@ const Humans = {
 
     const armLPivot = new THREE.Group(); armLPivot.position.set(-0.33, 1.4, 0);
     const armL = new THREE.Mesh(armGeo, armMat); armL.position.y = -0.3; armLPivot.add(armL);
+    // Main gauche (même couleur peau que tête)
+    const handL = new THREE.Mesh(this._sharedHandGeo, skinMat);
+    handL.position.y = -0.655;
+    armLPivot.add(handL);
     g.add(armLPivot);
 
     const armRPivot = new THREE.Group(); armRPivot.position.set(0.33, 1.4, 0);
     const armR = new THREE.Mesh(armGeo, armMat); armR.position.y = -0.3; armRPivot.add(armR);
+    // Main droite
+    const handR = new THREE.Mesh(this._sharedHandGeo, skinMat);
+    handR.position.y = -0.655;
+    armRPivot.add(handR);
     g.add(armRPivot);
 
     if (isPolice) {
