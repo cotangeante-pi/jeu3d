@@ -6,8 +6,10 @@ const Input = {
     // Pas de pointer lock sur mobile — on simule l'état actif dès le départ
     State.pointerLocked = true;
 
-    const JR = 38; // rayon max du joystick en px
+    const jBg = document.getElementById('joystick-bg');
     const jHandle = document.getElementById('joystick-handle');
+    // Rayon dynamique : 33% du diamètre du joystick (s'adapte à la taille d'écran)
+    const getJR = () => jBg.offsetWidth * 0.33;
 
     const resetJoystick = () => {
       this._joystickTouch = null;
@@ -19,6 +21,7 @@ const Input = {
     };
 
     const updateJoystick = (rawX, rawY) => {
+      const JR = getJR();
       const len = Math.sqrt(rawX * rawX + rawY * rawY);
       const nx = len > 0 ? rawX / len : 0;
       const ny = len > 0 ? rawY / len : 0;
