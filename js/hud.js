@@ -1,8 +1,92 @@
 const HUD = {
   _lastBadges: '',
+  _minimapCtx: null,
+  _minimapFrame: 0,
 
   init() {
+    const mc = document.getElementById('minimap');
+    if (mc) this._minimapCtx = mc.getContext('2d');
     this.update();
+  },
+
+  _drawMinimap() {
+    const ctx = this._minimapCtx;
+    if (!ctx) return;
+    if (++this._minimapFrame % 2 !== 0) return; // redessine 1 frame sur 2
+
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const CX = W / 2, CY = H / 2;
+    const SCALE = 0.32; // px par mètre (~280m de diamètre visible
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+
+    // Clip circulaire
+    ctx.beginPath();
+    ctx.arc(CX, CY, CX - 1, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Fond
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.93)';
+    ctx.fillRect(0, 0, W, H);
+
+    const mx = (wx) => CX + (wx - State.posX) * SCALE;
+    const my = (wz) => CY + (wz - State.posZ) * SCALE;
+
+    // Routes
+    const roadW = Math.max(2, 14 * SCALE);
+    ctx.lineWidth = roadW;
+    ctx.strokeStyle = 'rgba(45, 55, 75, 0.95)';
+    (Humans._streetX || []).forEach(sx => {
+      const x = mx(sx); if (x < -roadW || x > W + roadW) return;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    });
+    (Humans._streetZ || []).forEach(sz => {
+      const y = my(sz); if (y < -roadW || y > H + roadW) return;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    });
+
+    // NPCs (points verts)
+    ctx.fillStyle = '#27ae60';
+    (State.npcs || []).forEach(n => {
+      const x = mx(n.pos.x), y = my(n.pos.z);
+      if (x < 0 || x > W || y < 0 || y > H) return;
+      ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Piétons (points jaunes)
+    ctx.fillStyle = '#f1c40f';
+    (Humans._pedestrians || []).forEach(h => {
+      const x = mx(h.x), y = my(h.z);
+      if (x < 0 || x > W || y < 0 || y > H) return;
+      ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Police (points rouges)
+    ctx.fillStyle = '#e74c3c';
+    (Humans._policeOnFoot || []).forEach(h => {
+      const x = mx(h.x), y = my(h.z);
+      if (x < 0 || x > W || y < 0 || y > H) return;
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Joueur — point blanc + flèche de direction
+    const arrowLen = 7;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.lineTo(CX - Math.sin(State.yaw) * arrowLen, CY - Math.cos(State.yaw) * arrowLen);
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(CX, CY, 3, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+
+    // Bordure
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(CX, CY, CX - 1, 0, Math.PI * 2); ctx.stroke();
   },
 
   update() {
@@ -75,6 +159,7 @@ const HUD = {
     }
 
     this.updateHotbar();
+    this._drawMinimap();
   },
 
   updateJobTask() {
