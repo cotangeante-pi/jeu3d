@@ -9,6 +9,7 @@ function _startGame() {
   Input.init();
   HUD.init();
   UI.init();
+  Fountain.init(State.scene);
   Render.animate();
 }
 
