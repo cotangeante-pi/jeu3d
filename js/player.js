@@ -48,8 +48,10 @@ const Player = {
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
     if (len > 0) { moveX /= len; moveZ /= len; }
 
-    State.velX = moveX * CONFIG.PLAYER_SPEED;
-    State.velZ = moveZ * CONFIG.PLAYER_SPEED;
+    const boosting = State.keys['ShiftLeft'] || State.keys['ShiftRight'];
+    const spd = CONFIG.PLAYER_SPEED * (boosting ? 2.0 : 1.0);
+    State.velX = moveX * spd;
+    State.velZ = moveZ * spd;
 
     // --- Gravité ---
     State.velY += CONFIG.GRAVITY * delta;
