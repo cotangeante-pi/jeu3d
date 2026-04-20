@@ -4,9 +4,10 @@ const Cars = {
   // Définitions : parking juste devant le concessionnaire (x=-28, z=70, façade à z=70)
   // speed = vitesse max en m/s (×3.6 = km/h)   boost = multiplicateur Shift
   _DEFS: [
-    { badgeId: 'car_basic',  name: 'Citadine',      color: 0xcc2200, parkX: -18, parkZ: 63, speed: 20, boost: 1.40 }, // ~72 km/h, boost 100 km/h
-    { badgeId: 'car_sedan',  name: 'Berline',        color: 0x2244cc, parkX: -28, parkZ: 63, speed: 30, boost: 1.40 }, // ~108 km/h, boost 150 km/h
-    { badgeId: 'car_sport',  name: 'Voiture sport',  color: 0x111111, parkX: -38, parkZ: 63, speed: 50, boost: 1.40 }, // ~180 km/h, boost 250 km/h
+    // accel/drag : vitesse terminale = accel*boost / drag  →  sans boost / avec boost
+    { badgeId: 'car_basic',  name: 'Citadine',      color: 0xcc2200, parkX: -18, parkZ: 63, speed: 28, boost: 1.40, accel:  40, drag: 2.0 }, //  72 km/h / 100 km/h
+    { badgeId: 'car_sedan',  name: 'Berline',        color: 0x2244cc, parkX: -28, parkZ: 63, speed: 42, boost: 1.40, accel:  60, drag: 2.0 }, // 108 km/h / 151 km/h
+    { badgeId: 'car_sport',  name: 'Voiture sport',  color: 0x111111, parkX: -38, parkZ: 63, speed: 70, boost: 1.40, accel: 100, drag: 2.0 }, // 180 km/h / 252 km/h
   ],
 
   init(scene) {
@@ -90,10 +91,10 @@ const Cars = {
 
   // ─── Logique de conduite par frame ───────────────────────────────────────────
   _driveTick(car, delta) {
-    const STEER      = 1.6;   // rad/s (virage clavier)
-    const ACCEL      = 55;    // m/s² de poussée moteur
-    const DRAG       = 1.8;   // résistance aérodynamique PAR SECONDE (frame-rate independent)
-    const BRAKE_DRAG = 6.0;   // freinage moteur (S)
+    const STEER      = 1.6;
+    const ACCEL      = car.accel || 55;
+    const DRAG       = car.drag  || 1.8;
+    const BRAKE_DRAG = DRAG * 3.0;
 
     // Souris → virage
     if (State.pointerLocked) {
@@ -120,11 +121,9 @@ const Cars = {
     const sinA = Math.sin(car.angle);
     const cosA = Math.cos(car.angle);
 
-    // Physique INDÉPENDANTE DU FRAMERATE :
-    //   v_new = v_old * (1 - DRAG*dt) + force*dt
-    // → vitesse terminale = ACCEL / DRAG ≈ 55/1.8 ≈ 30 m/s (limitée par maxSpeed)
+    // vitesse terminale = accelForce / DRAG  (indépendant du framerate)
     const dragFactor = 1 - (throttle < 0 ? BRAKE_DRAG : DRAG) * delta;
-    const accelForce = boosting ? ACCEL * 1.4 : ACCEL;
+    const accelForce = boosting ? ACCEL * (car.boost || 1.4) : ACCEL;
     car.vx = car.vx * dragFactor + (-sinA * throttle * accelForce) * delta;
     car.vz = car.vz * dragFactor + (-cosA * throttle * accelForce) * delta;
 
