@@ -44,6 +44,7 @@ const Render = {
       Jobs.tick(delta);
       Humans.update(delta);
       Fountain.update(delta);
+      State.gameTime += delta * 20; // 1s réelle = 20s in-game → 1h in-game ≈ 3min
       // Bateaux
       const riverHalf = CONFIG.RIVER_LENGTH / 2;
       State.boats.forEach(b => {

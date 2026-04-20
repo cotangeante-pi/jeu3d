@@ -79,4 +79,8 @@ const State = {
   // Bateaux / ponts
   bridgeZs: [],
   boats: [],
+
+  // Temps de jeu (secondes in-game) — démarre à 08:00 jour 1
+  // 1 seconde réelle = 20 secondes in-game → 1h in-game ≈ 3 min réelles
+  gameTime: 28800,
 };
