@@ -1,3 +1,21 @@
+/* Horloge */
+#game-clock {
+  position: fixed;
+  top: 1.5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: 0.3vmin solid rgba(255, 255, 255, 0.2);
+  border-radius: 2vmin;
+  padding: 1vmin 3.5vmin;
+  font-size: 3.2vmin;
+  color: #ddeeff;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 0 1.5vmin rgba(100, 180, 255, 0.6);
+  letter-spacing: 0.05em;
+}
+
 /* Minimap */
 #minimap {
   position: fixed;

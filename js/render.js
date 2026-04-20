@@ -45,6 +45,7 @@ const Render = {
       Humans.update(delta);
       Fountain.update(delta);
       Hand.update(delta);
+      State.gameTime += delta * 20;
       // Bateaux
       const riverHalf = CONFIG.RIVER_LENGTH / 2;
       State.boats.forEach(b => {

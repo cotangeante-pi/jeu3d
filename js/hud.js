@@ -160,6 +160,17 @@ const HUD = {
 
     this.updateHotbar();
     this._drawMinimap();
+    this._updateClock();
+  },
+
+  _updateClock() {
+    const el = document.getElementById('game-clock');
+    if (!el) return;
+    const t    = Math.floor(State.gameTime);
+    const day  = Math.floor(t / 86400) + 1;
+    const hour = Math.floor((t % 86400) / 3600);
+    const min  = Math.floor((t % 3600) / 60);
+    el.textContent = `Jour ${day}  ${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
   },
 
   updateJobTask() {
