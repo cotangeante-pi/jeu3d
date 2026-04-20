@@ -181,3 +181,105 @@ body {
 .btn-work     { background: #e5a50a; }
 .btn-car      { background: #555; }
 .btn-boost    { background: #9b2d9b; grid-column: 1 / 3; border-radius: 5.5vmin; width: 100%; }
+
+/* ── Bakery mini-game overlay ─────────────────────────── */
+#bakery-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #2b1000 0%, #5a2a0a 50%, #2b1000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  touch-action: auto;
+}
+
+#bk-box {
+  background: rgba(255, 230, 180, 0.08);
+  border: 1.5px solid rgba(255, 190, 80, 0.4);
+  border-radius: 5vmin;
+  padding: 5vmin;
+  width: min(420px, 88vw);
+  text-align: center;
+  color: #fff5e0;
+  font-family: Arial, sans-serif;
+}
+
+#bk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4vmin;
+}
+
+#bk-header h2 { font-size: 5vmin; margin: 0; }
+
+#bk-exit-btn {
+  background: rgba(200, 60, 60, 0.35);
+  border: 1px solid rgba(255, 100, 100, 0.5);
+  color: #ffaaaa;
+  padding: 2vmin 3vmin;
+  border-radius: 2vmin;
+  cursor: pointer;
+  font-size: 3vmin;
+  touch-action: auto;
+}
+
+#bk-workspace {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3vmin;
+  padding: 4vmin;
+  margin: 3vmin 0;
+}
+
+#bk-icon { font-size: 10vmin; margin-bottom: 2vmin; }
+#bk-label { font-size: 4vmin; font-weight: bold; margin-bottom: 3vmin; color: #ffe0a0; min-height: 6vmin; }
+
+#bk-track {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 2vmin;
+  height: 4vmin;
+  overflow: hidden;
+  margin: 2vmin 0 3vmin;
+}
+
+#bk-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c67c00, #ffd700);
+  border-radius: 2vmin;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+#bk-action-btn {
+  background: linear-gradient(135deg, #b86800, #e09020);
+  border: none;
+  color: #fff;
+  font-size: 4.5vmin;
+  font-weight: bold;
+  padding: 3vmin 6vmin;
+  border-radius: 3vmin;
+  cursor: pointer;
+  min-width: 40vw;
+  touch-action: auto;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#bk-action-btn:active { filter: brightness(1.2); transform: scale(0.97); }
+
+#bk-dots {
+  display: flex;
+  justify-content: center;
+  gap: 2vmin;
+  margin-top: 3vmin;
+}
+
+.bk-dot {
+  width: 3vmin; height: 3vmin;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 0.5vmin solid rgba(255, 255, 255, 0.25);
+}
+.bk-dot.active { background: #ffd700; border-color: #ffd700; }
+.bk-dot.done   { background: #66ee66; border-color: #66ee66; }

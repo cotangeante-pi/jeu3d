@@ -62,6 +62,9 @@ const State = {
   jobTask: null,       // objet tâche en cours
   jobTaskTimer: 0,     // temps avant la prochaine tâche
 
+  // Mini-jeu boulangerie
+  inWorkMode: false,
+
   // Voiture conduite
   inCar: false,
   drivingCar: null,

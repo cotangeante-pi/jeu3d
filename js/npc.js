@@ -27,19 +27,19 @@ const NPC = {
     },
     {
       id: 'employer_1', type: 'employer', name: 'Boulangerie', x: -28, z: -28, dir: -1,
-      job: { id: 'baker', name: 'Boulanger', salary: 10, iqRequired: 0, strengthRequired: 0 }
+      job: { id: 'baker', name: 'Boulanger', salary: 10, iqRequired: 0, strengthRequired: 0, startHour: 6, endHour: 14 }
     },
     {
       id: 'employer_2', type: 'employer', name: 'Cabinet comptable', x: 0, z: 42, dir: 1,
-      job: { id: 'consultant', name: 'Comptable', salary: 35, iqRequired: 40, strengthRequired: 0 }
+      job: { id: 'consultant', name: 'Comptable', salary: 35, iqRequired: 40, strengthRequired: 0, startHour: 9, endHour: 17 }
     },
     {
       id: 'employer_3', type: 'employer', name: 'Chantier BTP', x: -28, z: -42, dir: -1,
-      job: { id: 'worker', name: 'Ouvrier', salary: 15, iqRequired: 0, strengthRequired: 15 }
+      job: { id: 'worker', name: 'Ouvrier', salary: 15, iqRequired: 0, strengthRequired: 15, startHour: 7, endHour: 15 }
     },
     {
       id: 'employer_4', type: 'employer', name: 'Hôpital', x: 0, z: -70, dir: -1,
-      job: { id: 'nurse', name: 'Infirmier', salary: 25, iqRequired: 20, strengthRequired: 0 }
+      job: { id: 'nurse', name: 'Infirmier', salary: 25, iqRequired: 20, strengthRequired: 0, startHour: 8, endHour: 18 }
     },
     {
       id: 'cardeal_1', type: 'cardeal', name: 'Concessionnaire Auto', x: -28, z: 70, dir: 1,
@@ -95,27 +95,27 @@ const NPC = {
     // ── Nouveaux employeurs ────────────────────────────────────────────────────
     {
       id: 'employer_5', type: 'employer', name: 'Commissariat (guichet)', x: 42, z: -28, dir: -1,
-      job: { id: 'security', name: 'Agent de sécurité', salary: 20, iqRequired: 0, strengthRequired: 20 }
+      job: { id: 'security', name: 'Agent de sécurité', salary: 20, iqRequired: 0, strengthRequired: 20, startHour: 8, endHour: 16 }
     },
     {
       id: 'employer_6', type: 'employer', name: 'Cuisine du Restaurant', x: 42, z: 42, dir: 1,
-      job: { id: 'chef', name: 'Cuisinier', salary: 28, iqRequired: 10, strengthRequired: 0 }
+      job: { id: 'chef', name: 'Cuisinier', salary: 28, iqRequired: 10, strengthRequired: 0, startHour: 11, endHour: 22 }
     },
     {
       id: 'employer_7', type: 'employer', name: 'Service Médical', x: 42, z: 70, dir: 1,
-      job: { id: 'doctor', name: 'Médecin', salary: 45, iqRequired: 60, strengthRequired: 0 }
+      job: { id: 'doctor', name: 'Médecin', salary: 45, iqRequired: 60, strengthRequired: 0, startHour: 8, endHour: 18 }
     },
     {
       id: 'employer_8', type: 'employer', name: 'Agence Bancaire', x: 42, z: -42, dir: -1,
-      job: { id: 'banker', name: 'Banquier', salary: 55, iqRequired: 80, strengthRequired: 0 }
+      job: { id: 'banker', name: 'Banquier', salary: 55, iqRequired: 80, strengthRequired: 0, startHour: 9, endHour: 17 }
     },
     {
       id: 'employer_9', type: 'employer', name: 'Supermarché (caisse)', x: 42, z: 0, dir: 1,
-      job: { id: 'cashier', name: 'Caissier', salary: 12, iqRequired: 0, strengthRequired: 0 }
+      job: { id: 'cashier', name: 'Caissier', salary: 12, iqRequired: 0, strengthRequired: 0, startHour: 9, endHour: 18 }
     },
     {
       id: 'employer_10', type: 'employer', name: 'Salle de Musculation', x: 0, z: 84, dir: 1,
-      job: { id: 'coach', name: 'Coach sportif', salary: 22, iqRequired: 0, strengthRequired: 30 }
+      job: { id: 'coach', name: 'Coach sportif', salary: 22, iqRequired: 0, strengthRequired: 30, startHour: 7, endHour: 20 }
     },
   ],
 

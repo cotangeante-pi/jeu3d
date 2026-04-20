@@ -4,9 +4,9 @@ const Cars = {
   // Définitions : parking juste devant le concessionnaire (x=-28, z=70, façade à z=70)
   // speed = vitesse max en m/s (×3.6 = km/h)   boost = multiplicateur Shift
   _DEFS: [
-    { badgeId: 'car_basic',  name: 'Citadine',      color: 0xcc2200, parkX: -18, parkZ: 63, speed: 28, boost: 1.35 }, // ~100 km/h, boost ~135 km/h
-    { badgeId: 'car_sedan',  name: 'Berline',        color: 0x2244cc, parkX: -28, parkZ: 63, speed: 44, boost: 1.30 }, // ~158 km/h, boost ~206 km/h
-    { badgeId: 'car_sport',  name: 'Voiture sport',  color: 0x111111, parkX: -38, parkZ: 63, speed: 64, boost: 1.40 }, // ~230 km/h, boost ~322 km/h
+    { badgeId: 'car_basic',  name: 'Citadine',      color: 0xcc2200, parkX: -18, parkZ: 63, speed: 20, boost: 1.40 }, // ~72 km/h, boost 100 km/h
+    { badgeId: 'car_sedan',  name: 'Berline',        color: 0x2244cc, parkX: -28, parkZ: 63, speed: 30, boost: 1.40 }, // ~108 km/h, boost 150 km/h
+    { badgeId: 'car_sport',  name: 'Voiture sport',  color: 0x111111, parkX: -38, parkZ: 63, speed: 50, boost: 1.40 }, // ~180 km/h, boost 250 km/h
   ],
 
   init(scene) {

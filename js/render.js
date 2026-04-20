@@ -42,6 +42,7 @@ const Render = {
       Player.update(delta);
       Cars.update(delta);
       Jobs.tick(delta);
+      Bakery.tick(delta);
       Humans.update(delta);
       Fountain.update(delta);
       Hand.update(delta);

@@ -70,7 +70,9 @@ const Jobs = {
         if (inZone) {
           task.phase = 'active';
           const msg = task.type === 'hold_t'
-            ? 'Tu es dans le bureau — Maintenez T !'
+            ? 'Tu es dans le bureau — Maintiens T !'
+            : task.type === 'bakery_work'
+            ? 'Tu es à la boulangerie — Appuie sur T pour travailler !'
             : 'Tu es à ton poste — reste ici !';
           this._notify(msg, '#88ccff');
           HUD.update();
@@ -87,6 +89,16 @@ const Jobs = {
     if (task.elapsed >= task.timeLimit) {
       this._failTask();
       return;
+    }
+
+    if (task.type === 'bakery_work') {
+      if (!State.inWorkMode) {
+        task.elapsed += delta;
+        if (task.elapsed >= task.timeLimit) {
+          this._failTask('Tu n\'as pas terminé ton service à temps !');
+        }
+      }
+      HUD.update();
     }
 
     if (task.type === 'hold_t') {
@@ -158,8 +170,14 @@ const Jobs = {
   // ─── Internes ─────────────────────────────────────────────────────────────────
   _createTask(jobId) {
     if (jobId === 'baker') {
-      const n = 2 + Math.floor(Math.random() * 3);
-      return { type: 'fetch_apples', required: n, timeLimit: 180, elapsed: 0, phase: 'active' };
+      return {
+        type: 'bakery_work',
+        phase: 'travel',
+        travelLimit: 60,
+        travelElapsed: 0,
+        timeLimit: 180,
+        elapsed: 0,
+      };
     }
     if (jobId === 'consultant') {
       return {

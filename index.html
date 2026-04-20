@@ -125,6 +125,31 @@
     </div>
   </div>
 
+  <!-- Mini-jeu Boulangerie -->
+  <div id="bakery-overlay" style="display:none">
+    <div id="bk-box">
+      <div id="bk-header">
+        <h2>🏪 La Boulangerie</h2>
+        <button id="bk-exit-btn">T — Partir</button>
+      </div>
+      <div id="bk-workspace">
+        <div id="bk-icon">🌾</div>
+        <div id="bk-label">Prendre la farine</div>
+        <div id="bk-track"><div id="bk-fill"></div></div>
+        <button id="bk-action-btn">Faire ça !</button>
+      </div>
+      <div id="bk-dots">
+        <div class="bk-dot active"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Canvas Three.js -->
   <canvas id="game-canvas"></canvas>
 
@@ -157,6 +182,7 @@
   <script src="js/cars.js"></script>
   <script src="js/interactions.js"></script>
   <script src="js/jobs.js"></script>
+  <script src="js/bakery.js"></script>
   <script src="js/hud.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/render.js"></script>

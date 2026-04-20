@@ -91,8 +91,23 @@ const Input = {
     };
 
     hold(document.getElementById('btn-jump'),  'Space');
-    hold(document.getElementById('btn-work'),  'KeyT');
     hold(document.getElementById('btn-boost'), 'ShiftLeft');
+
+    // Bouton T : téléportation boulangerie ou hold normal
+    const btnWork = document.getElementById('btn-work');
+    btnWork.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (State.inWorkMode) { Bakery.exit(); return; }
+      const zone = Jobs._ZONES.baker;
+      if (State.currentJob && State.currentJob.id === 'baker' &&
+          State.posX >= zone.xMin && State.posX <= zone.xMax &&
+          State.posZ >= zone.zMin && State.posZ <= zone.zMax) {
+        const task = State.jobTask;
+        if (task && task.type === 'bakery_work' && task.phase === 'active') { Bakery.enter(); return; }
+      }
+      State.keys['KeyT'] = true;
+    }, { passive: false });
+    btnWork.addEventListener('touchend', e => { e.preventDefault(); State.keys['KeyT'] = false; }, { passive: false });
 
     document.getElementById('btn-interact').addEventListener('touchstart', e => {
       if (State.nearPickup) Interactions.pickup();
@@ -128,6 +143,19 @@ const Input = {
       State.keys[e.code] = true;
       if (e.code === 'KeyE')   Interactions.interact();
       if (e.code === 'Escape') UI.togglePause();
+      if (e.code === 'KeyT') {
+        if (State.inWorkMode) {
+          Bakery.exit();
+        } else {
+          const zone = Jobs._ZONES.baker;
+          if (State.currentJob && State.currentJob.id === 'baker' &&
+              State.posX >= zone.xMin && State.posX <= zone.xMax &&
+              State.posZ >= zone.zMin && State.posZ <= zone.zMax) {
+            const task = State.jobTask;
+            if (task && task.type === 'bakery_work' && task.phase === 'active') Bakery.enter();
+          }
+        }
+      }
       if (e.code === 'KeyF') {
         if (State.inCar) Cars.exitCar();
         else if (State.nearCar && State.badges.includes(State.nearCar.badgeId)) Cars.enterCar(State.nearCar);
