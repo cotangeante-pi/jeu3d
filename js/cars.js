@@ -17,7 +17,7 @@ const Cars = {
       const z     = saved ? saved.z     : def.parkZ;
       const angle = saved ? saved.angle : 0;
 
-      const mesh = this._buildMesh(def.color);
+      const mesh = this._buildMesh(def.color, def.badgeId);
       mesh.position.set(x, 0, z);
       mesh.rotation.y = angle;
       mesh.visible    = State.badges.includes(def.badgeId);
@@ -188,36 +188,90 @@ const Cars = {
   },
 
   // ─── Construction du mesh voiture ────────────────────────────────────────────
-  _buildMesh(color) {
-    const g = new THREE.Group();
-    const bodyMat  = new THREE.MeshLambertMaterial({ color });
-    const darkMat  = new THREE.MeshLambertMaterial({ color: 0x111111 });
-    const glassMat = new THREE.MeshLambertMaterial({ color: 0x88ccff, transparent: true, opacity: 0.5 });
+  _buildMesh(color, type) {
+    const g       = new THREE.Group();
+    const bodyMat = new THREE.MeshLambertMaterial({ color });
+    const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+    const glass   = new THREE.MeshLambertMaterial({ color: 0x88ccff, transparent: true, opacity: 0.5 });
+    const chrome  = new THREE.MeshLambertMaterial({ color: 0xcccccc });
 
-    // Carrosserie
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 3.6), bodyMat);
-    body.position.y = 0.55; body.castShadow = true; g.add(body);
+    const addBox = (mat, w, h, d, x, y, z) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z); m.castShadow = true; g.add(m); return m;
+    };
 
-    // Toit
-    const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 2.0), bodyMat);
-    top.position.set(0, 1.1, 0.1); g.add(top);
+    if (type === 'car_basic') {
+      // ── Citadine : carrée, haute, utilitaire ──
+      addBox(bodyMat, 1.8, 0.72, 3.6,  0,  0.56, 0);      // carrosserie
+      addBox(bodyMat, 1.6, 0.52, 2.1,  0,  1.12, 0.05);   // toit haut et droit
+      addBox(glass,   1.55, 0.42, 0.07, 0, 1.1, -0.90);   // pare-brise
+      addBox(glass,   1.55, 0.42, 0.07, 0, 1.1,  1.10);   // lunette arrière
+      // Roues simples
+      const wg = new THREE.CylinderGeometry(0.28, 0.28, 0.2, 8);
+      [[-0.95,-1.2],[-0.95,1.2],[0.95,-1.2],[0.95,1.2]].forEach(([dx,dz]) => {
+        const w = new THREE.Mesh(wg, darkMat); w.rotation.z = Math.PI/2;
+        w.position.set(dx, 0.28, dz); g.add(w);
+      });
 
-    // Pare-brise avant (à -Z = sens de marche)
-    const wind = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.42, 0.08), glassMat);
-    wind.position.set(0, 1.1, -0.88); g.add(wind);
+    } else if (type === 'car_sedan') {
+      // ── Berline : plus longue, plus basse, ligne 3 volumes ──
+      addBox(bodyMat, 1.95, 0.62, 4.4,  0,  0.51, 0);       // carrosserie
+      addBox(bodyMat, 1.75, 0.45, 2.2,  0,  1.00, -0.1);    // toit légèrement incliné
+      addBox(bodyMat, 1.95, 0.22, 1.0,  0,  0.72,  1.55);   // coffre surélevé
+      addBox(glass,   1.70, 0.38, 0.07, 0,  0.98, -1.16);   // pare-brise incliné
+      addBox(glass,   1.70, 0.38, 0.07, 0,  0.98,  1.00);   // lunette arrière
+      addBox(glass,   0.07, 0.35, 0.9,  0.88, 0.98, -0.1);  // vitre latérale G
+      addBox(glass,   0.07, 0.35, 0.9, -0.88, 0.98, -0.1);  // vitre latérale D
+      // Roues légèrement plus grandes
+      const wg = new THREE.CylinderGeometry(0.30, 0.30, 0.22, 10);
+      [[-1.02,-1.5],[-1.02,1.5],[1.02,-1.5],[1.02,1.5]].forEach(([dx,dz]) => {
+        const w = new THREE.Mesh(wg, darkMat); w.rotation.z = Math.PI/2;
+        w.position.set(dx, 0.30, dz); g.add(w);
+      });
+      // Jantes chrome
+      const rimG = new THREE.CylinderGeometry(0.17, 0.17, 0.23, 6);
+      [[-1.02,-1.5],[-1.02,1.5],[1.02,-1.5],[1.02,1.5]].forEach(([dx,dz]) => {
+        const r = new THREE.Mesh(rimG, chrome); r.rotation.z = Math.PI/2;
+        r.position.set(dx, 0.30, dz); g.add(r);
+      });
 
-    // Lunette arrière (à +Z = derrière)
-    const rear = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.42, 0.08), glassMat);
-    rear.position.set(0, 1.1, 1.1); g.add(rear);
-
-    // 4 roues  [X, Z] — avant à -Z, arrière à +Z
-    const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.2, 10);
-    [[-0.95, -1.2], [-0.95, 1.2], [0.95, -1.2], [0.95, 1.2]].forEach(([dx, dz]) => {
-      const w = new THREE.Mesh(wheelGeo, darkMat);
-      w.rotation.z = Math.PI / 2;
-      w.position.set(dx, 0.28, dz);
-      g.add(w);
-    });
+    } else { // car_sport
+      // ── Voiture sport : très basse, large, fastback, aileron, spoiler ──
+      addBox(bodyMat, 2.10, 0.48, 4.6,  0,  0.44, 0);       // carrosserie très basse
+      addBox(bodyMat, 1.90, 0.30, 1.6,  0,  0.82, -0.3);    // toit fastback court et bas
+      addBox(bodyMat, 2.10, 0.10, 0.5,  0,  0.44, -2.0);    // splitter avant
+      addBox(bodyMat, 2.10, 0.10, 0.5,  0,  0.44,  2.0);    // diffuseur arrière
+      // Aileron arrière
+      addBox(chrome,  2.10, 0.06, 0.55, 0,  1.02,  1.9);    // aile aileron
+      addBox(chrome,  0.06, 0.22, 0.18,-0.85, 0.90, 1.9);   // support G
+      addBox(chrome,  0.06, 0.22, 0.18, 0.85, 0.90, 1.9);   // support D
+      // Jupes latérales
+      addBox(darkMat, 0.08, 0.18, 3.8, -1.05, 0.29, 0);
+      addBox(darkMat, 0.08, 0.18, 3.8,  1.05, 0.29, 0);
+      // Pare-brise très incliné
+      addBox(glass,   1.85, 0.28, 0.07, 0, 0.80, -1.26);
+      addBox(glass,   1.85, 0.28, 0.07, 0, 0.80,  0.88);
+      addBox(glass,   0.07, 0.26, 0.70,  1.00, 0.80, -0.20);
+      addBox(glass,   0.07, 0.26, 0.70, -1.00, 0.80, -0.20);
+      // Phares avant (rouges/jaunes)
+      addBox(new THREE.MeshLambertMaterial({ color: 0xffee44 }), 0.45, 0.12, 0.06, -0.72, 0.52, -2.28);
+      addBox(new THREE.MeshLambertMaterial({ color: 0xffee44 }), 0.45, 0.12, 0.06,  0.72, 0.52, -2.28);
+      // Feux arrière rouges
+      addBox(new THREE.MeshLambertMaterial({ color: 0xff1100 }), 0.55, 0.14, 0.06, -0.75, 0.52, 2.28);
+      addBox(new THREE.MeshLambertMaterial({ color: 0xff1100 }), 0.55, 0.14, 0.06,  0.75, 0.52, 2.28);
+      // Roues larges et basses
+      const wg = new THREE.CylinderGeometry(0.33, 0.33, 0.28, 12);
+      [[-1.10,-1.6],[-1.10,1.6],[1.10,-1.6],[1.10,1.6]].forEach(([dx,dz]) => {
+        const w = new THREE.Mesh(wg, darkMat); w.rotation.z = Math.PI/2;
+        w.position.set(dx, 0.33, dz); g.add(w);
+      });
+      // Jantes sport à rayons
+      const rimG = new THREE.CylinderGeometry(0.20, 0.20, 0.29, 5);
+      [[-1.10,-1.6],[-1.10,1.6],[1.10,-1.6],[1.10,1.6]].forEach(([dx,dz]) => {
+        const r = new THREE.Mesh(rimG, chrome); r.rotation.z = Math.PI/2;
+        r.position.set(dx, 0.33, dz); g.add(r);
+      });
+    }
 
     return g;
   },
