@@ -58,9 +58,9 @@ const State = {
   wanted: 0,
   wantedDecayTimer: 0,
 
-  // Tâches de travail
-  jobTask: null,       // objet tâche en cours
-  jobTaskTimer: 0,     // temps avant la prochaine tâche
+  // Mode travail
+  inWorkMode: false,
+  inJobZone:  false,
 
   // Voiture conduite
   inCar: false,

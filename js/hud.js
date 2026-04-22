@@ -144,12 +144,18 @@ const HUD = {
     } else if (State.nearPickup) {
       hint.style.display = 'block';
       hint.textContent = 'Clic droit — Ramasser ' + State.nearPickup.name;
+    } else if (State.inJobZone && !State.inWorkMode) {
+      hint.style.display = 'block';
+      hint.textContent = 'T — Commencer le travail';
     } else {
       hint.style.display = 'none';
     }
 
-    // Panneau tâche de travail
-    this.updateJobTask();
+    // Masquer les panneaux de tâche (plus utilisés)
+    const jtp = document.getElementById('job-task-panel');
+    if (jtp) jtp.style.display = 'none';
+    const htb = document.getElementById('hold-t-bar');
+    if (htb) htb.style.display = 'none';
 
     // Étoiles wanted
     const wantedEl = document.getElementById('wanted-stars');

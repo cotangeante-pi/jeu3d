@@ -10,6 +10,7 @@ const World = {
     // Lumières
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambient);
+    State.ambient = ambient;
 
     const sun = new THREE.DirectionalLight(0xffffff, 1.0);
     sun.position.set(100, 200, 100);
@@ -23,6 +24,7 @@ const World = {
     sun.shadow.camera.top = 800;
     sun.shadow.camera.bottom = -800;
     scene.add(sun);
+    State.sun = sun;
 
     this._buildGround(scene);
     this._buildRiver(scene);
@@ -32,6 +34,47 @@ const World = {
     this._buildBorders();
     this._spawnFood(scene);
     this._buildBoats(scene);
+    this.updateDayNight(scene);
+  },
+
+  updateDayNight(scene) {
+    const now = new Date();
+    const hour = now.getHours() + now.getMinutes() / 60;
+
+    // Keyframes : [heure, ciel, brouillard, intensitéAmbiente, couleurAmbiente, intensitéSoleil, couleurSoleil]
+    const frames = [
+      { h:  0, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
+      { h:  5, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
+      { h:  6, sky: 0xff8833, fog: 0xcc5522, ambI: 0.25, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
+      { h:  7, sky: 0x87ceeb, fog: 0x87ceeb, ambI: 0.5,  ambC: 0xffffff, sunI: 1.0, sunC: 0xffffff },
+      { h: 19, sky: 0x87ceeb, fog: 0x87ceeb, ambI: 0.5,  ambC: 0xffffff, sunI: 1.0, sunC: 0xffffff },
+      { h: 20, sky: 0xff6622, fog: 0xcc4411, ambI: 0.25, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
+      { h: 21, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
+      { h: 24, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
+    ];
+
+    let f0 = frames[0], f1 = frames[1];
+    for (let i = 0; i < frames.length - 1; i++) {
+      if (hour >= frames[i].h && hour < frames[i + 1].h) {
+        f0 = frames[i]; f1 = frames[i + 1]; break;
+      }
+    }
+    const t = f1.h === f0.h ? 0 : (hour - f0.h) / (f1.h - f0.h);
+
+    function lerpHex(c0, c1, t) {
+      const r = Math.round(((c0 >> 16) & 0xff) + (((c1 >> 16) & 0xff) - ((c0 >> 16) & 0xff)) * t);
+      const g = Math.round(((c0 >>  8) & 0xff) + (((c1 >>  8) & 0xff) - ((c0 >>  8) & 0xff)) * t);
+      const b = Math.round(( c0        & 0xff) + (( c1        & 0xff) - ( c0        & 0xff)) * t);
+      return (r << 16) | (g << 8) | b;
+    }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    scene.background.setHex(lerpHex(f0.sky, f1.sky, t));
+    scene.fog.color.setHex(lerpHex(f0.fog, f1.fog, t));
+    State.ambient.color.setHex(lerpHex(f0.ambC, f1.ambC, t));
+    State.ambient.intensity = lerp(f0.ambI, f1.ambI, t);
+    State.sun.intensity = lerp(f0.sunI, f1.sunI, t);
+    State.sun.color.setHex(lerpHex(f0.sunC, f1.sunC, t));
   },
 
   _buildGround(scene) {

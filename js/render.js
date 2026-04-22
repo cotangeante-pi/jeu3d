@@ -42,9 +42,13 @@ const Render = {
       Player.update(delta);
       Cars.update(delta);
       Jobs.tick(delta);
+      Bakery.tick(delta);
+      WorkOverlay.tick(delta);
+      Athletics.tick(delta);
       Humans.update(delta);
       Fountain.update(delta);
-      State.gameTime += delta * 20; // 1s réelle = 20s in-game → 1h in-game ≈ 3min
+      Hand.update(delta);
+      State.gameTime += delta * 20;
       // Bateaux
       const riverHalf = CONFIG.RIVER_LENGTH / 2;
       State.boats.forEach(b => {
@@ -62,6 +66,7 @@ const Render = {
     }
 
     HUD.update();
+    World.updateDayNight(State.scene);
     State.renderer.render(State.scene, State.camera);
   }
 };

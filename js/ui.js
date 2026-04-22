@@ -19,25 +19,28 @@ const UI = {
       document.getElementById('dialog-box').style.display = 'none';
       this._reLock();
     });
+
+    document.getElementById('bk-exit-btn').addEventListener('click', () => Jobs.exitWork());
+    document.getElementById('bk-exit-btn').addEventListener('touchstart', e => { e.preventDefault(); Jobs.exitWork(); }, { passive: false });
   },
 
   togglePause() {
-    if (State.gameOver) return;
+    if (State.gameOver || State.inTutorial) return;
     State.paused = !State.paused;
     document.getElementById('pause-menu').style.display = State.paused ? 'flex' : 'none';
     if (State.paused) {
-      document.exitPointerLock();
       Poki.stop();
     } else {
-      this._reLock();
+      State.pointerLocked = true;
       Poki.start();
     }
   },
 
   showGameOver(reason) {
     if (State.gameOver) return;
+    if (State.inWorkMode) Jobs.exitWork();
     State.gameOver = true;
-    document.exitPointerLock();
+    State.pointerLocked = false;
     Poki.stop();
     document.getElementById('gameover-reason').textContent = reason;
     document.getElementById('gameover-overlay').style.display = 'flex';
@@ -110,32 +113,13 @@ const UI = {
       const isMyJob = State.currentJob && State.currentJob.id === job.id;
       descEl.textContent = `Poste : ${job.name} | Salaire : ${job.salary}$ / min | QI requis : ${job.iqRequired}`;
 
-      // Bouton livraison pommes (boulanger)
-      const task = State.jobTask;
-      if (isMyJob && task && task.type === 'fetch_apples' && task.phase === 'active') {
-        let apples = 0;
-        State.inventory.forEach(s => { if (s && s.name === 'Pomme') apples += s.count; });
-        const delivBtn = document.createElement('button');
-        delivBtn.textContent = `Livrer les pommes (${apples}/${task.required} en stock)`;
-        delivBtn.style.background = apples >= task.required ? '#1a6a1a' : '#555';
-        delivBtn.onclick = () => {
-          const ok = Jobs.tryDeliverApples();
-          if (ok) {
-            descEl.textContent = 'Livraison effectuée ! Bonus reçu.';
-            delivBtn.remove();
-          } else {
-            descEl.textContent = `Pas assez de pommes ! (${apples}/${task.required})`;
-          }
-        };
-        optDiv.appendChild(delivBtn);
-      }
-
       const btn = document.createElement('button');
       btn.textContent = isMyJob ? 'Tu travailles déjà ici' : 'Postuler';
       btn.onclick = () => {
         const ok = Interactions.applyForJob(npc);
         if (ok) {
-          descEl.textContent = `Félicitations ! Tu es maintenant ${job.name}.`;
+          const h = job.startHour !== undefined ? ` Tu travailleras de ${job.startHour}h à ${job.endHour}h.` : '';
+          descEl.textContent = `Félicitations ! Tu es maintenant ${job.name}.${h}`;
           btn.textContent = 'Tu travailles déjà ici';
         }
       };
@@ -272,8 +256,7 @@ const UI = {
 
   _reLock() {
     if (!State.paused && !State.gameOver) {
-      const canvas = document.getElementById('game-canvas');
-      canvas.requestPointerLock();
+      State.pointerLocked = true;
     }
   }
 };

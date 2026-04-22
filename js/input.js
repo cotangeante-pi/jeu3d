@@ -26,6 +26,14 @@ const Input = {
       if (e.code === 'KeyE')   Interactions.interact();
       if (e.code === 'Escape') UI.togglePause();
 
+      if (e.code === 'KeyT') {
+        if (State.inWorkMode) {
+          Jobs.exitWork();
+        } else if (State.inJobZone && State.currentJob) {
+          Jobs.enterWork();
+        }
+      }
+
       // F = entrer / sortir d'une voiture
       if (e.code === 'KeyF') {
         if (State.inCar) {

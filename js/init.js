@@ -10,7 +10,10 @@ function _startGame() {
   HUD.init();
   UI.init();
   Fountain.init(State.scene);
+  Hand.init();
   Render.animate();
+  Tutorial.init();
+  Tutorial.show();
 }
 
 // Attendre que le SDK de la plateforme soit prêt (Poki, CrazyGames, ou rien)

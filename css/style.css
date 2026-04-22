@@ -120,3 +120,226 @@ body {
 #dialog-options button:hover {
   background: #2a5aaa;
 }
+
+/* ── Bakery mini-game overlay ─────────────────────────── */
+#bakery-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #2b1000 0%, #5a2a0a 50%, #2b1000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+}
+
+#bk-box {
+  background: rgba(255, 230, 180, 0.08);
+  border: 1.5px solid rgba(255, 190, 80, 0.4);
+  border-radius: 16px;
+  padding: 32px;
+  width: 420px;
+  text-align: center;
+  color: #fff5e0;
+  font-family: Arial, sans-serif;
+}
+
+#bk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+#bk-header h2 { font-size: 1.5em; margin: 0; }
+
+#bk-exit-btn {
+  background: rgba(200, 60, 60, 0.35);
+  border: 1px solid rgba(255, 100, 100, 0.5);
+  color: #ffaaaa;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+#bk-exit-btn:hover { background: rgba(200, 60, 60, 0.6); }
+
+#bk-workspace {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 16px 0;
+}
+
+#bk-icon { font-size: 56px; margin-bottom: 12px; }
+#bk-label { font-size: 1.1em; font-weight: bold; margin-bottom: 16px; color: #ffe0a0; min-height: 28px; }
+
+#bk-track {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  height: 18px;
+  overflow: hidden;
+  margin: 12px 0 16px;
+}
+
+#bk-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c67c00, #ffd700);
+  border-radius: 8px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+#bk-action-btn {
+  background: linear-gradient(135deg, #b86800, #e09020);
+  border: none;
+  color: #fff;
+  font-size: 1.1em;
+  font-weight: bold;
+  padding: 14px 32px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-width: 180px;
+}
+
+#bk-action-btn:hover { filter: brightness(1.15); }
+#bk-action-btn:active { transform: scale(0.96); }
+
+#bk-dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.bk-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+.bk-dot.active { background: #ffd700; border-color: #ffd700; }
+.bk-dot.done   { background: #66ee66; border-color: #66ee66; }
+
+/* ── Tutoriel ─────────────────────────────────── */
+#tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#tutorial-skip {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #999;
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+#tutorial-skip:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+
+#tutorial-card {
+  background: #1a1a2e;
+  border: 2px solid #2e2e4e;
+  border-radius: 18px;
+  padding: 40px 44px;
+  width: 480px;
+  max-width: 92vw;
+  text-align: center;
+}
+
+#tutorial-icon {
+  font-size: 68px;
+  display: block;
+  margin-bottom: 18px;
+  line-height: 1;
+}
+
+#tutorial-title {
+  font-size: 1.55em;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+#tutorial-desc {
+  color: #b0b0c8;
+  font-size: 1em;
+  line-height: 1.55;
+  margin-bottom: 22px;
+  min-height: 48px;
+}
+
+#tutorial-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.tut-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #3a3a5a;
+  border-radius: 8px;
+  padding: 6px 14px;
+}
+
+.tut-key-badge {
+  background: #26264a;
+  border: 2px solid #4a4a7a;
+  border-bottom: 4px solid #18182e;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-family: monospace;
+  font-size: 0.92em;
+  font-weight: bold;
+  color: #e0e0ff;
+  min-width: 28px;
+  text-align: center;
+}
+
+.tut-key-label {
+  color: #aaa;
+  font-size: 0.88em;
+}
+
+#tutorial-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 480px;
+  max-width: 92vw;
+  margin-top: 18px;
+  padding: 0 2px;
+}
+
+#tutorial-progress {
+  color: #555;
+  font-size: 0.88em;
+}
+
+#tutorial-next {
+  background: #2d6e20;
+  border: none;
+  color: #fff;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#tutorial-next:hover { background: #3d8e30; }
