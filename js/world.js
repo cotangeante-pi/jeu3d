@@ -5,7 +5,7 @@ const World = {
 
     // Ciel et brouillard
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 300, 1400);
+    scene.fog = new THREE.Fog(0x87ceeb, 450, 1600);
 
     // Lumières
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
@@ -43,14 +43,14 @@ const World = {
 
     // Keyframes : [heure, ciel, brouillard, intensitéAmbiente, couleurAmbiente, intensitéSoleil, couleurSoleil]
     const frames = [
-      { h:  0, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
-      { h:  5, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
-      { h:  6, sky: 0xff8833, fog: 0xcc5522, ambI: 0.25, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
+      { h:  0, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+      { h:  5, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+      { h:  6, sky: 0xff8833, fog: 0xcc5522, ambI: 0.30, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
       { h:  7, sky: 0x87ceeb, fog: 0x87ceeb, ambI: 0.5,  ambC: 0xffffff, sunI: 1.0, sunC: 0xffffff },
       { h: 19, sky: 0x87ceeb, fog: 0x87ceeb, ambI: 0.5,  ambC: 0xffffff, sunI: 1.0, sunC: 0xffffff },
-      { h: 20, sky: 0xff6622, fog: 0xcc4411, ambI: 0.25, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
-      { h: 21, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
-      { h: 24, sky: 0x05051a, fog: 0x05051a, ambI: 0.08, ambC: 0x1a2050, sunI: 0.0, sunC: 0x000000 },
+      { h: 20, sky: 0xff6622, fog: 0xcc4411, ambI: 0.30, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
+      { h: 21, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+      { h: 24, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
     ];
 
     let f0 = frames[0], f1 = frames[1];

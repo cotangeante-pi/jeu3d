@@ -108,7 +108,7 @@ const UI = {
         optDiv.appendChild(btn);
       });
 
-    } else if (npc.type === 'employer') {
+    } else if (npc.job) {
       const job = npc.job;
       const isMyJob = State.currentJob && State.currentJob.id === job.id;
       descEl.textContent = `Poste : ${job.name} | Salaire : ${job.salary}$ / min | QI requis : ${job.iqRequired}`;

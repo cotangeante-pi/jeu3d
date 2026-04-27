@@ -10,6 +10,9 @@ const Jobs = {
     coach:      { xMin:  -4, xMax:   4, zMin:  84, zMax:  92 },
     worker:     { xMin: -32, xMax: -24, zMin: -50, zMax: -42 },
     nurse:      { xMin:  -4, xMax:   4, zMin: -78, zMax: -70 },
+    athlete:          { xMin: -46, xMax: -38, zMin:  0, zMax:  8 },
+    arena_athlete:    { xMin:  80, xMax:  88, zMin:  0, zMax:  8 },
+    circuit_vitesse:  { xMin:  80, xMax:  88, zMin: 28, zMax: 36 },
   },
 
   tick(delta) {
@@ -21,6 +24,7 @@ const Jobs = {
     if (State.salaryTimer >= CONFIG.SALARY_INTERVAL) {
       State.salaryTimer -= CONFIG.SALARY_INTERVAL;
       State.money += State.currentJob.salary;
+      Sound.coin();
       HUD.update();
       Save.write();
       this._notify(`Salaire : +${State.currentJob.salary}$`, '#88ff88');
@@ -41,20 +45,27 @@ const Jobs = {
   enterWork() {
     if (!State.currentJob || State.inWorkMode) return;
     const id = State.currentJob.id;
-    if (id === 'baker') { Bakery.enter();    return; }
-    if (id === 'coach') { Athletics.enter(); return; }
+    if (id === 'baker')            { Bakery3D.enter();                   return; }
+    if (id === 'coach')            { Athletics.enter();                  return; }
+    if (id === 'athlete')          { Athletisme.enter();                 return; }
+    if (id === 'arena_athlete')    { MondeTelepporte.enterAthletics();   return; }
+    if (id === 'circuit_vitesse')  { CircuitVitesse.enter();             return; }
     WorkOverlay.enter(id);
   },
 
   exitWork() {
     if (!State.inWorkMode) return;
     const id = State.currentJob ? State.currentJob.id : '';
-    if (id === 'baker') { Bakery.exit();    return; }
-    if (id === 'coach') { Athletics.exit(); return; }
+    if (id === 'baker')            { Bakery3D.exit();            return; }
+    if (id === 'coach')            { Athletics.exit();           return; }
+    if (id === 'athlete')          { Athletisme.exit();          return; }
+    if (id === 'arena_athlete')    { MondeTelepporte.exit();     return; }
+    if (id === 'circuit_vitesse')  { CircuitVitesse.exit();      return; }
     WorkOverlay.exit();
   },
 
   earnFromWork(amount) {
+    Sound.coin();
     State.money += amount;
     HUD.update();
     Save.write();
