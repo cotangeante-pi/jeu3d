@@ -5,11 +5,12 @@ const World = {
 
     // Ciel et brouillard
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 300, 1400);
+    scene.fog = new THREE.Fog(0x87ceeb, 450, 1600);
 
     // Lumières
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambient);
+    State.ambient = ambient;
 
     const sun = new THREE.DirectionalLight(0xffffff, 1.0);
     sun.position.set(100, 200, 100);
@@ -23,6 +24,7 @@ const World = {
     sun.shadow.camera.top = 800;
     sun.shadow.camera.bottom = -800;
     scene.add(sun);
+    State.sun = sun;
 
     this._buildGround(scene);
     this._buildRiver(scene);
@@ -32,6 +34,46 @@ const World = {
     this._buildBorders();
     this._spawnFood(scene);
     this._buildBoats(scene);
+    this.updateDayNight(scene);
+  },
+
+  updateDayNight(scene) {
+    const hour = (State.gameTime % 86400) / 3600;
+
+    // Keyframes : [heure, ciel, brouillard, intensitéAmbiente, couleurAmbiente, intensitéSoleil, couleurSoleil]
+    const frames = [
+      { h:  0, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+      { h:  5, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+      { h:  6, sky: 0xff8833, fog: 0xcc5522, ambI: 0.30, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
+      { h:  7, sky: 0x87ceeb, fog: 0x87ceeb, ambI: 0.5,  ambC: 0xffffff, sunI: 1.0, sunC: 0xffffff },
+      { h: 19, sky: 0x87ceeb, fog: 0x87ceeb, ambI: 0.5,  ambC: 0xffffff, sunI: 1.0, sunC: 0xffffff },
+      { h: 20, sky: 0xff6622, fog: 0xcc4411, ambI: 0.30, ambC: 0xff9966, sunI: 0.5, sunC: 0xff9944 },
+      { h: 21, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+      { h: 24, sky: 0x05051a, fog: 0x08082a, ambI: 0.22, ambC: 0x4466aa, sunI: 0.0, sunC: 0x000000 },
+    ];
+
+    let f0 = frames[0], f1 = frames[1];
+    for (let i = 0; i < frames.length - 1; i++) {
+      if (hour >= frames[i].h && hour < frames[i + 1].h) {
+        f0 = frames[i]; f1 = frames[i + 1]; break;
+      }
+    }
+    const t = f1.h === f0.h ? 0 : (hour - f0.h) / (f1.h - f0.h);
+
+    function lerpHex(c0, c1, t) {
+      const r = Math.round(((c0 >> 16) & 0xff) + (((c1 >> 16) & 0xff) - ((c0 >> 16) & 0xff)) * t);
+      const g = Math.round(((c0 >>  8) & 0xff) + (((c1 >>  8) & 0xff) - ((c0 >>  8) & 0xff)) * t);
+      const b = Math.round(( c0        & 0xff) + (( c1        & 0xff) - ( c0        & 0xff)) * t);
+      return (r << 16) | (g << 8) | b;
+    }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    scene.background.setHex(lerpHex(f0.sky, f1.sky, t));
+    scene.fog.color.setHex(lerpHex(f0.fog, f1.fog, t));
+    State.ambient.color.setHex(lerpHex(f0.ambC, f1.ambC, t));
+    State.ambient.intensity = lerp(f0.ambI, f1.ambI, t);
+    State.sun.intensity = lerp(f0.sunI, f1.sunI, t);
+    State.sun.color.setHex(lerpHex(f0.sunC, f1.sunC, t));
   },
 
   _buildGround(scene) {
@@ -55,14 +97,6 @@ const World = {
     bed.position.set(rx, -depth / 2, 0);
     scene.add(bed);
 
-    // Berges inclinées (talus de chaque côté)
-    const bankMat = new THREE.MeshLambertMaterial({ color: 0x4a7c3f });
-    [-1, 1].forEach(side => {
-      const bank = new THREE.Mesh(new THREE.BoxGeometry(6, depth + 0.3, rl), bankMat);
-      bank.position.set(rx + side * (rw / 2 + 3), -depth / 2, 0);
-      bank.rotation.z = side * 0.35;
-      scene.add(bank);
-    });
 
     // Surface de l'eau (semi-transparente)
     const surfMat = new THREE.MeshLambertMaterial({ color: 0x1a6fa8, transparent: true, opacity: 0.78 });
@@ -87,6 +121,8 @@ const World = {
     '28_28',  '28_42',  '28_-28', '28_70',
     '42_28',  '28_-42', '42_-28', '42_42',
     '42_70',  '42_-42', '42_0',   '0_84',
+    // Stade d'Athlétisme + Unicycle Hero Arena + Circuit Vitesse
+    '-42_0', '84_0', '84_28',
   ]),
 
   _buildCity(scene) {
@@ -308,14 +344,6 @@ const World = {
       d.rotation.x = -Math.PI / 2; d.position.set(dx, 0.09, roadZ); scene.add(d);
     }
 
-    // ── Culées béton aux rives (sous la chaussée) ──
-    [-1, 1].forEach(side => {
-      const bx = side === -1 ? rxMin - 0.5 : rxMax + 0.5;
-      const cul = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.8, roadW + 0.8), concreteMat);
-      cul.position.set(bx, 0.9, roadZ);
-      scene.add(cul);
-    });
-
     // ── Arches en acier (partent au-dessus des garde-corps → apex 11m) ──
     // L'arc démarre à y = archBase (> railH = 1.0) aux deux rives
     // et monte jusqu'à archTop au centre → aucune obstruction à l'entrée du pont
@@ -495,5 +523,6 @@ const World = {
         });
       }
     }
-  }
+  },
+
 };

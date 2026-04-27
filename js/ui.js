@@ -20,12 +20,12 @@ const UI = {
       this._reLock();
     });
 
-    document.getElementById('bk-exit-btn').addEventListener('click', () => Bakery.exit());
-    document.getElementById('bk-exit-btn').addEventListener('touchstart', e => { e.preventDefault(); Bakery.exit(); }, { passive: false });
+    document.getElementById('bk-exit-btn').addEventListener('click', () => Jobs.exitWork());
+    document.getElementById('bk-exit-btn').addEventListener('touchstart', e => { e.preventDefault(); Jobs.exitWork(); }, { passive: false });
   },
 
   togglePause() {
-    if (State.gameOver) return;
+    if (State.gameOver || State.inTutorial) return;
     State.paused = !State.paused;
     document.getElementById('pause-menu').style.display = State.paused ? 'flex' : 'none';
     if (State.paused) {
@@ -38,7 +38,7 @@ const UI = {
 
   showGameOver(reason) {
     if (State.gameOver) return;
-    if (State.inWorkMode) Bakery.exit();
+    if (State.inWorkMode) Jobs.exitWork();
     State.gameOver = true;
     State.pointerLocked = false;
     Poki.stop();
@@ -108,7 +108,7 @@ const UI = {
         optDiv.appendChild(btn);
       });
 
-    } else if (npc.type === 'employer') {
+    } else if (npc.job) {
       const job = npc.job;
       const isMyJob = State.currentJob && State.currentJob.id === job.id;
       descEl.textContent = `Poste : ${job.name} | Salaire : ${job.salary}$ / min | QI requis : ${job.iqRequired}`;

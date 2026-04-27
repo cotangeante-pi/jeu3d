@@ -117,6 +117,18 @@ const NPC = {
       id: 'employer_10', type: 'employer', name: 'Salle de Musculation', x: 0, z: 84, dir: 1,
       job: { id: 'coach', name: 'Coach sportif', salary: 22, iqRequired: 0, strengthRequired: 30, startHour: 7, endHour: 20 }
     },
+    {
+      id: 'employer_11', type: 'employer', name: 'Stade d\'Athlétisme', x: -42, z: 0, dir: 1,
+      job: { id: 'athlete', name: 'Athlète', salary: 30, iqRequired: 0, strengthRequired: 25, startHour: 8, endHour: 20 }
+    },
+    {
+      id: 'arena_athlete_1', type: 'arena_athlete', name: 'Arène d\'Athlétisme', x: 84, z: 0, dir: 1,
+      job: { id: 'arena_athlete', name: 'Athlète Arène', salary: 30, iqRequired: 0, strengthRequired: 0, startHour: 8, endHour: 22 }
+    },
+    {
+      id: 'car_race_1', type: 'car_race', name: 'Circuit Vitesse', x: 84, z: 28, dir: 1,
+      job: { id: 'circuit_vitesse', name: 'Pilote de Course', salary: 35, iqRequired: 0, strengthRequired: 0, startHour: 8, endHour: 22 }
+    },
   ],
 
   _list: [],
@@ -132,6 +144,8 @@ const NPC = {
     hospital:       { wall: 0xffffff, roof: 0xcc2222, floor: 0xf0f8ff, sign: '#aa0000' },
     gym:            { wall: 0xddeedd, roof: 0x224422, floor: 0xcceecc, sign: '#113311' },
     bank:           { wall: 0xf5f0e0, roof: 0x8b6914, floor: 0xece7d4, sign: '#6b4e0a' },
+    arena_athlete:  { wall: 0x0d1f0d, roof: 0x1a7a1a, floor: 0x163016, sign: '#44ee44' },
+    car_race:       { wall: 0x1c1010, roof: 0x991111, floor: 0x1a0d0d, sign: '#ff4444' },
   },
 
   init(scene) {
@@ -239,7 +253,7 @@ const NPC = {
   },
 
   _npcInside(scene, type, cx, npcZ) {
-    const cols = { merchant: 0xff8800, school: 0x0066cc, employer: 0xddaa00 };
+    const cols = { merchant: 0xff8800, school: 0x0066cc, employer: 0xddaa00, arena_athlete: 0x22dd44, car_race: 0xff3333 };
     const color = cols[type] || 0xffffff;
 
     const body = new THREE.Mesh(
@@ -359,6 +373,79 @@ const NPC = {
         new THREE.MeshLambertMaterial({ color: 0x556677 }));
       safe.position.set(cx + 3, 0.7, backZ + dir * 0.3);
       scene.add(safe);
+    } else if (type === 'arena_athlete') {
+      // Piste de course centrale (tartan rouge)
+      const tartanMat = new THREE.MeshLambertMaterial({ color: 0xaa2211 });
+      const tartan = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.03, 5.8), tartanMat);
+      tartan.position.set(cx, 0.02, midZ);
+      scene.add(tartan);
+      // Lignes de couloir (blanches)
+      const lineMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+      [-0.72, 0.72].forEach(ox => {
+        const line = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 5.8), lineMat);
+        line.position.set(cx + ox, 0.04, midZ);
+        scene.add(line);
+      });
+      // Barre de saut en hauteur : 2 poteaux + barre
+      const postMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+      const barMat  = new THREE.MeshLambertMaterial({ color: 0xf1c40f });
+      [-1.4, 1.4].forEach(ox => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.8, 8), postMat);
+        post.position.set(cx + ox, 0.9, backZ - dir * 2.2);
+        scene.add(post);
+      });
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.06, 0.06), barMat);
+      bar.position.set(cx, 1.6, backZ - dir * 2.2);
+      scene.add(bar);
+      // Podium 3 marches
+      const goldMat   = new THREE.MeshLambertMaterial({ color: 0xd4af37 });
+      const silverMat = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
+      const bronzeMat = new THREE.MeshLambertMaterial({ color: 0xcd7f32 });
+      const steps = [{ mat:goldMat,h:0.55,ox:0 },{ mat:silverMat,h:0.40,ox:-1.1 },{ mat:bronzeMat,h:0.28,ox:1.1 }];
+      steps.forEach(({ mat, h, ox }) => {
+        const step = new THREE.Mesh(new THREE.BoxGeometry(0.9, h, 0.8), mat);
+        step.position.set(cx + ox, h/2, midZ + dir * 1.8);
+        scene.add(step);
+      });
+    } else if (type === 'car_race') {
+      // Voiture de course exposée
+      const carMat  = new THREE.MeshLambertMaterial({ color: 0xdd1111 });
+      const darkMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+      const glassMat = new THREE.MeshLambertMaterial({ color: 0x88ccff, transparent: true, opacity: 0.6 });
+      const carBody = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 3.4), carMat);
+      carBody.position.set(cx, 0.45, midZ);
+      carBody.castShadow = true; scene.add(carBody);
+      const carTop = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.42, 1.6), carMat);
+      carTop.position.set(cx, 0.86, midZ + dir * 0.15);
+      scene.add(carTop);
+      [-1, 1].forEach(side => {
+        const wind = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.38, 0.07), glassMat);
+        wind.position.set(cx, 0.86, midZ + side * dir * 0.78);
+        wind.rotation.y = side * 0.22;
+        scene.add(wind);
+      });
+      const wheelGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 12);
+      [[-0.96, -1.2], [-0.96, 1.2], [0.96, -1.2], [0.96, 1.2]].forEach(([dx, dz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, darkMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(cx + dx, 0.25, midZ + dz * dir);
+        scene.add(wheel);
+      });
+      // Pile de pneus (déco)
+      const tireMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+      [-2.5, 2.5].forEach(ox => {
+        for (let i = 0; i < 3; i++) {
+          const tire = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.14, 6, 12), tireMat);
+          tire.rotation.x = Math.PI / 2;
+          tire.position.set(cx + ox, 0.14 + i * 0.29, backZ - dir * 1.2);
+          scene.add(tire);
+        }
+      });
+      // Podium
+      const podMat = new THREE.MeshLambertMaterial({ color: 0x998800 });
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), podMat);
+      pod.position.set(cx, 0.125, backZ - dir * 2.8);
+      scene.add(pod);
     } else if (type === 'cardeal') {
       // Voiture exposée dans le showroom
       const carColors = [0xcc2200, 0x2244cc, 0x228822, 0x111111, 0xcccccc];
