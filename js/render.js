@@ -43,10 +43,16 @@ const Render = {
       Cars.update(delta);
       Jobs.tick(delta);
       Bakery.tick(delta);
+      WorkOverlay.tick(delta);
+      Athletics.tick(delta);
+      Athletisme.tick(delta);
+      MondeTelepporte.tick(delta);
+      CircuitVitesse.tick(delta);
       Humans.update(delta);
       Fountain.update(delta);
       Hand.update(delta);
-      State.gameTime += delta * 20;
+      State.gameTime += delta * 60;
+      Sound.update(delta);
       // Bateaux
       const riverHalf = CONFIG.RIVER_LENGTH / 2;
       State.boats.forEach(b => {
@@ -64,6 +70,11 @@ const Render = {
     }
 
     HUD.update();
-    State.renderer.render(State.scene, State.camera);
+    if (!CircuitVitesse._active) World.updateDayNight(State.scene);
+    if (CircuitVitesse._active) {
+      State.renderer.render(CircuitVitesse._scene, CircuitVitesse._camera);
+    } else {
+      State.renderer.render(State.scene, State.camera);
+    }
   }
 };

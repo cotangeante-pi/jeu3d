@@ -42,6 +42,7 @@ const Interactions = {
   eat() {
     const item = State.inventory[State.selectedSlot];
     if (!item || item.type !== 'food') return;
+    Sound.eat();
     State.hunger = Math.min(100, State.hunger + item.hungerBonus);
     State.health = Math.min(100, State.health + item.healthBonus);
     item.count--;
@@ -52,6 +53,7 @@ const Interactions = {
 
   punch() {
     if (State.paused || State.gameOver) return;
+    Sound.punch();
     // Animation caméra
     const origPitch = State.pitch;
     State.pitch = Math.min(origPitch + 0.18, Math.PI / 2.2);
@@ -80,6 +82,7 @@ const Interactions = {
     State.money -= item.price;
     State.hunger = Math.min(100, State.hunger + item.hungerBonus);
     State.health = Math.min(100, State.health + (item.healthBonus || 0));
+    Sound.buy();
     HUD.update();
     Save.write();
     return true;
@@ -92,6 +95,7 @@ const Interactions = {
       return false;
     }
     State.money -= course.price;
+    Sound.buy();
     State.iq += course.iqGain;
     HUD.update();
     Save.write();
@@ -102,6 +106,7 @@ const Interactions = {
     if (State.money < car.price) { this._msg("Pas assez d'argent !"); return false; }
     if (State.badges.includes(car.badgeId)) { this._msg('Tu possèdes déjà ce véhicule !'); return false; }
     State.money -= car.price;
+    Sound.buy();
     State.badges.push(car.badgeId);
     Cars.onCarBought(car.badgeId);
     HUD.update();

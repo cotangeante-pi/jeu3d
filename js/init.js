@@ -1,4 +1,5 @@
 function _startGame() {
+  Sound.init();
   Render.init();
   Save.read();
   World.generate(State.scene);
@@ -12,6 +13,8 @@ function _startGame() {
   Fountain.init(State.scene);
   Hand.init();
   Render.animate();
+  Tutorial.init();
+  Tutorial.show();
 }
 
 // Attendre que le SDK de la plateforme soit prêt (Poki, CrazyGames, ou rien)

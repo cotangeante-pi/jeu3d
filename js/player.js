@@ -49,12 +49,38 @@ const Player = {
     if (len > 0) { moveX /= len; moveZ /= len; }
 
     const boosting = State.keys['ShiftLeft'] || State.keys['ShiftRight'];
-    const spd = CONFIG.PLAYER_SPEED * (boosting ? 2.0 : 1.0);
+
+    // --- Détection zone rivière ---
+    const rHalfW = CONFIG.RIVER_WIDTH / 2;
+    const rHalfL = CONFIG.RIVER_LENGTH / 2;
+    const isInRiverXZ = Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
+                        Math.abs(State.posZ) < rHalfL;
+    const onBridge = isInRiverXZ && State.bridgeZs &&
+                     State.bridgeZs.some(bz => Math.abs(State.posZ - bz) < CONFIG.GRID_STEP / 2);
+    const inWater = isInRiverXZ && !onBridge;
+    State.inWater = inWater;
+
+    // Vitesse réduite dans l'eau
+    const spd = CONFIG.PLAYER_SPEED * (boosting ? 2.0 : 1.0) * (inWater ? 0.4 : 1.0);
     State.velX = moveX * spd;
     State.velZ = moveZ * spd;
 
     // --- Gravité ---
     State.velY += CONFIG.GRAVITY * delta;
+
+    // --- Physique eau : flottabilité + nage ---
+    if (inWater) {
+      // Flottabilité et montée uniquement quand sous la surface
+      if (State.posY < CONFIG.PLAYER_HALF_H) {
+        State.velY += (-CONFIG.GRAVITY * 0.82) * delta;
+        // Nager vers le haut avec Espace / bouton saut
+        if (State.keys['Space']) {
+          State.velY = Math.min(State.velY + 10 * delta, 3.0);
+        }
+      }
+      // Limiter la vitesse verticale dans l'eau
+      State.velY = Math.max(-4, Math.min(State.velY, 3));
+    }
 
     // --- Collisions AABB (seulement les colliders proches) ---
     const nearColliders = State.colliders.filter(c => {
@@ -79,9 +105,14 @@ const Player = {
       State.posZ -= State.velZ * delta;
     }
 
-    // Test Y (sol)
+    // Test Y (sol ou fond de la rivière)
     State.posY += State.velY * delta;
-    const groundLevel = CONFIG.GROUND_Y + CONFIG.PLAYER_HALF_H;
+    // Bloquer à la surface de l'eau pour éviter de s'envoler
+    if (inWater && State.posY > CONFIG.PLAYER_HALF_H) {
+      State.posY = CONFIG.PLAYER_HALF_H;
+      if (State.velY > 0) State.velY = 0;
+    }
+    const groundLevel = (inWater ? -5 : CONFIG.GROUND_Y) + CONFIG.PLAYER_HALF_H;
     if (State.posY <= groundLevel) {
       State.posY = groundLevel;
       State.velY = 0;
@@ -90,43 +121,44 @@ const Player = {
       State.onGround = false;
     }
 
-    // ── Saut & escalade ──
-    if (State.keys['Space'] && State.onGround) {
-      State.velY = CONFIG.JUMP_FORCE;
-      State.onGround = false;
-      State.climbTimer = 0;
-      State.isClimbing = false;
-    } else if (State.keys['Space'] && !State.onGround) {
-      // Espace maintenu en l'air → escalade si un mur est devant
-      State.climbTimer += delta;
-      if (State.climbTimer > 0.55) {
-        // Teste s'il y a un mur à portée devant le joueur
-        const fwdX = -Math.sin(State.yaw) * 1.1;
-        const fwdZ = -Math.cos(State.yaw) * 1.1;
-        const testBox = new THREE.Box3(
-          new THREE.Vector3(State.posX + fwdX - 0.28, State.posY - 0.5, State.posZ + fwdZ - 0.28),
-          new THREE.Vector3(State.posX + fwdX + 0.28, State.posY + 1.5, State.posZ + fwdZ + 0.28)
-        );
-        const wallFound = nearColliders.some(c => c.intersectsBox(testBox));
-        if (wallFound) {
-          State.isClimbing = true;
-          State.velY = 2.8;
-        } else {
-          State.isClimbing = false;
+    // ── Saut & escalade (uniquement hors de l'eau) ──
+    if (!inWater) {
+      if (State.keys['Space'] && State.onGround) {
+        Sound.jump();
+        State.velY = CONFIG.JUMP_FORCE;
+        State.onGround = false;
+        State.climbTimer = 0;
+        State.isClimbing = false;
+      } else if (State.keys['Space'] && !State.onGround) {
+        // Espace maintenu en l'air → escalade si un mur est devant
+        State.climbTimer += delta;
+        if (State.climbTimer > 0.55) {
+          const fwdX = -Math.sin(State.yaw) * 1.1;
+          const fwdZ = -Math.cos(State.yaw) * 1.1;
+          const testBox = new THREE.Box3(
+            new THREE.Vector3(State.posX + fwdX - 0.28, State.posY - 0.5, State.posZ + fwdZ - 0.28),
+            new THREE.Vector3(State.posX + fwdX + 0.28, State.posY + 1.5, State.posZ + fwdZ + 0.28)
+          );
+          const wallFound = nearColliders.some(c => c.intersectsBox(testBox));
+          if (wallFound) {
+            State.isClimbing = true;
+            State.velY = 2.8;
+          } else {
+            State.isClimbing = false;
+          }
         }
+      } else {
+        State.climbTimer = 0;
+        State.isClimbing = false;
       }
     } else {
       State.climbTimer = 0;
       State.isClimbing = false;
     }
 
-    // --- Détection noyade : uniquement si la caméra passe sous la surface ---
-    const rHalfW  = CONFIG.RIVER_WIDTH / 2;
-    const rHalfL  = CONFIG.RIVER_LENGTH / 2;
-    const eyeY    = State.posY + (CONFIG.PLAYER_EYE_H - CONFIG.PLAYER_HALF_H);
-    const inRiver = Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
-                    Math.abs(State.posZ) < rHalfL;
-    State.isUnderwater = inRiver && eyeY < 0.1;  // sous la surface (y≈0.05)
+    // --- Détection noyade ---
+    const eyeY = State.posY + (CONFIG.PLAYER_EYE_H - CONFIG.PLAYER_HALF_H);
+    State.isUnderwater = inWater && eyeY < 0.1;
 
     // --- Drains ---
     if (State.isUnderwater) {

@@ -93,18 +93,12 @@ const Input = {
     hold(document.getElementById('btn-jump'),  'Space');
     hold(document.getElementById('btn-boost'), 'ShiftLeft');
 
-    // Bouton T : téléportation boulangerie ou hold normal
+    // Bouton T : entrer / sortir du mini-jeu de travail
     const btnWork = document.getElementById('btn-work');
     btnWork.addEventListener('touchstart', e => {
       e.preventDefault();
-      if (State.inWorkMode) { Bakery.exit(); return; }
-      const zone = Jobs._ZONES.baker;
-      if (State.currentJob && State.currentJob.id === 'baker' &&
-          State.posX >= zone.xMin && State.posX <= zone.xMax &&
-          State.posZ >= zone.zMin && State.posZ <= zone.zMax) {
-        const task = State.jobTask;
-        if (task && task.type === 'bakery_work' && task.phase === 'active') { Bakery.enter(); return; }
-      }
+      if (State.inWorkMode) { Jobs.exitWork(); return; }
+      if (State.inJobZone && State.currentJob) { Jobs.enterWork(); return; }
       State.keys['KeyT'] = true;
     }, { passive: false });
     btnWork.addEventListener('touchend', e => { e.preventDefault(); State.keys['KeyT'] = false; }, { passive: false });
@@ -145,15 +139,9 @@ const Input = {
       if (e.code === 'Escape') UI.togglePause();
       if (e.code === 'KeyT') {
         if (State.inWorkMode) {
-          Bakery.exit();
-        } else {
-          const zone = Jobs._ZONES.baker;
-          if (State.currentJob && State.currentJob.id === 'baker' &&
-              State.posX >= zone.xMin && State.posX <= zone.xMax &&
-              State.posZ >= zone.zMin && State.posZ <= zone.zMax) {
-            const task = State.jobTask;
-            if (task && task.type === 'bakery_work' && task.phase === 'active') Bakery.enter();
-          }
+          Jobs.exitWork();
+        } else if (State.inJobZone && State.currentJob) {
+          Jobs.enterWork();
         }
       }
       if (e.code === 'KeyF') {

@@ -5,11 +5,10 @@ const Humans = {
   _streetX: [],
   _streetZ: [],
 
-  // Offset sidewalk depuis le centre de la route (roadW/2 + sidewalkW/2 = 7 + 0.6)
+  // Offset trottoir depuis le centre de la route (roadW/2 + sidewalkW/2 = 7 + 0.8)
   SIDE_OFF: 7.8,
 
   init(scene) {
-    // Géométries et matériaux partagés — créés une seule fois pour tous les personnages
     this._sharedEyeGeo   = new THREE.BoxGeometry(0.055, 0.048, 0.04);
     this._sharedMouthGeo = new THREE.BoxGeometry(0.13,  0.033, 0.04);
     this._sharedHandGeo  = new THREE.BoxGeometry(0.13,  0.11,  0.14);
@@ -27,17 +26,12 @@ const Humans = {
       }
     }
 
-    // 60 piétons sur les trottoirs
     for (let i = 0; i < 60; i++) {
       this._pedestrians.push(this._spawnHuman(scene, false));
     }
-
-    // 12 policiers à pied
     for (let i = 0; i < 12; i++) {
       this._policeOnFoot.push(this._spawnHuman(scene, true));
     }
-
-    // 6 voitures de police
     for (let i = 0; i < 6; i++) {
       this._policeCars.push(this._spawnCar(scene));
     }
@@ -72,7 +66,6 @@ const Humans = {
     head.position.y = 1.72;
     g.add(head);
 
-    // Visage simple (géométries partagées — 0 RAM supplémentaire par personnage)
     const eyeL = new THREE.Mesh(this._sharedEyeGeo, this._sharedEyeMat);
     eyeL.position.set(-0.07, 1.755, 0.196);
     g.add(eyeL);
@@ -88,7 +81,6 @@ const Humans = {
 
     const legLPivot = new THREE.Group(); legLPivot.position.set(-0.13, 0.4, 0);
     const legL = new THREE.Mesh(legGeo, legMat); legL.position.y = -0.31; legLPivot.add(legL);
-    // Pied gauche (géométrie partagée, matériau chaussure partagé)
     const footL = new THREE.Mesh(this._sharedFootGeo, this._sharedShoeMat);
     footL.position.set(0, -0.665, 0.05);
     legLPivot.add(footL);
@@ -96,7 +88,6 @@ const Humans = {
 
     const legRPivot = new THREE.Group(); legRPivot.position.set(0.13, 0.4, 0);
     const legR = new THREE.Mesh(legGeo, legMat); legR.position.y = -0.31; legRPivot.add(legR);
-    // Pied droit
     const footR = new THREE.Mesh(this._sharedFootGeo, this._sharedShoeMat);
     footR.position.set(0, -0.665, 0.05);
     legRPivot.add(footR);
@@ -107,7 +98,6 @@ const Humans = {
 
     const armLPivot = new THREE.Group(); armLPivot.position.set(-0.33, 1.4, 0);
     const armL = new THREE.Mesh(armGeo, armMat); armL.position.y = -0.3; armLPivot.add(armL);
-    // Main gauche (même couleur peau que tête)
     const handL = new THREE.Mesh(this._sharedHandGeo, skinMat);
     handL.position.y = -0.655;
     armLPivot.add(handL);
@@ -115,7 +105,6 @@ const Humans = {
 
     const armRPivot = new THREE.Group(); armRPivot.position.set(0.33, 1.4, 0);
     const armR = new THREE.Mesh(armGeo, armMat); armR.position.y = -0.3; armRPivot.add(armR);
-    // Main droite
     const handR = new THREE.Mesh(this._sharedHandGeo, skinMat);
     handR.position.y = -0.655;
     armRPivot.add(handR);
@@ -139,12 +128,10 @@ const Humans = {
       badge.position.set(-0.1, 1.0, 0.17); g.add(badge);
     }
 
-    // Position initiale sur trottoir
     const { x, z, roadType, roadVal, sideDir } = this._randomSidewalkPos();
     g.position.set(x, 0, z);
     scene.add(g);
 
-    // ── Barre de vie au-dessus de la tête ──
     const BAR_W = 0.55;
     const hpBgMat   = new THREE.MeshBasicMaterial({ color: 0x222222 });
     const hpFillMat = new THREE.MeshBasicMaterial({ color: 0x22cc22 });
@@ -164,6 +151,9 @@ const Humans = {
       state: 'walking',
       pauseTimer: 0,
       alertTimer: 0,
+      arrestTimer: 0,    // durée consécutive en contact avec le joueur (arrestation)
+      pendingTurn: null, // tournant planifié à une intersection
+      hitCooldown: 0,    // anti-spam collision voiture
       walkTimer: Math.random() * Math.PI * 2,
       baseSpeed,
       speed: baseSpeed,
@@ -176,10 +166,33 @@ const Humans = {
     return h;
   },
 
-  // ── Inflige des dégâts à un humain (appelé depuis interactions.js) ──────────
+  // ── Inflige des dégâts à un humain ──────────────────────────────────────────
   damageHuman(h, amount) {
     if (!h) return;
     h.hp = Math.max(0, h.hp - amount);
+  },
+
+  // ── Collision voiture du joueur avec les piétons (appelé depuis cars.js) ────
+  checkCarHit(cx, cz, vx, vz) {
+    const speed = Math.hypot(vx, vz);
+    if (speed < 2) return;
+    this._pedestrians.forEach(h => {
+      if (h.hitCooldown > 0) return;
+      if (Math.hypot(h.x - cx, h.z - cz) > 2.2) return;
+      this.damageHuman(h, 35 + speed * 0.7);
+      h.hitCooldown = 2.0;
+      // Projette le piéton dans la direction de la voiture
+      const bAngle = Math.atan2(h.z - cz, h.x - cx);
+      h.state   = 'flee';
+      h.targetX = h.x + Math.cos(bAngle) * 22;
+      h.targetZ = h.z + Math.sin(bAngle) * 22;
+      h.speed   = h.baseSpeed * 2.5;
+      // 2 étoiles pour le 1er écrasement, 3 pour les suivants
+      if (State.wanted < 2) State.wanted = 2;
+      else State.wanted = Math.min(3, State.wanted + 1);
+      State.wantedDecayTimer = 0;
+      HUD.update();
+    });
   },
 
   // ─── Spawn voiture de police ─────────────────────────────────────────────────
@@ -203,35 +216,28 @@ const Humans = {
     const darkMat  = new THREE.MeshLambertMaterial({ color: 0x111111 });
     const glassMat = new THREE.MeshLambertMaterial({ color: 0x88ccff, transparent: true, opacity: 0.5 });
 
-    // Carrosserie
     const carBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 3.6), bodyMat);
     carBody.position.y = 0.55; carBody.castShadow = true; g.add(carBody);
 
-    // Bande bleue latérale (police)
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.22, 3.62),
       new THREE.MeshLambertMaterial({ color: 0x1a237e }));
     stripe.position.y = 0.55; g.add(stripe);
 
-    // Toit
     const carTop = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 2.0), bodyMat);
     carTop.position.set(0, 1.1, -0.1); g.add(carTop);
 
-    // Pare-brise
     const wind = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.42, 0.08), glassMat);
     wind.position.set(0, 1.1, 0.89); g.add(wind);
 
-    // Lunette arrière
     const rear = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.42, 0.08), glassMat);
     rear.position.set(0, 1.1, -1.1); g.add(rear);
 
-    // Gyrophare (rouge/bleu alternant via emissive)
     const sirenMat = new THREE.MeshLambertMaterial({
       color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.2
     });
     const siren = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.18, 0.32), sirenMat);
     siren.position.set(0, 1.44, -0.1); g.add(siren);
 
-    // 4 roues
     const wheelGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.2, 10);
     [[-0.95, -1.2], [-0.95, 1.2], [0.95, -1.2], [0.95, 1.2]].forEach(([dx, dz]) => {
       const w = new THREE.Mesh(wheelGeo, darkMat);
@@ -247,7 +253,7 @@ const Humans = {
       group: g, siren, sirenMat,
       x, z, roadType, roadVal, laneOff,
       targetX: x, targetZ: z,
-      state: 'cruise',   // 'cruise' | 'pursuing'
+      state: 'cruise',
       speed: 7.5,
       angle: 0,
       sirenTimer: 0,
@@ -274,16 +280,37 @@ const Humans = {
     return { x, z, roadType, roadVal, sideDir };
   },
 
-  // ─── Choisir prochain waypoint (piéton/policier à pied) ──────────────────────
+  // ─── Rue perpendiculaire la plus proche (pour détecter les intersections) ───
+  _getNearbyPerpStreet(h) {
+    const THRESHOLD = CONFIG.GRID_STEP * 0.45; // ~6.3 unités
+    if (h.roadType === 'v') {
+      // Sur rue verticale → cherche une rue horizontale proche en Z
+      for (const sz of this._streetZ) {
+        if (Math.abs(sz - h.z) < THRESHOLD) return sz;
+      }
+    } else {
+      // Sur rue horizontale → cherche une rue verticale proche en X
+      for (const sx of this._streetX) {
+        if (Math.abs(sx - h.x) < THRESHOLD) return sx;
+      }
+    }
+    return null;
+  },
+
+  // ─── Choisir prochain waypoint (piéton ou policier à pied) ──────────────────
   _pickWaypoint(h) {
     const cityR = CONFIG.CITY_RADIUS * 1.4;
+    h.pendingTurn = null;
 
     if (h.isPolice) {
-      // Policier : patrouille sur les rues, change parfois de route
+      // Policier : change parfois de trottoir, puis marche en ligne droite dessus
       if (Math.random() < 0.25) {
         h.roadType = Math.random() < 0.5 ? 'v' : 'h';
         h.roadVal  = this._randFrom(h.roadType === 'v' ? this._streetX : this._streetZ) || 14;
         h.sideDir  = Math.random() < 0.5 ? 1 : -1;
+        // Snap immédiat sur le nouveau trottoir (évite le mouvement diagonal)
+        if (h.roadType === 'v') h.x = h.roadVal + h.sideDir * this.SIDE_OFF;
+        else                    h.z = h.roadVal + h.sideDir * this.SIDE_OFF;
       }
       if (h.roadType === 'v') {
         h.targetX = h.roadVal + h.sideDir * this.SIDE_OFF;
@@ -296,11 +323,12 @@ const Humans = {
       return;
     }
 
-    // Piéton : comportements variés
+    // Piétons : comportements variés — tous axe-alignés (jamais de diagonal)
     const r = Math.random();
+    const nearPerp = this._getNearbyPerpStreet(h);
 
     if (r < 0.55) {
-      // Continue sur le même trottoir (dans la même direction ou un peu plus loin)
+      // Continuer sur le même trottoir
       if (h.roadType === 'v') {
         h.targetX = h.roadVal + h.sideDir * this.SIDE_OFF;
         h.targetZ = h.z + (Math.random() < 0.5 ? 1 : -1) * (8 + Math.random() * 28);
@@ -309,29 +337,47 @@ const Humans = {
         h.targetX = h.x + (Math.random() < 0.5 ? 1 : -1) * (8 + Math.random() * 28);
       }
       h.state = 'walking';
-    } else if (r < 0.78) {
-      // Tourne sur un trottoir perpendiculaire à l'intersection suivante
-      const perpType = h.roadType === 'v' ? 'h' : 'v';
-      const perpArr  = perpType === 'v' ? this._streetX : this._streetZ;
-      if (perpArr.length > 0) {
-        h.roadType = perpType;
-        h.roadVal  = this._randFrom(perpArr);
-        h.sideDir  = Math.random() < 0.5 ? 1 : -1;
+
+    } else if (r < 0.65) {
+      // Traverser la rue (vers le trottoir opposé)
+      const newSideDir = -h.sideDir;
+      if (h.roadType === 'v') {
+        h.targetX = h.roadVal + newSideDir * this.SIDE_OFF;
+        h.targetZ = h.z; // Z fixe pendant la traversée
+      } else {
+        h.targetZ = h.roadVal + newSideDir * this.SIDE_OFF;
+        h.targetX = h.x; // X fixe pendant la traversée
       }
+      h.sideDir = newSideDir;
+      h.speed   = h.baseSpeed * 1.4;
+      h.state   = 'crossing';
+
+    } else if (r < 0.78 && nearPerp !== null) {
+      // Tourner à une intersection : planifie un waypoint intermédiaire
+      // 1. marche jusqu'à l'intersection (axe courant)
+      // 2. une fois arrivé, tourne sur la nouvelle rue
       if (h.roadType === 'v') {
         h.targetX = h.roadVal + h.sideDir * this.SIDE_OFF;
-        h.targetZ = (Math.random() - 0.5) * cityR;
+        h.targetZ = nearPerp;
       } else {
         h.targetZ = h.roadVal + h.sideDir * this.SIDE_OFF;
-        h.targetX = (Math.random() - 0.5) * cityR;
+        h.targetX = nearPerp;
       }
+      h.pendingTurn = {
+        newRoadType: h.roadType === 'v' ? 'h' : 'v',
+        newRoadVal:  nearPerp,
+        newSideDir:  Math.random() < 0.5 ? 1 : -1,
+      };
       h.state = 'walking';
-    } else if (r < 0.9) {
-      // S'arrête devant une vitrine / boutique
-      h.state    = 'pausing';
+
+    } else if (r < 0.90) {
+      // S'arrêter devant une vitrine
+      h.state      = 'pausing';
       h.pauseTimer = 1.5 + Math.random() * 5;
+      return;
+
     } else {
-      // Rebrousse chemin
+      // Rebrousser chemin sur le même trottoir
       if (h.roadType === 'v') {
         h.targetX = h.roadVal + h.sideDir * this.SIDE_OFF;
         h.targetZ = h.z - (Math.random() * 15 + 5);
@@ -342,36 +388,30 @@ const Humans = {
       h.state = 'walking';
     }
 
-    // Clamp dans les limites de la ville
     h.targetX = Math.max(-cityR, Math.min(cityR, h.targetX));
     h.targetZ = Math.max(-cityR, Math.min(cityR, h.targetZ));
   },
 
-  // ─── Choisir prochain waypoint pour une voiture (toujours sur route) ─────────
+  // ─── Choisir prochain waypoint pour une voiture de police ───────────────────
   _pickCarWaypoint(car) {
     const step  = CONFIG.GRID_STEP;
     const cityR = CONFIG.CITY_RADIUS;
-    // Avance de 3 à 6 blocs sur la route courante, puis tourne parfois
     const blocksAhead = (3 + Math.floor(Math.random() * 4)) * step;
     const dir = Math.random() < 0.5 ? 1 : -1;
 
     if (car.roadType === 'v') {
-      // Avance le long de Z sur la route verticale
       car.targetX = car.roadVal + car.laneOff;
       car.targetZ  = Math.max(-cityR, Math.min(cityR, car.z + dir * blocksAhead));
     } else {
-      // Avance le long de X sur la route horizontale
       car.targetZ  = car.roadVal + car.laneOff;
       car.targetX  = Math.max(-cityR, Math.min(cityR, car.x + dir * blocksAhead));
     }
   },
 
-  // ─── Tourne la voiture à l'intersection si proche ─────────────────────────────
+  // ─── Tourne la voiture de police à l'intersection ───────────────────────────
   _tryCarTurn(car) {
-    const step    = CONFIG.GRID_STEP;
-    if (Math.random() > 0.35) return; // 35 % de chance de tourner
+    if (Math.random() > 0.35) return;
     if (car.roadType === 'v') {
-      // Cherche la rue horizontale la plus proche
       const nearZ = this._streetZ.reduce((best, sz) =>
         Math.abs(sz - car.z) < Math.abs(best - car.z) ? sz : best, this._streetZ[0]);
       if (nearZ !== undefined && Math.abs(nearZ - car.z) < 3) {
@@ -393,7 +433,7 @@ const Humans = {
     this._pickCarWaypoint(car);
   },
 
-  // ─── Humain le plus proche dans un rayon ─────────────────────────────────────
+  // ─── Humain le plus proche dans un rayon ────────────────────────────────────
   getNearestHuman(px, pz, range) {
     let best = null, bestDist = range;
     [...this._pedestrians, ...this._policeOnFoot].forEach(h => {
@@ -403,31 +443,24 @@ const Humans = {
     return best;
   },
 
-  // ─── Update principal ─────────────────────────────────────────────────────────
+  // ─── Update principal ────────────────────────────────────────────────────────
   update(delta) {
     if (State.paused || State.gameOver) return;
-
     this._pedestrians.forEach(h  => this._tickHuman(h, delta, false));
     this._policeOnFoot.forEach(h => this._tickHuman(h, delta, true));
     this._policeCars.forEach(car => this._tickCar(car, delta));
-
     this._updateWanted(delta);
   },
 
-  // ─── Gestion décroissance wanted + arrestation ────────────────────────────────
+  // ─── Décroissance wanted + arrestation après 5 secondes ─────────────────────
   _updateWanted(delta) {
     if (State.wanted <= 0) return;
 
-    // Distance minimale à tous les policiers
-    const allPolice = [
-      ...this._policeOnFoot,
-      ...this._policeCars,
-    ];
+    const allPolice = [...this._policeOnFoot, ...this._policeCars];
     const minDist = allPolice.reduce((min, p) => {
       return Math.min(min, Math.hypot((p.x || 0) - State.posX, (p.z || 0) - State.posZ));
     }, Infinity);
 
-    // Hors de vue de la police → le wanted décroît après 15s
     if (minDist > 28) {
       State.wantedDecayTimer += delta;
       if (State.wantedDecayTimer >= 15) {
@@ -439,27 +472,32 @@ const Humans = {
       State.wantedDecayTimer = 0;
     }
 
-    // Arrestation : policier à pied en mode chase qui touche le joueur
+    // Arrestation : le policier doit rester sur le joueur 5 secondes consécutives
     this._policeOnFoot.forEach(h => {
-      if (h.state !== 'chase') return;
-      if (Math.hypot(h.x - State.posX, h.z - State.posZ) < 1.8) {
-        // Arrêté : amende + dégâts + wanted retiré
-        State.health = Math.max(0, State.health - 15);
-        State.money  = Math.max(0, State.money  - 100);
-        State.wanted = 0;
-        State.wantedDecayTimer = 0;
-        h.state = 'walking';
-        this._pickWaypoint(h);
-        HUD.update();
-        Save.write();
+      if (h.state !== 'chase') { h.arrestTimer = 0; return; }
+      const dist = Math.hypot(h.x - State.posX, h.z - State.posZ);
+      if (dist < 1.8) {
+        h.arrestTimer += delta;
+        if (h.arrestTimer >= 5) {
+          State.health = Math.max(0, State.health - 15);
+          State.money  = Math.max(0, State.money  - 100);
+          State.wanted = 0;
+          State.wantedDecayTimer = 0;
+          h.arrestTimer = 0;
+          h.state = 'walking';
+          this._pickWaypoint(h);
+          HUD.update();
+          Save.write();
+        }
+      } else {
+        h.arrestTimer = 0; // reset si le joueur s'échappe
       }
     });
   },
 
-  // ─── Mise à jour barre de vie ─────────────────────────────────────────────────
+  // ─── Mise à jour barre de vie ────────────────────────────────────────────────
   _updateHpBar(h) {
     const pct = Math.max(0, h.hp / h.maxHp);
-    // Orienter vers la caméra
     const camX = State.camera.position.x;
     const camZ = State.camera.position.z;
     const ang  = Math.atan2(camX - h.x, camZ - h.z);
@@ -467,7 +505,6 @@ const Humans = {
     h.hpBg.position.set(h.x, 2.35, h.z);
     h.hpBg.rotation.y = ang;
 
-    // Décaler le fill pour qu'il parte de la gauche
     const sinA = Math.sin(ang), cosA = Math.cos(ang);
     const offset = -h.hpBarW / 2 * (1 - pct);
     h.hpFill.position.set(h.x + sinA * offset, 2.35, h.z + cosA * offset);
@@ -478,14 +515,14 @@ const Humans = {
     else if (pct > 0.3) h.hpFillMat.color.setHex(0xffaa00);
     else                h.hpFillMat.color.setHex(0xcc2222);
 
-    // Masquer si plein
-    h.hpBg.visible   = pct < 1.0;
-    h.hpFill.visible  = pct < 1.0;
+    h.hpBg.visible  = pct < 1.0;
+    h.hpFill.visible = pct < 1.0;
   },
 
-  // ─── Tick humain (piéton ou policier) ────────────────────────────────────────
+  // ─── Tick humain ─────────────────────────────────────────────────────────────
   _tickHuman(h, delta, isPolice) {
     h.walkTimer += delta;
+    if (h.hitCooldown > 0) h.hitCooldown -= delta;
     this._updateHpBar(h);
 
     const pdx = State.posX - h.x;
@@ -494,14 +531,13 @@ const Humans = {
 
     // ── Réaction au joueur ──
     if (isPolice) {
-      const detectionRange = 10 + State.wanted * 5; // augmente avec le niveau wanted
+      const detectionRange = 10 + State.wanted * 5;
       if (State.wanted > 0 && playerDist < detectionRange && h.state !== 'chase') {
         h.state      = 'chase';
         h.alertTimer = 10;
       }
       if (h.state === 'chase') {
         if (State.wanted <= 0) {
-          // Pardonne si le wanted est retombé à 0
           h.state = 'walking';
           h.speed = h.baseSpeed;
           this._pickWaypoint(h);
@@ -520,7 +556,7 @@ const Humans = {
         h.speed = h.baseSpeed;
       }
     } else {
-      // Piéton : fuite si le joueur est très proche
+      // Piéton : fuit si le joueur est très proche
       if (playerDist < 3.5 && h.state !== 'flee') {
         h.state = 'flee';
         const fleeAngle = Math.atan2(h.z - State.posZ, h.x - State.posX);
@@ -533,16 +569,14 @@ const Humans = {
         h.speed = h.baseSpeed;
         this._pickWaypoint(h);
       }
-      // Accélère légèrement si joueur est à portée visuelle
       if (h.state === 'walking') {
         h.speed = playerDist < 9 ? h.baseSpeed * 1.25 : h.baseSpeed;
       }
     }
 
-    // ── État pause (regarder vitrine) ──
+    // ── État pause ──
     if (h.state === 'pausing') {
       h.pauseTimer -= delta;
-      // Membres s'arrêtent doucement
       h.legLPivot.rotation.x *= 0.82;
       h.legRPivot.rotation.x *= 0.82;
       h.armLPivot.rotation.x *= 0.82;
@@ -554,18 +588,45 @@ const Humans = {
       return;
     }
 
+    // ── Snap sur le trottoir pour éviter de couper à travers les bâtiments ──
+    // Uniquement en mode marche normale (pas fuite, pas traversée)
+    if (h.state === 'walking') {
+      if (h.roadType === 'v') h.x = h.roadVal + h.sideDir * this.SIDE_OFF;
+      else                    h.z = h.roadVal + h.sideDir * this.SIDE_OFF;
+    }
+
     // ── Déplacement ──
     const dx   = h.targetX - h.x;
     const dz   = h.targetZ - h.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
     if (dist < 0.5) {
+      // Waypoint atteint
+      if (h.state === 'crossing') {
+        // Traversée terminée : reprendre la marche normale
+        h.state = 'walking';
+        h.speed = h.baseSpeed;
+        this._pickWaypoint(h);
+        return;
+      }
+      if (h.pendingTurn) {
+        // Appliquer le tournant planifié à l'intersection
+        const t   = h.pendingTurn;
+        h.pendingTurn = null;
+        h.roadType = t.newRoadType;
+        h.roadVal  = t.newRoadVal;
+        h.sideDir  = t.newSideDir;
+        // Snap sur le nouveau trottoir
+        if (h.roadType === 'v') h.x = h.roadVal + h.sideDir * this.SIDE_OFF;
+        else                    h.z = h.roadVal + h.sideDir * this.SIDE_OFF;
+        this._pickWaypoint(h);
+        return;
+      }
       if (h.state === 'flee') {
         h.state = 'walking';
         h.speed = h.baseSpeed;
       }
       if (!isPolice && h.state !== 'chase') {
-        // Petite pause naturelle 30% du temps
         if (Math.random() < 0.3) {
           h.state      = 'pausing';
           h.pauseTimer = 0.4 + Math.random() * 1.8;
@@ -586,7 +647,7 @@ const Humans = {
     h.group.rotation.y = Math.atan2(nx, nz);
 
     // ── Animation membres ──
-    const isFleeing = h.state === 'flee' || (isPolice && h.state === 'chase');
+    const isFleeing = h.state === 'flee' || h.state === 'crossing' || (isPolice && h.state === 'chase');
     const swingFreq = isFleeing ? 9 : 5;
     const swingAmt  = isFleeing ? 0.7 : 0.45;
     const swing = Math.sin(h.walkTimer * swingFreq) * swingAmt;
@@ -596,11 +657,10 @@ const Humans = {
     h.armRPivot.rotation.x =  swing * 0.55;
   },
 
-  // ─── Tick voiture de police ───────────────────────────────────────────────────
+  // ─── Tick voiture de police ──────────────────────────────────────────────────
   _tickCar(car, delta) {
     car.sirenTimer += delta;
 
-    // Gyrophare rouge/bleu clignotant (4 Hz)
     if (Math.floor(car.sirenTimer * 4) % 2 === 0) {
       car.sirenMat.color.setHex(0xff0000);
       car.sirenMat.emissive.setHex(0xff0000);
@@ -609,7 +669,6 @@ const Humans = {
       car.sirenMat.emissive.setHex(0x0033ff);
     }
 
-    // Détection joueur (seulement si wanted >= 2)
     const pdx = State.posX - car.x;
     const pdz = State.posZ - car.z;
     const playerDist = Math.sqrt(pdx * pdx + pdz * pdz);
@@ -629,7 +688,6 @@ const Humans = {
       tZ    = State.posZ + State.velZ * 0.5;
       speed = car.speed * 1.5;
     } else {
-      // Snap à la route pour ne pas traverser les bâtiments
       if (car.roadType === 'v') {
         car.x = car.roadVal + car.laneOff;
       } else {
@@ -656,7 +714,6 @@ const Humans = {
     car.x += nx * speed * delta;
     car.z += nz * speed * delta;
 
-    // Rotation progressive (inertie de virage)
     const wantAngle = Math.atan2(nx, nz);
     let angleDiff   = wantAngle - car.angle;
     while (angleDiff >  Math.PI) angleDiff -= Math.PI * 2;

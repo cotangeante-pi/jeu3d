@@ -1,13 +1,21 @@
 const Hand = {
   _group: null,
   _apple: null,
-  _punchT: 0,
-  _idleT:  0,
+  _punchT: 0,     // 1→0 pendant l'animation de frappe
+  _idleT:  0,     // temps absolu (respiration)
+  _walkT:  0,     // phase de marche (s'accumule selon la vitesse)
+  _landT:  0,     // 1→0 choc d'atterrissage
+  _airT:   0,     // temps passé en l'air (pour animation saut)
+  _wasOnGround: true,
+
+  BASE_X:  0.27,
+  BASE_Y: -0.30,
+  BASE_Z: -0.52,
+  BASE_RX: 0.15,
 
   init() {
     const skinMat   = new THREE.MeshLambertMaterial({ color: 0xd4956a });
     const sleeveMat = new THREE.MeshLambertMaterial({ color: 0x334488 });
-
     const g = new THREE.Group();
 
     // Manche / avant-bras
@@ -20,7 +28,7 @@ const Hand = {
     wrist.position.z = -0.02;
     g.add(wrist);
 
-    // Poing
+    // Poing principal
     const fist = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.13), skinMat);
     fist.position.z = -0.1;
     g.add(fist);
@@ -30,17 +38,23 @@ const Hand = {
     thumb.position.set(-0.08, 0.02, -0.1);
     g.add(thumb);
 
-    // Pomme tenue en main (sphère rouge, cachée par défaut)
-    const appleMat = new THREE.MeshLambertMaterial({ color: 0xcc2200 });
+    // Doigts (4 petits rectangles sur le dessus du poing)
+    for (let i = 0; i < 4; i++) {
+      const finger = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.042, 0.048), skinMat);
+      finger.position.set(-0.044 + i * 0.03, 0.082, -0.1);
+      g.add(finger);
+    }
+
+    // Pomme tenue en main (cachée par défaut)
+    const appleMat  = new THREE.MeshLambertMaterial({ color: 0xcc2200 });
     const appleMesh = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), appleMat);
     appleMesh.position.set(0.01, 0.10, -0.14);
     appleMesh.visible = false;
     g.add(appleMesh);
     this._apple = appleMesh;
 
-    // Positon en bas à droite de la caméra
-    g.position.set(0.27, -0.30, -0.52);
-    g.rotation.x = 0.15;
+    g.position.set(this.BASE_X, this.BASE_Y, this.BASE_Z);
+    g.rotation.x = this.BASE_RX;
     this._group = g;
 
     State.scene.add(State.camera);
@@ -53,48 +67,94 @@ const Hand = {
 
   update(delta) {
     if (!this._group) return;
+    const g = this._group;
+    // Cacher la main en voiture
+    g.visible = !State.inCar;
+    if (State.inCar) return;
     this._idleT += delta;
 
-    // Pomme visible si item sélectionné = Pomme et pas en train de frapper
-    const selected = State.inventory[State.selectedSlot];
-    this._apple.visible = !!(selected && selected.name === 'Pomme' && this._punchT <= 0);
-
-    const moving   = Math.abs(State.velX) > 0.1 || Math.abs(State.velZ) > 0.1;
-    const boosting = State.keys['ShiftLeft'] || State.keys['ShiftRight'];
-
-    if (this._punchT > 0) {
-      // Animation frappe
-      this._punchT -= delta * 7;
-      const t = Math.sin(Math.max(0, this._punchT) * Math.PI);
-      this._group.position.set(0.27, -0.30 + t * 0.04, -0.52 - t * 0.22);
-      this._group.rotation.x = 0.15 - t * 0.3;
-      this._group.rotation.z = 0;
-    } else {
-      this._punchT = 0;
-
-      if (moving) {
-        // Animation course : balancement vertical et latéral rythmé
-        const freq    = boosting ? 9.0 : 6.0;
-        const ampY    = boosting ? 0.035 : 0.022;
-        const ampX    = boosting ? 0.018 : 0.010;
-        const t       = this._idleT * freq;
-        this._group.position.set(
-          0.27 + Math.sin(t * 0.5) * ampX,
-          -0.30 + Math.sin(t) * ampY,
-          -0.52 + Math.sin(t * 0.5) * 0.005
-        );
-        this._group.rotation.x = 0.15 + Math.sin(t) * 0.06;
-        this._group.rotation.z =        Math.sin(t * 0.5) * 0.04;
-      } else {
-        // Oscillation idle légère (respiration)
-        this._group.position.set(
-          0.27,
-          -0.30 + Math.sin(this._idleT * 1.1) * 0.007,
-          -0.52 + Math.sin(this._idleT * 1.4) * 0.004
-        );
-        this._group.rotation.x = 0.15 + Math.sin(this._idleT * 0.9) * 0.01;
-        this._group.rotation.z = 0;
-      }
+    // Pomme visible si item sélectionné = Pomme et pas en frappe
+    if (this._apple) {
+      const sel = State.inventory && State.inventory[State.selectedSlot];
+      this._apple.visible = !!(sel && sel.name === 'Pomme' && this._punchT <= 0);
     }
+
+    // État du joueur
+    const vx       = State.velX || 0;
+    const vz       = State.velZ || 0;
+    const speed    = Math.sqrt(vx * vx + vz * vz);
+    const isMoving = speed > 0.5;
+    const isSprint = isMoving && (State.keys['ShiftLeft'] || State.keys['ShiftRight']);
+    const onGround = State.onGround !== false;
+
+    // Détection atterrissage
+    if (!this._wasOnGround && onGround) {
+      this._landT = 1.0;
+    }
+    this._wasOnGround = onGround;
+    if (this._landT > 0) this._landT = Math.max(0, this._landT - delta * 6);
+
+    // Temps en l'air (pour pencher la main vers le bas lors du saut)
+    if (!onGround) {
+      this._airT += delta;
+    } else {
+      this._airT = 0;
+    }
+
+    // Phase de marche : s'accumule selon la cadence
+    if (isMoving && onGround) {
+      this._walkT += delta * (isSprint ? 9.5 : 5.5);
+    }
+
+    // --- Animation frappe ---
+    if (this._punchT > 0) {
+      this._punchT = Math.max(0, this._punchT - delta * 7);
+      const t = Math.sin(this._punchT * Math.PI);
+      g.position.set(this.BASE_X, this.BASE_Y + t * 0.04, this.BASE_Z - t * 0.22);
+      g.rotation.x = this.BASE_RX - t * 0.3;
+      g.rotation.z = 0;
+      return;
+    }
+
+    // --- Amplitudes selon l'état ---
+    let bobAmp, swayAmp, fwdAmp, rotAmp;
+    if (!onGround) {
+      // En l'air : main légèrement vers le bas (gravité visuelle)
+      bobAmp = 0.006; swayAmp = 0.003; fwdAmp = 0.004; rotAmp = 0.03;
+    } else if (isSprint) {
+      // Course : pompage prononcé
+      bobAmp = 0.042; swayAmp = 0.020; fwdAmp = 0.030; rotAmp = 0.20;
+    } else if (isMoving) {
+      // Marche : bob modéré
+      bobAmp = 0.018; swayAmp = 0.009; fwdAmp = 0.013; rotAmp = 0.09;
+    } else {
+      // Idle : seulement la respiration
+      bobAmp = 0; swayAmp = 0; fwdAmp = 0; rotAmp = 0;
+    }
+
+    // Oscillations de marche (cycle complet = 2 pas)
+    const bob  = Math.sin(this._walkT)       * bobAmp;
+    const sway = Math.sin(this._walkT * 0.5) * swayAmp;
+    const fwd  = Math.cos(this._walkT)       * fwdAmp;
+    const rotX = Math.sin(this._walkT)       * rotAmp;
+
+    // Respiration (toujours présente, faible amplitude)
+    const breathY  = Math.sin(this._idleT * 1.1) * 0.007;
+    const breathZ  = Math.sin(this._idleT * 1.4) * 0.004;
+    const breathRX = Math.sin(this._idleT * 0.9) * 0.010;
+
+    // Choc d'atterrissage : main descend brusquement puis remonte
+    const land = this._landT > 0 ? Math.sin(this._landT * Math.PI) * 0.055 : 0;
+
+    // En l'air : légère inclinaison vers le bas proportionnelle au temps de vol
+    const airDrop = Math.min(this._airT * 0.04, 0.03);
+
+    g.position.set(
+      this.BASE_X + sway,
+      this.BASE_Y + bob + breathY - land - airDrop,
+      this.BASE_Z + fwd + breathZ
+    );
+    g.rotation.x = this.BASE_RX + rotX + breathRX;
+    g.rotation.z = -sway * 1.8;
   }
 };

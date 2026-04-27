@@ -74,9 +74,27 @@ const MondeTelepporte = {
     { id:'hurdles',  name:'🚧 110m Haies',       hint:'Course auto · Espace pour sauter les haies !' },
   ],
 
+  _ARENA_BEST_KEY: 'arena_ath_best',
+
+  _athEventScore(evId, perf) {
+    if (evId === 'sprint')   return Math.max(0, Math.round(100 * (1 - Math.max(0, perf - 3) / 9)));
+    if (evId === 'longjump') return Math.max(0, Math.round(perf * 100));
+    if (evId === 'highjump') return Math.max(0, Math.round(perf * 100));
+    if (evId === 'hurdles')  return Math.max(0, Math.round(100 * (1 - Math.max(0, perf - 4) / 11)));
+    return 0;
+  },
+
+  _athPerfStr(evId, perf) {
+    if (evId === 'sprint')   return perf.toFixed(2) + 's';
+    if (evId === 'longjump') return (4.5 + perf * 4.0).toFixed(2) + 'm';
+    if (evId === 'highjump') return (1.50 + perf * 0.80).toFixed(2) + 'm';
+    if (evId === 'hurdles')  return perf.toFixed(2) + 's';
+    return '';
+  },
+
   _startAthletics() {
     this._mode = 'athletics';
-    this._ath = { canvas:null, ctx:null, eventIdx:0, medals:[], phase:'playing', _mobile:false };
+    this._ath = { canvas:null, ctx:null, eventIdx:0, medals:[], perfs:[], phase:'playing', _mobile:false };
     this._athShowEvent(0);
   },
 

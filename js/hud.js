@@ -2,10 +2,29 @@ const HUD = {
   _lastBadges: '',
   _minimapCtx: null,
   _minimapFrame: 0,
+  _arrowCanvas: null,
+  _arrowCtx: null,
+  _CAR_COLORS: { car_basic: '#e84040', car_sedan: '#4488ff', car_sport: '#d0d0d0' },
 
   init() {
     const mc = document.getElementById('minimap');
     if (mc) this._minimapCtx = mc.getContext('2d');
+
+    const ac = document.getElementById('car-arrows-canvas');
+    if (ac) {
+      this._arrowCanvas = ac;
+      this._arrowCtx = ac.getContext('2d');
+      const resize = () => {
+        const dpr = window.devicePixelRatio || 1;
+        ac.width  = window.innerWidth  * dpr;
+        ac.height = window.innerHeight * dpr;
+        ac.style.width  = window.innerWidth  + 'px';
+        ac.style.height = window.innerHeight + 'px';
+      };
+      resize();
+      window.addEventListener('resize', resize);
+    }
+
     this.update();
   },
 
@@ -69,6 +88,28 @@ const HUD = {
       if (x < 0 || x > W || y < 0 || y > H) return;
       ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
     });
+
+    // Voitures possédées (petits carrés colorés + flèche orientation)
+    if (typeof Cars !== 'undefined') {
+      Cars._list.forEach(car => {
+        if (!car.mesh || !car.mesh.visible) return;
+        const x = mx(car.x), y = my(car.z);
+        const col = this._CAR_COLORS[car.badgeId] || '#fff';
+        ctx.fillStyle = col;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 0.8;
+        ctx.fillRect(x - 2.5, y - 2.5, 5, 5);
+        ctx.strokeRect(x - 2.5, y - 2.5, 5, 5);
+        // Flèche de direction de la voiture
+        const aLen = 5;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - Math.sin(car.angle) * aLen, y - Math.cos(car.angle) * aLen);
+        ctx.stroke();
+      });
+    }
 
     // Joueur — point blanc + flèche de direction
     const arrowLen = 7;
@@ -144,12 +185,18 @@ const HUD = {
     } else if (State.nearPickup) {
       hint.style.display = 'block';
       hint.textContent = 'Clic droit — Ramasser ' + State.nearPickup.name;
+    } else if (State.inJobZone && !State.inWorkMode) {
+      hint.style.display = 'block';
+      hint.textContent = 'T — Commencer le travail';
     } else {
       hint.style.display = 'none';
     }
 
-    // Panneau tâche de travail
-    this.updateJobTask();
+    // Masquer les panneaux de tâche (plus utilisés)
+    const jtp = document.getElementById('job-task-panel');
+    if (jtp) jtp.style.display = 'none';
+    const htb = document.getElementById('hold-t-bar');
+    if (htb) htb.style.display = 'none';
 
     // Étoiles wanted
     const wantedEl = document.getElementById('wanted-stars');

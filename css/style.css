@@ -283,3 +283,89 @@ body {
 }
 .bk-dot.active { background: #ffd700; border-color: #ffd700; }
 .bk-dot.done   { background: #66ee66; border-color: #66ee66; }
+
+/* ── Tutoriel ─────────────────────────────────── */
+#tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#tutorial-skip {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #999;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+}
+#tutorial-skip:active { background: rgba(255, 255, 255, 0.2); }
+
+#tutorial-card {
+  background: #1a1a2e;
+  border: 2px solid #2e2e4e;
+  border-radius: 18px;
+  padding: 36px 32px;
+  width: 88vw;
+  max-width: 480px;
+  text-align: center;
+}
+
+#tutorial-icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+#tutorial-title {
+  font-size: 1.4em;
+  color: #fff;
+  margin-bottom: 12px;
+}
+
+#tutorial-desc {
+  color: #b0b0c8;
+  font-size: 0.95em;
+  line-height: 1.55;
+  margin-bottom: 16px;
+  min-height: 56px;
+}
+
+#tutorial-keys { min-height: 0; }
+
+#tutorial-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 88vw;
+  max-width: 480px;
+  margin-top: 18px;
+  padding: 0 2px;
+}
+
+#tutorial-progress {
+  color: #555;
+  font-size: 0.88em;
+}
+
+#tutorial-next {
+  background: #2d6e20;
+  border: none;
+  color: #fff;
+  padding: 14px 32px;
+  border-radius: 10px;
+  font-size: 1.05em;
+  font-weight: bold;
+  cursor: pointer;
+}
+#tutorial-next:active { background: #3d8e30; }

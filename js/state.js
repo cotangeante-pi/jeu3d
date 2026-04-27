@@ -27,6 +27,7 @@ const State = {
   paused: false,
   gameOver: false,
   isUnderwater: false,
+  inWater: false,
   onGround: false,
   pointerLocked: false,
 
@@ -58,12 +59,9 @@ const State = {
   wanted: 0,
   wantedDecayTimer: 0,
 
-  // Tâches de travail
-  jobTask: null,       // objet tâche en cours
-  jobTaskTimer: 0,     // temps avant la prochaine tâche
-
-  // Mini-jeu boulangerie
+  // Mode travail
   inWorkMode: false,
+  inJobZone:  false,
 
   // Voiture conduite
   inCar: false,
@@ -78,6 +76,9 @@ const State = {
   // Escalade
   climbTimer: 0,
   isClimbing: false,
+
+  // Monde Téléporté
+  inPortalGame: false,
 
   // Bateaux / ponts
   bridgeZs: [],

@@ -24,7 +24,7 @@ const Cars = {
       mesh.visible    = State.badges.includes(def.badgeId);
       scene.add(mesh);
 
-      this._list.push({ badgeId: def.badgeId, name: def.name, speed: def.speed, boost: def.boost, mesh, x, z, angle, vx: 0, vz: 0 });
+      this._list.push({ badgeId: def.badgeId, name: def.name, speed: def.speed, boost: def.boost, accel: def.accel, drag: def.drag, mesh, x, z, angle, vx: 0, vz: 0 });
     });
   },
 
@@ -148,6 +148,9 @@ const Cars = {
 
     car.mesh.position.set(car.x, 0, car.z);
     car.mesh.rotation.y = car.angle;
+
+    // Collision avec les piétons
+    Humans.checkCarHit(car.x, car.z, car.vx, car.vz);
 
     // Joueur suit la voiture
     State.posX = car.x;
