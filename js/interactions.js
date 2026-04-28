@@ -35,6 +35,7 @@ const Interactions = {
     if (p.mesh) State.scene.remove(p.mesh);
     State.pickups = State.pickups.filter(x => x !== p);
     State.nearPickup = null;
+    Sound.pickup();
     HUD.update();
     Save.write();
   },
@@ -42,6 +43,7 @@ const Interactions = {
   eat() {
     const item = State.inventory[State.selectedSlot];
     if (!item || item.type !== 'food') return;
+    Sound.eat();
     State.hunger = Math.min(100, State.hunger + item.hungerBonus);
     State.health = Math.min(100, State.health + item.healthBonus);
     item.count--;
@@ -57,17 +59,22 @@ const Interactions = {
     State.pitch = Math.min(origPitch + 0.18, Math.PI / 2.2);
     setTimeout(() => { State.pitch = origPitch; }, 130);
 
+    Sound.punch();
+
     // Détecte un humain à portée de poing (2.2m)
     const hit = Humans.getNearestHuman(State.posX, State.posZ, 2.2);
     if (!hit) return;
 
+    Sound.hit();
     Humans.damageHuman(hit, hit.isPolice ? 8 : 15);
 
+    const prevWanted = State.wanted;
     if (hit.isPolice) {
       State.wanted = Math.min(3, State.wanted + 2);
     } else {
       State.wanted = Math.min(3, State.wanted + 1);
     }
+    if (State.wanted > prevWanted) Sound.wanted(State.wanted);
     State.wantedDecayTimer = 0;
     HUD.update();
   },
@@ -80,6 +87,7 @@ const Interactions = {
     State.money -= item.price;
     State.hunger = Math.min(100, State.hunger + item.hungerBonus);
     State.health = Math.min(100, State.health + (item.healthBonus || 0));
+    Sound.buy();
     HUD.update();
     Save.write();
     return true;
@@ -93,6 +101,7 @@ const Interactions = {
     }
     State.money -= course.price;
     State.iq += course.iqGain;
+    Sound.buy();
     HUD.update();
     Save.write();
     return true;
@@ -104,6 +113,7 @@ const Interactions = {
     State.money -= car.price;
     State.badges.push(car.badgeId);
     Cars.onCarBought(car.badgeId);
+    Sound.buy();
     HUD.update();
     Save.write();
     return true;
@@ -124,6 +134,7 @@ const Interactions = {
       return false;
     }
     Jobs.hire(job);
+    Sound.coin();
     HUD.update();
     Save.write();
     return true;

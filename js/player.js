@@ -2,6 +2,9 @@ const Player = {
   _box: null,
   _size: null,
   _center: null,
+  _wasOnGround: false,
+  _wasClimbing: false,
+  _wasUnderwater: false,
 
   init() {
     this._box    = new THREE.Box3();
@@ -11,6 +14,9 @@ const Player = {
 
   update(delta) {
     if (State.paused || State.gameOver) return;
+    // WASD réel désactivé quand un monde téléporté est actif (ex: Pompier, CircuitVitesse)
+    // Vice-versa : le monde téléporté bloque son propre tick() quand _active=false
+    if (State.inWorkMode) return;
 
     // --- En voiture : Cars gère mouvement + caméra ---
     if (State.inCar) {
@@ -53,6 +59,8 @@ const Player = {
     State.velX = moveX * spd;
     State.velZ = moveZ * spd;
 
+    Sound.tryStep(delta, len > 0, boosting, State.onGround);
+
     // --- Gravité ---
     State.velY += CONFIG.GRAVITY * delta;
 
@@ -85,6 +93,7 @@ const Player = {
     if (State.posY <= groundLevel) {
       State.posY = groundLevel;
       State.velY = 0;
+      if (!this._wasOnGround) Sound.land();
       State.onGround = true;
     } else {
       State.onGround = false;
@@ -92,6 +101,7 @@ const Player = {
 
     // ── Saut & escalade ──
     if (State.keys['Space'] && State.onGround) {
+      Sound.jump();
       State.velY = CONFIG.JUMP_FORCE;
       State.onGround = false;
       State.climbTimer = 0;
@@ -109,6 +119,7 @@ const Player = {
         );
         const wallFound = nearColliders.some(c => c.intersectsBox(testBox));
         if (wallFound) {
+          if (!this._wasClimbing) Sound.climb();
           State.isClimbing = true;
           State.velY = 2.8;
         } else {
@@ -127,6 +138,8 @@ const Player = {
     const inRiver = Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
                     Math.abs(State.posZ) < rHalfL;
     State.isUnderwater = inRiver && eyeY < 0.1;  // sous la surface (y≈0.05)
+    if (State.isUnderwater && !this._wasUnderwater)  Sound.splash();
+    else if (!State.isUnderwater && this._wasUnderwater) Sound.surface();
 
     // --- Drains ---
     if (State.isUnderwater) {
@@ -164,6 +177,10 @@ const Player = {
         break;
       }
     }
+
+    this._wasOnGround   = State.onGround;
+    this._wasClimbing   = State.isClimbing;
+    this._wasUnderwater = State.isUnderwater;
 
     // --- Appliquer position caméra ---
     const cam = State.camera;

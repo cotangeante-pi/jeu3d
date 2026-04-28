@@ -65,6 +65,8 @@ const MondeTelepporte = {
   // ── ATHLÉTISME ────────────────────────────────────────────────────────────
   _ath: null,
 
+  _ARENA_BEST_KEY: 'arena_ath_best',
+
   _ATH_EVENTS: [
     { id:'sprint',   name:'🏃 Sprint 100m',      hint:'Alterne A/D rapidement !' },
     { id:'longjump', name:'🦘 Saut en longueur', hint:'A/D pour l\'élan · Espace pour sauter au tremplin !' },
@@ -72,9 +74,27 @@ const MondeTelepporte = {
     { id:'hurdles',  name:'🚧 110m Haies',       hint:'Course auto · Espace pour sauter les haies !' },
   ],
 
+  // Score 0-100 par épreuve basé sur la performance brute
+  _athEventScore(evId, perf) {
+    if (evId === 'sprint')   return Math.max(0, Math.round(100 * (1 - Math.max(0, perf - 3) / 9)));
+    if (evId === 'longjump') return Math.max(0, Math.round(perf * 100));
+    if (evId === 'highjump') return Math.max(0, Math.round(perf * 100));
+    if (evId === 'hurdles')  return Math.max(0, Math.round(100 * (1 - Math.max(0, perf - 4) / 11)));
+    return 0;
+  },
+
+  // Affichage lisible de la performance
+  _athPerfStr(evId, perf) {
+    if (evId === 'sprint')   return perf.toFixed(2) + 's';
+    if (evId === 'longjump') return (4.5 + perf * 4.0).toFixed(2) + 'm';
+    if (evId === 'highjump') return (1.50 + perf * 0.80).toFixed(2) + 'm';
+    if (evId === 'hurdles')  return perf.toFixed(2) + 's';
+    return '';
+  },
+
   _startAthletics() {
     this._mode = 'athletics';
-    this._ath = { canvas:null, ctx:null, eventIdx:0, medals:[], phase:'playing', _mobile:false };
+    this._ath = { canvas:null, ctx:null, eventIdx:0, medals:[], perfs:[], phase:'playing', _mobile:false };
     this._athShowEvent(0);
   },
 
@@ -85,20 +105,34 @@ const MondeTelepporte = {
     const ico = { gold:'🥇', silver:'🥈', bronze:'🥉', none:'❌' };
     let mHtml = '';
     for (let i = 0; i < this._ATH_EVENTS.length; i++) {
-      if (i < a.medals.length)  mHtml += `<span>${ico[a.medals[i]]}</span>`;
-      else if (i === idx)        mHtml += `<span style="opacity:0.5">🏅</span>`;
-      else                       mHtml += `<span style="opacity:0.2">⬜</span>`;
+      if (i < a.medals.length) {
+        const tip = this._athPerfStr(this._ATH_EVENTS[i].id, a.perfs[i] || 0);
+        mHtml += `<span title="${tip}">${ico[a.medals[i]]}</span>`;
+      } else if (i === idx) {
+        mHtml += `<span style="opacity:0.5">🏅</span>`;
+      } else {
+        mHtml += `<span style="opacity:0.2">⬜</span>`;
+      }
     }
+    const runPts = (a.perfs || []).reduce((s, p, i) =>
+      s + this._athEventScore(this._ATH_EVENTS[i].id, p), 0);
+    const best = parseInt(localStorage.getItem(this._ARENA_BEST_KEY) || '0');
     const showBtn = ev.id !== 'sprint';
     const btnLbl  = ev.id === 'longjump' ? '🦘 Sauter' : ev.id === 'highjump' ? '🏔 Sauter' : '⬆ Sauter';
     this._setContent(`
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <h2 style="color:#44ee44;margin:0;font-size:1em">🏅 Arène Athlétisme — ${ev.name}</h2>
         <button class="mt-btn" id="ath-exit" style="width:auto;padding:5px 12px;font-size:0.82em;">✕</button>
       </div>
-      <div style="color:#888;font-size:0.8em;margin:1px 0 3px">${ev.hint}</div>
+      <div style="display:flex;justify-content:space-between;font-size:0.78em;color:#aaa;margin:1px 0 3px">
+        <span>${ev.hint}</span>
+        ${best > 0 ? `<span style="color:#f1c40f">🏆 Record : ${best} / 400</span>` : ''}
+      </div>
       <canvas id="ath-canvas" width="560" height="230" style="border-radius:10px;display:block;margin:3px auto"></canvas>
-      <div id="ath-medals" style="display:flex;justify-content:center;gap:18px;margin:4px 0;font-size:1.4em">${mHtml}</div>
+      <div style="display:flex;justify-content:center;align-items:center;gap:14px;margin:4px 0">
+        <div id="ath-medals" style="display:flex;justify-content:center;gap:18px;font-size:1.4em">${mHtml}</div>
+        ${idx > 0 ? `<span style="color:#f1c40f;font-size:0.85em;white-space:nowrap">⭐ ${runPts} / ${idx * 100} pts</span>` : ''}
+      </div>
       <div id="ath-msg" style="color:#88ff88;min-height:1em;font-size:0.88em;margin:2px 0"></div>
       ${showBtn ? `<button id="ath-btn" style="margin-top:5px;background:#228833;color:#fff;border:none;padding:9px 24px;border-radius:8px;font-size:1em;cursor:pointer;touch-action:manipulation;user-select:none;">${btnLbl}</button>` : ''}
     `);
@@ -242,9 +276,25 @@ const MondeTelepporte = {
 
   _finishAthEvent(medal) {
     const a = this._ath;
+    // Extraire la performance brute de l'épreuve courante
+    const evId = this._ATH_EVENTS[a.eventIdx].id;
+    let perf = 0;
+    if (evId === 'sprint')   perf = a.sprint   ? a.sprint.time     : 0;
+    if (evId === 'longjump') perf = a.longjump ? a.longjump.dist   : 0;
+    if (evId === 'highjump') perf = a.highjump ? a.highjump.result : 0;
+    if (evId === 'hurdles')  perf = a.hurdles  ? a.hurdles.time    : 0;
+    a.perfs.push(perf);
+    const evScore  = this._athEventScore(evId, perf);
+    const perfStr  = this._athPerfStr(evId, perf);
+
     a.medals.push(medal); a.phase = 'result';
     const ico = { gold:'🥇', silver:'🥈', bronze:'🥉', none:'❌' };
-    const lbl = { gold:'🥇 Médaille d\'or !', silver:'🥈 Médaille d\'argent !', bronze:'🥉 Médaille de bronze !', none:'❌ Aucune médaille' };
+    const lbl = {
+      gold:   `🥇 Or ! — ${perfStr} — ${evScore} pts`,
+      silver: `🥈 Argent ! — ${perfStr} — ${evScore} pts`,
+      bronze: `🥉 Bronze ! — ${perfStr} — ${evScore} pts`,
+      none:   `❌ Aucune médaille — ${perfStr} — ${evScore} pts`,
+    };
     const msgEl = document.getElementById('ath-msg');
     if (msgEl) msgEl.textContent = lbl[medal];
     const btn = document.getElementById('ath-btn');
@@ -261,16 +311,53 @@ const MondeTelepporte = {
       if (this._mode !== 'athletics') return;
       if (a.eventIdx + 1 >= this._ATH_EVENTS.length) {
         a.phase = 'done';
-        const pts = a.medals.reduce((s, m) => s + (m==='gold'?3 : m==='silver'?2 : m==='bronze'?1 : 0), 0);
-        const pay = State.currentJob ? Math.round(State.currentJob.salary * Math.max(0.1, pts/12) * 2.5) : 0;
+
+        // Calcul des scores et total
+        const scores = a.medals.map((m, i) =>
+          this._athEventScore(this._ATH_EVENTS[i].id, a.perfs[i]));
+        const total = scores.reduce((s, x) => s + x, 0);
+
+        // Prime proportionnelle au score (0-400 → 0-3× salaire)
+        const pay = State.currentJob
+          ? Math.round(State.currentJob.salary * Math.max(0.05, total / 400) * 3.0)
+          : 0;
         if (pay > 0) Jobs.earnFromWork(pay);
-        const payLine = pay > 0 ? `<p style="color:#88ff88">💰 Prime : +${pay}$</p>` : '';
+        const payLine = pay > 0
+          ? `<p style="color:#88ff88;margin:4px 0">💰 Prime : +${pay}$</p>`
+          : `<p style="color:#ff9944;margin:4px 0">Aucune prime cette fois.</p>`;
+
+        // Comparaison avec le record
+        const prevBest = parseInt(localStorage.getItem(this._ARENA_BEST_KEY) || '0');
+        const isRecord = total > prevBest && total > 0;
+        if (isRecord) localStorage.setItem(this._ARENA_BEST_KEY, String(total));
+        const recordLine = isRecord
+          ? `<p style="color:#f1c40f;font-size:1.05em;margin:5px 0">🏆 NOUVEAU RECORD ! (précédent : ${prevBest} pts)</p>`
+          : (prevBest > 0 ? `<p style="color:#888;font-size:0.82em;margin:2px 0">Record : ${prevBest} / 400 pts</p>` : '');
+
+        // Tableau par épreuve
+        let evRows = '';
+        for (let i = 0; i < this._ATH_EVENTS.length; i++) {
+          const ev = this._ATH_EVENTS[i];
+          const scoreColor = scores[i] >= 80 ? '#f1c40f' : scores[i] >= 55 ? '#27ae60' : '#aaa';
+          evRows += `<tr style="border-bottom:1px solid #2a2040">
+            <td style="padding:4px 6px;color:#ccc;text-align:left">${ev.name}</td>
+            <td style="padding:4px 4px;font-size:1.1em">${ico[a.medals[i]]}</td>
+            <td style="padding:4px 5px;color:#aaa;font-size:0.85em">${this._athPerfStr(ev.id, a.perfs[i])}</td>
+            <td style="padding:4px 6px;color:${scoreColor};font-weight:bold">${scores[i]} pts</td>
+          </tr>`;
+        }
+
         this._setContent(`
-          <h2 style="color:#44ee44">🏅 Résultats Athlétisme</h2>
-          <p style="font-size:1.6em;margin:8px 0">${a.medals.map(m => ico[m]).join('  ')}</p>
-          <p style="color:#aaa;margin:4px 0">${pts} / 12 points</p>
+          <h2 style="color:#44ee44;margin:0 0 8px">🏅 Résultats Athlétisme</h2>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:8px;font-size:0.88em">
+            ${evRows}
+          </table>
+          <p style="color:#fff;font-size:1.1em;margin:6px 0;border-top:1px solid #3a2060;padding-top:6px">
+            <b>Total : ${total} / 400 pts</b>
+          </p>
+          ${recordLine}
           ${payLine}
-          <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
+          <div style="display:flex;gap:10px;margin-top:14px;justify-content:center">
             <button class="mt-btn" id="ath-replay" style="width:auto">🔄 Rejouer</button>
             <button class="mt-btn" id="ath-quit" style="width:auto;background:#1e1030">✕ Quitter</button>
           </div>

@@ -1,5 +1,6 @@
 const Cars = {
   _list: [],
+  _wasBoosting: false,
 
   // Définitions : parking juste devant le concessionnaire (x=-28, z=70, façade à z=70)
   // speed = vitesse max en m/s (×3.6 = km/h)   boost = multiplicateur Shift
@@ -54,6 +55,7 @@ const Cars = {
   },
 
   enterCar(car) {
+    Sound.carStart();
     State.inCar      = true;
     State.drivingCar = car;
     State.nearCar    = null;
@@ -65,6 +67,7 @@ const Cars = {
   },
 
   exitCar() {
+    Sound.carStop();
     const car = State.drivingCar;
     car.vx = 0;
     car.vz = 0;
@@ -130,6 +133,10 @@ const Cars = {
     // Limiter à la vitesse max de cette voiture
     const spd = Math.hypot(car.vx, car.vz);
     if (spd > maxSpeed) { car.vx *= maxSpeed / spd; car.vz *= maxSpeed / spd; }
+
+    if (boosting && !this._wasBoosting) Sound.boost();
+    this._wasBoosting = boosting;
+    Sound.engineUpdate(spd, maxSpeed);
 
     const nx = car.x + car.vx * delta;
     const nz = car.z + car.vz * delta;

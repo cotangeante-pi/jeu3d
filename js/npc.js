@@ -129,6 +129,19 @@ const NPC = {
       id: 'car_race_1', type: 'car_race', name: 'Circuit Vitesse', x: 84, z: 28, dir: 1,
       job: { id: 'circuit_vitesse', name: 'Pilote de Course', salary: 35, iqRequired: 0, strengthRequired: 0, startHour: 8, endHour: 22 }
     },
+    // ── Casernes de Pompiers (3 bâtiments éparpillés) ─────────────────────────
+    {
+      id: 'pompier_1', type: 'pompier', name: 'Caserne Nord', x: -14, z: 14, dir: 1,
+      job: { id: 'pompier', name: 'Pompier', salary: 30, iqRequired: 0, strengthRequired: 10, startHour: 7, endHour: 20 }
+    },
+    {
+      id: 'pompier_2', type: 'pompier', name: 'Caserne Est', x: 56, z: -14, dir: -1,
+      job: { id: 'pompier', name: 'Pompier', salary: 30, iqRequired: 0, strengthRequired: 10, startHour: 7, endHour: 20 }
+    },
+    {
+      id: 'pompier_3', type: 'pompier', name: 'Caserne Sud', x: -14, z: -56, dir: 1,
+      job: { id: 'pompier', name: 'Pompier', salary: 30, iqRequired: 0, strengthRequired: 10, startHour: 7, endHour: 20 }
+    },
   ],
 
   _list: [],
@@ -146,6 +159,7 @@ const NPC = {
     bank:           { wall: 0xf5f0e0, roof: 0x8b6914, floor: 0xece7d4, sign: '#6b4e0a' },
     arena_athlete:  { wall: 0x0d1f0d, roof: 0x1a7a1a, floor: 0x163016, sign: '#44ee44' },
     car_race:       { wall: 0x1c1010, roof: 0x991111, floor: 0x1a0d0d, sign: '#ff4444' },
+    pompier:        { wall: 0xeeeeee, roof: 0xcc2200, floor: 0xdddddd, sign: '#aa1100' },
   },
 
   init(scene) {
@@ -253,7 +267,7 @@ const NPC = {
   },
 
   _npcInside(scene, type, cx, npcZ) {
-    const cols = { merchant: 0xff8800, school: 0x0066cc, employer: 0xddaa00, arena_athlete: 0x22dd44, car_race: 0xff3333 };
+    const cols = { merchant: 0xff8800, school: 0x0066cc, employer: 0xddaa00, arena_athlete: 0x22dd44, car_race: 0xff3333, pompier: 0xff5500 };
     const color = cols[type] || 0xffffff;
 
     const body = new THREE.Mesh(
@@ -446,6 +460,27 @@ const NPC = {
       const pod = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), podMat);
       pod.position.set(cx, 0.125, backZ - dir * 2.8);
       scene.add(pod);
+    } else if (type === 'pompier') {
+      // Camion de pompier miniature (décoratif)
+      const redM  = new THREE.MeshLambertMaterial({ color: 0xcc1100 });
+      const darkM = new THREE.MeshLambertMaterial({ color: 0x111111 });
+      const truckBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 3.8), redM);
+      truckBody.position.set(cx, 0.65, midZ - dir * 0.5);
+      truckBody.castShadow = true; scene.add(truckBody);
+      const truckCab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 1.2), redM);
+      truckCab.position.set(cx, 1.45, midZ + dir * 1.0);
+      scene.add(truckCab);
+      const wheelG = new THREE.CylinderGeometry(0.28, 0.28, 0.2, 8);
+      [[-1.0,-1.4],[-1.0,1.4],[1.0,-1.4],[1.0,1.4]].forEach(([dx, dz]) => {
+        const w = new THREE.Mesh(wheelG, darkM);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(cx + dx, 0.3, midZ + dz * dir);
+        scene.add(w);
+      });
+      // Tableau de bord (bureau d'accueil)
+      const desk2 = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.85, 0.9), brownMat);
+      desk2.position.set(cx, 0.425, backZ - dir * 1.8);
+      scene.add(desk2);
     } else if (type === 'cardeal') {
       // Voiture exposée dans le showroom
       const carColors = [0xcc2200, 0x2244cc, 0x228822, 0x111111, 0xcccccc];

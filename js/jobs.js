@@ -13,6 +13,12 @@ const Jobs = {
     athlete:          { xMin: -46, xMax: -38, zMin:  0, zMax:  8 },
     arena_athlete:    { xMin:  80, xMax:  88, zMin:  0, zMax:  8 },
     circuit_vitesse:  { xMin:  80, xMax:  88, zMin: 28, zMax: 36 },
+    // Pompier : 3 casernes — tableau de zones supporté par _inAnyZone()
+    pompier: [
+      { xMin: -18, xMax: -10, zMin:  14, zMax:  22 },
+      { xMin:  52, xMax:  60, zMin: -22, zMax: -14 },
+      { xMin: -18, xMax: -10, zMin: -56, zMax: -48 },
+    ],
   },
 
   tick(delta) {
@@ -33,10 +39,7 @@ const Jobs = {
     // Détection de zone (uniquement hors mode travail et hors voiture)
     if (!State.inWorkMode && !State.inCar) {
       const zone = this._ZONES[State.currentJob.id];
-      State.inJobZone = zone
-        ? State.posX >= zone.xMin && State.posX <= zone.xMax &&
-          State.posZ >= zone.zMin && State.posZ <= zone.zMax
-        : false;
+      State.inJobZone = zone ? this._inAnyZone(zone) : false;
     } else {
       State.inJobZone = false;
     }
@@ -45,22 +48,24 @@ const Jobs = {
   enterWork() {
     if (!State.currentJob || State.inWorkMode) return;
     const id = State.currentJob.id;
-    if (id === 'baker')            { Bakery3D.enter();                   return; }
+    if (id === 'baker')            { Bakery.enter();                     return; }
     if (id === 'coach')            { Athletics.enter();                  return; }
-    if (id === 'athlete')          { Athletisme.enter();                 return; }
+    if (id === 'athlete')          { Athletics.enter();                  return; }
     if (id === 'arena_athlete')    { MondeTelepporte.enterAthletics();   return; }
     if (id === 'circuit_vitesse')  { CircuitVitesse.enter();             return; }
+    if (id === 'pompier')          { Pompier.enter();                    return; }
     WorkOverlay.enter(id);
   },
 
   exitWork() {
     if (!State.inWorkMode) return;
     const id = State.currentJob ? State.currentJob.id : '';
-    if (id === 'baker')            { Bakery3D.exit();            return; }
+    if (id === 'baker')            { Bakery.exit();              return; }
     if (id === 'coach')            { Athletics.exit();           return; }
-    if (id === 'athlete')          { Athletisme.exit();          return; }
+    if (id === 'athlete')          { Athletics.exit();           return; }
     if (id === 'arena_athlete')    { MondeTelepporte.exit();     return; }
     if (id === 'circuit_vitesse')  { CircuitVitesse.exit();      return; }
+    if (id === 'pompier')          { Pompier.exit();             return; }
     WorkOverlay.exit();
   },
 
@@ -83,6 +88,14 @@ const Jobs = {
     State.currentJob  = null;
     State.salaryTimer = 0;
     State.inJobZone   = false;
+  },
+
+  _inAnyZone(zoneOrArray) {
+    const zones = Array.isArray(zoneOrArray) ? zoneOrArray : [zoneOrArray];
+    return zones.some(z =>
+      State.posX >= z.xMin && State.posX <= z.xMax &&
+      State.posZ >= z.zMin && State.posZ <= z.zMax
+    );
   },
 
   _notify(text, color) {

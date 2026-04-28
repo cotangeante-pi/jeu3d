@@ -45,6 +45,8 @@ const Render = {
       Bakery.tick(delta);
       WorkOverlay.tick(delta);
       Athletics.tick(delta);
+      CircuitVitesse.tick(delta);
+      Pompier.tick(delta);
       Humans.update(delta);
       Fountain.update(delta);
       Hand.update(delta);
@@ -66,7 +68,15 @@ const Render = {
     }
 
     HUD.update();
-    World.updateDayNight(State.scene);
-    State.renderer.render(State.scene, State.camera);
+    // Monde téléporté actif → sa caméra prend le relai (WASD réel désactivé via State.inWorkMode)
+    // Monde réel actif → la caméra principale reprend (monde téléporté.tick() bloqué via _active=false)
+    if (Pompier._active && Pompier._scene && Pompier._camera) {
+      State.renderer.render(Pompier._scene, Pompier._camera);
+    } else if (CircuitVitesse._active && CircuitVitesse._scene && CircuitVitesse._camera) {
+      State.renderer.render(CircuitVitesse._scene, CircuitVitesse._camera);
+    } else {
+      World.updateDayNight(State.scene);
+      State.renderer.render(State.scene, State.camera);
+    }
   }
 };

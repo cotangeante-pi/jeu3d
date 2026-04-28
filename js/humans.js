@@ -170,6 +170,7 @@ const Humans = {
       legLPivot, legRPivot, armLPivot, armRPivot,
       hp: maxHp, maxHp,
       hpBg, hpFill, hpFillMat, hpBarW: BAR_W,
+      arrestTimer: 0,
     };
 
     this._pickWaypoint(h);
@@ -441,17 +442,30 @@ const Humans = {
 
     // Arrestation : policier à pied en mode chase qui touche le joueur
     this._policeOnFoot.forEach(h => {
-      if (h.state !== 'chase') return;
-      if (Math.hypot(h.x - State.posX, h.z - State.posZ) < 1.8) {
-        // Arrêté : amende + dégâts + wanted retiré
-        State.health = Math.max(0, State.health - 15);
-        State.money  = Math.max(0, State.money  - 100);
-        State.wanted = 0;
-        State.wantedDecayTimer = 0;
-        h.state = 'walking';
-        this._pickWaypoint(h);
-        HUD.update();
-        Save.write();
+      if (h.state === 'chase' && Math.hypot(h.x - State.posX, h.z - State.posZ) < 1.8) {
+        h.state = 'arresting';
+        h.arrestTimer = 0;
+      }
+
+      if (h.state === 'arresting') {
+        h.arrestTimer += delta;
+        // Dégâts si le joueur court et que le policier est encore à portée
+        const dist = Math.hypot(h.x - State.posX, h.z - State.posZ);
+        const playerSpeed = Math.hypot(State.velX, State.velZ);
+        if (dist < 4 && playerSpeed > 1.5) {
+          State.health = Math.max(0, State.health - 8 * delta);
+          HUD.update();
+        }
+        if (h.arrestTimer >= 5) {
+          State.money  = Math.max(0, State.money - 100);
+          State.wanted = 0;
+          State.wantedDecayTimer = 0;
+          h.state = 'walking';
+          h.arrestTimer = 0;
+          this._pickWaypoint(h);
+          HUD.update();
+          Save.write();
+        }
       }
     });
   },
@@ -537,6 +551,15 @@ const Humans = {
       if (h.state === 'walking') {
         h.speed = playerDist < 9 ? h.baseSpeed * 1.25 : h.baseSpeed;
       }
+    }
+
+    // ── État arrestation (immobile 5 s) ──
+    if (h.state === 'arresting') {
+      h.legLPivot.rotation.x *= 0.85;
+      h.legRPivot.rotation.x *= 0.85;
+      h.armLPivot.rotation.x *= 0.85;
+      h.armRPivot.rotation.x *= 0.85;
+      return;
     }
 
     // ── État pause (regarder vitrine) ──

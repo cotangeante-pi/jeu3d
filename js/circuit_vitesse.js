@@ -548,14 +548,12 @@ const CircuitVitesse = {
   _updatePlayer(delta) {
     if (this._playerFinished) return;
     const isMobile = 'ontouchstart' in window;
-    const accel = State.keys['KeyW'] || State.keys['ArrowUp'] || (isMobile && State.keys['_cv_accel']);
     const brake = State.keys['KeyS'] || State.keys['ArrowDown'] || (isMobile && State.keys['_cv_brake']);
     const left  = State.keys['KeyA'] || State.keys['ArrowLeft']  || (isMobile && State.keys['_cv_left']);
     const right = State.keys['KeyD'] || State.keys['ArrowRight'] || (isMobile && State.keys['_cv_right']);
 
-    if (accel) this._playerSpeed = Math.min(this._MAX_SPEED, this._playerSpeed + this._ACCEL * delta);
-    else if (brake) this._playerSpeed = Math.max(-this._MAX_SPEED * 0.3, this._playerSpeed - this._BRAKE * delta);
-    this._playerSpeed *= Math.pow(this._DRAG, delta * 60);
+    if (brake) this._playerSpeed = Math.max(0, this._playerSpeed - this._BRAKE * delta);
+    else this._playerSpeed = Math.min(this._MAX_SPEED, this._playerSpeed + this._ACCEL * delta);
 
     const turnRate = this._STEER_SPEED * (this._playerSpeed / this._MAX_SPEED);
     if (left)  this._playerOffset = Math.max(-this._TRACK_HALF + 0.9, this._playerOffset - turnRate * delta);
@@ -804,7 +802,6 @@ const CircuitVitesse = {
             <button id="cv-btn-R" class="cv-ctrl-btn">▶</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-            <button id="cv-btn-A" class="cv-ctrl-btn cv-ctrl-accel">▲</button>
             <button id="cv-btn-B" class="cv-ctrl-btn cv-ctrl-brake">▼</button>
           </div>
         </div>`;
@@ -843,7 +840,6 @@ const CircuitVitesse = {
     };
     bind('cv-btn-L', '_cv_left');
     bind('cv-btn-R', '_cv_right');
-    bind('cv-btn-A', '_cv_accel');
     bind('cv-btn-B', '_cv_brake');
   },
 
