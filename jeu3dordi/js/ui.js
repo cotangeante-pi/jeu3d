@@ -1,0 +1,307 @@
+const UI = {
+  init() {
+    document.getElementById('btn-pause').addEventListener('click', () => this.togglePause());
+    document.getElementById('btn-resume').addEventListener('click', () => this.togglePause());
+    document.getElementById('btn-quit').addEventListener('click', () => {
+      Save.write();
+      document.getElementById('pause-menu').style.display = 'none';
+      State.paused = false;
+    });
+    document.getElementById('btn-restart').addEventListener('click', () => this.restart());
+    document.getElementById('btn-capacities').addEventListener('click', () => this.showCapacities());
+
+    document.getElementById('btn-close-cap').addEventListener('click', () => {
+      document.getElementById('capacities-panel').style.display = 'none';
+      this._reLock();
+    });
+
+    document.getElementById('btn-close-dialog').addEventListener('click', () => {
+      document.getElementById('dialog-box').style.display = 'none';
+      this._reLock();
+    });
+
+    document.getElementById('bk-exit-btn').addEventListener('click', () => Jobs.exitWork());
+    document.getElementById('bk-exit-btn').addEventListener('touchstart', e => { e.preventDefault(); Jobs.exitWork(); }, { passive: false });
+  },
+
+  togglePause() {
+    if (State.gameOver || State.inTutorial) return;
+    State.paused = !State.paused;
+    document.getElementById('pause-menu').style.display = State.paused ? 'flex' : 'none';
+    if (State.paused) {
+      Poki.stop();
+    } else {
+      State.pointerLocked = true;
+      Poki.start();
+    }
+  },
+
+  showGameOver(reason) {
+    if (State.gameOver) return;
+    if (State.inWorkMode) Jobs.exitWork();
+    State.gameOver = true;
+    State.pointerLocked = false;
+    Poki.stop();
+    document.getElementById('gameover-reason').textContent = reason;
+    document.getElementById('gameover-overlay').style.display = 'flex';
+  },
+
+  restart() {
+    // Pub avant le redémarrage — moment naturel entre deux parties
+    Poki.ad(() => {
+      Save.clear();
+      location.reload();
+    });
+  },
+
+  showCapacities() {
+    document.exitPointerLock();
+    const s = State.physicalStats;
+    const job = State.currentJob ? State.currentJob.name : 'Aucun';
+    document.getElementById('capacities-content').innerHTML = `
+      <p><strong>Force :</strong> ${s.strength}</p>
+      <p><strong>Vitesse :</strong> ${s.speed}</p>
+      <p><strong>Endurance :</strong> ${s.endurance}</p>
+      <hr style="margin:12px 0; border-color:#444">
+      <p><strong>Emploi actuel :</strong> ${job}</p>
+    `;
+    document.getElementById('capacities-panel').style.display = 'flex';
+  },
+
+  showDialog(npc) {
+    const titleEl = document.getElementById('dialog-title');
+    const descEl  = document.getElementById('dialog-desc');
+    const optDiv  = document.getElementById('dialog-options');
+
+    titleEl.textContent = npc.name;
+    optDiv.innerHTML = '';
+    descEl.style.color = '';
+
+    const closeDialog = () => {
+      document.getElementById('dialog-box').style.display = 'none';
+      this._reLock();
+    };
+
+    if (npc.type === 'merchant') {
+      descEl.textContent = 'Que veux-tu acheter ? (Ton argent : $' + Math.floor(State.money) + ')';
+      npc.stock.forEach(item => {
+        const btn = document.createElement('button');
+        btn.textContent = `${item.name} — ${item.price}$ (+${item.hungerBonus} faim, +${item.healthBonus} vie)`;
+        btn.onclick = () => {
+          const ok = Interactions.buyFood(item);
+          if (ok) {
+            descEl.textContent = 'Acheté ! (Argent restant : $' + Math.floor(State.money) + ')';
+          }
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'school') {
+      descEl.textContent = 'Ton QI actuel : ' + Math.floor(State.iq);
+      npc.courses.forEach(course => {
+        const btn = document.createElement('button');
+        btn.textContent = `${course.name} — ${course.price}$ (+${course.iqGain} QI, min. QI ${course.iqRequired})`;
+        btn.onclick = () => {
+          const ok = Interactions.takeCourse(course);
+          if (ok) descEl.textContent = 'Cours suivi ! Ton QI : ' + Math.floor(State.iq);
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.job) {
+      const job = npc.job;
+      const isMyJob = State.currentJob && State.currentJob.id === job.id;
+      descEl.textContent = `Poste : ${job.name} | Salaire : ${job.salary}$ / min | QI requis : ${job.iqRequired}`;
+
+      const btn = document.createElement('button');
+      btn.textContent = isMyJob ? 'Tu travailles déjà ici' : 'Postuler';
+      btn.onclick = () => {
+        const ok = Interactions.applyForJob(npc);
+        if (ok) {
+          const h = job.startHour !== undefined ? ` Tu travailleras de ${job.startHour}h à ${job.endHour}h.` : '';
+          descEl.textContent = `Félicitations ! Tu es maintenant ${job.name}.${h}`;
+          btn.textContent = 'Tu travailles déjà ici';
+        }
+      };
+      optDiv.appendChild(btn);
+
+      // Bouton quitter son emploi
+      if (State.currentJob) {
+        const quitBtn = document.createElement('button');
+        quitBtn.textContent = 'Quitter mon emploi actuel (' + State.currentJob.name + ')';
+        quitBtn.style.background = '#7a2020';
+        quitBtn.onclick = () => {
+          Jobs.quit();
+          HUD.update();
+          Save.write();
+          closeDialog();
+        };
+        optDiv.appendChild(quitBtn);
+      }
+
+    } else if (npc.type === 'grocery') {
+      descEl.textContent = 'Bienvenue au supermarché ! (Ton argent : $' + Math.floor(State.money) + ')';
+      npc.stock.forEach(item => {
+        const btn = document.createElement('button');
+        btn.textContent = `${item.name} — ${item.price}$ (+${item.hungerBonus} faim, +${item.healthBonus} vie)`;
+        btn.onclick = () => {
+          const ok = Interactions.buyFood(item);
+          if (ok) descEl.textContent = 'Acheté ! (Argent restant : $' + Math.floor(State.money) + ')';
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'restaurant') {
+      descEl.textContent = 'Bienvenue au restaurant ! (Ton argent : $' + Math.floor(State.money) + ')';
+      npc.stock.forEach(item => {
+        const btn = document.createElement('button');
+        btn.textContent = `${item.name} — ${item.price}$ (+${item.hungerBonus} faim, +${item.healthBonus} vie)`;
+        btn.onclick = () => {
+          const ok = Interactions.buyFood(item);
+          if (ok) descEl.textContent = 'Bon appétit ! (Argent restant : $' + Math.floor(State.money) + ')';
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'police_station') {
+      const w = State.wanted;
+      descEl.textContent = w === 0
+        ? 'Bienvenue au commissariat. Tu n\'as aucun casier.'
+        : `Niveau de recherche : ${'★'.repeat(w)} — Payer une amende pour effacer ?`;
+      if (w > 0) {
+        const fine = w * 150;
+        const btn = document.createElement('button');
+        btn.textContent = `Payer l'amende — ${fine}$`;
+        btn.onclick = () => {
+          if (State.money < fine) {
+            descEl.textContent = 'Pas assez d\'argent pour payer l\'amende !';
+          } else {
+            State.money -= fine;
+            State.wanted = 0;
+            State.wantedDecayTimer = 0;
+            HUD.update(); Save.write();
+            descEl.textContent = 'Amende payée. Tu es libre !';
+            btn.remove();
+          }
+        };
+        optDiv.appendChild(btn);
+      }
+
+    } else if (npc.type === 'hospital') {
+      descEl.textContent = `Hôpital — Vie actuelle : ${Math.floor(State.health)}% | Argent : $${Math.floor(State.money)}`;
+      npc.treatments.forEach(t => {
+        const btn = document.createElement('button');
+        btn.textContent = `${t.name} — ${t.price}$ (+${t.healthGain} vie)`;
+        btn.onclick = () => {
+          if (State.money < t.price) { descEl.textContent = 'Pas assez d\'argent !'; return; }
+          State.money -= t.price;
+          State.health = Math.min(100, State.health + t.healthGain);
+          HUD.update(); Save.write();
+          descEl.textContent = `Soigné ! Vie : ${Math.floor(State.health)}%`;
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'gym') {
+      const s = State.physicalStats;
+      descEl.textContent = `Salle de sport | Force: ${s.strength} Vitesse: ${s.speed} Endurance: ${s.endurance}`;
+      npc.trainings.forEach(t => {
+        const btn = document.createElement('button');
+        btn.textContent = t.stat === 'all'
+          ? `${t.name} — ${t.price}$ (+${t.gain} à tout)`
+          : `${t.name} — ${t.price}$ (+${t.gain} ${t.stat})`;
+        btn.onclick = () => {
+          if (State.money < t.price) { descEl.textContent = 'Pas assez d\'argent !'; return; }
+          State.money -= t.price;
+          if (t.stat === 'all') {
+            s.strength += t.gain; s.speed += t.gain; s.endurance += t.gain;
+          } else { s[t.stat] += t.gain; }
+          HUD.update(); Save.write();
+          descEl.textContent = `Entraînement fait ! Force:${s.strength} Vitesse:${s.speed} Endurance:${s.endurance}`;
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'bank') {
+      descEl.textContent = `Banque — Solde : $${Math.floor(State.money)}`;
+      // Simple ATM — affiche juste le solde, pas de fonctionnalité supplémentaire
+      const info = document.createElement('p');
+      info.textContent = 'Vos fonds sont en sécurité ici. Revenez souvent !';
+      info.style.color = '#aaa';
+      optDiv.appendChild(info);
+
+    } else if (npc.type === 'light_vehicle_shop') {
+      descEl.textContent = `Engins urbains | Ton argent : $${Math.floor(State.money)}`;
+      npc.vehicles.forEach(v => {
+        const btn = document.createElement('button');
+        const badgeId = 'lv_' + v.id;
+        const owned = State.badges.includes(badgeId);
+        btn.textContent = owned
+          ? `${v.icon} ${v.name} — Déjà possédé ✓`
+          : `${v.icon} ${v.name} — ${v.price}$ (vitesse ×${v.speedMult})`;
+        btn.disabled = owned;
+        btn.onclick = () => {
+          if (State.money < v.price) { descEl.textContent = 'Pas assez d\'argent !'; return; }
+          State.money -= v.price;
+          State.badges.push(badgeId);
+          State.lightVehicleType = v.id;
+          HUD.update(); Save.write();
+          descEl.textContent = `${v.icon} ${v.name} acheté ! Appuie sur F pour enfourcher.`;
+          btn.textContent = `${v.icon} ${v.name} — Déjà possédé ✓`;
+          btn.disabled = true;
+        };
+        optDiv.appendChild(btn);
+      });
+
+    } else if (npc.type === 'agence_immo') {
+      const owned = State.badges.includes('house');
+      if (owned) {
+        descEl.textContent = 'Tu es déjà propriétaire de ta maison ! 🏠';
+      } else {
+        descEl.textContent = `Achetez votre maison pour ${npc.house.price}$ | Ton argent : $${Math.floor(State.money)}`;
+        const btn = document.createElement('button');
+        btn.textContent = `🏠 Acheter la maison — ${npc.house.price}$`;
+        btn.onclick = () => {
+          if (State.money < npc.house.price) { Interactions._msg("Pas assez d'argent !"); return; }
+          State.money -= npc.house.price;
+          State.badges.push('house');
+          Sound.buy();
+          HUD.update();
+          Save.write();
+          descEl.textContent = 'Félicitations ! Tu es maintenant propriétaire ! 🏠';
+          btn.textContent = 'Maison achetée ✓';
+          btn.disabled = true;
+        };
+        optDiv.appendChild(btn);
+      }
+
+    } else if (npc.type === 'cardeal') {
+      descEl.textContent = `Concession automobile | Ton argent : $${Math.floor(State.money)}`;
+      npc.cars.forEach(car => {
+        const btn = document.createElement('button');
+        const owned = State.badges.includes(car.badgeId);
+        btn.textContent = owned
+          ? `${car.name} — Déjà possédée ✓`
+          : `${car.name} — ${car.price}$`;
+        btn.disabled = owned;
+        btn.onclick = () => {
+          const ok = Interactions.buyCar(car);
+          if (ok) {
+            descEl.textContent = `Félicitations ! Tu possèdes maintenant une ${car.name}.`;
+            btn.textContent = `${car.name} — Déjà possédée ✓`;
+            btn.disabled = true;
+          }
+        };
+        optDiv.appendChild(btn);
+      });
+    }
+
+    document.getElementById('dialog-box').style.display = 'flex';
+  },
+
+  _reLock() {
+    if (!State.paused && !State.gameOver) {
+      State.pointerLocked = true;
+    }
+  }
+};

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jeu 3D — Choisir la version</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0e1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: clamp(1.6em, 5vw, 2.8em);
+      letter-spacing: 0.05em;
+      color: #f1c40f;
+      text-shadow: 0 0 24px rgba(241,196,15,0.5);
+      text-align: center;
+    }
+
+    p {
+      color: #aaa;
+      font-size: clamp(0.9em, 2.5vw, 1.1em);
+      text-align: center;
+    }
+
+    #buttons {
+      display: flex;
+      gap: clamp(16px, 4vw, 48px);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      width: clamp(140px, 28vw, 220px);
+      height: clamp(140px, 28vw, 220px);
+      border-radius: 20px;
+      border: 2px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      font-size: clamp(1em, 3vw, 1.3em);
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      text-align: center;
+    }
+
+    .btn:hover, .btn:active {
+      background: rgba(255,255,255,0.14);
+      border-color: rgba(255,255,255,0.4);
+      transform: scale(1.04);
+    }
+
+    .btn .icon {
+      font-size: clamp(2.2em, 7vw, 3.2em);
+      line-height: 1;
+    }
+
+    .btn-ordi  { border-color: rgba(100,160,255,0.35); }
+    .btn-ordi:hover  { border-color: rgba(100,160,255,0.8); background: rgba(100,160,255,0.12); }
+
+    .btn-mobile { border-color: rgba(80,210,120,0.35); }
+    .btn-mobile:hover { border-color: rgba(80,210,120,0.8); background: rgba(80,210,120,0.12); }
+
+    #auto-hint {
+      font-size: clamp(0.75em, 2vw, 0.9em);
+      color: #666;
+      text-align: center;
+    }
+
+    #auto-hint span { color: #f1c40f; }
+  </style>
+</head>
+<body>
+
+  <h1>🏙 Jeu 3D</h1>
+  <p>Tu joues sur quel appareil ?</p>
+
+  <div id="buttons">
+    <a class="btn btn-ordi" href="jeu3dordi/index.html">
+      <span class="icon">🖥</span>
+      Ordinateur
+    </a>
+    <a class="btn btn-mobile" href="jeu3dmobile/index.html">
+      <span class="icon">📱</span>
+      Mobile / Tablette
+    </a>
+  </div>
+
+  <div id="auto-hint"></div>
+
+  <script>
+    // Détection automatique — suggestion seulement, pas de redirection forcée
+    const isMobile = /Mobi|Android|iPhone|iPad|Touch/i.test(navigator.userAgent)
+                  || ('ontouchstart' in window && window.innerWidth < 1024);
+
+    const hint = document.getElementById('auto-hint');
+    if (isMobile) {
+      hint.innerHTML = '📱 On dirait que tu es sur mobile — <span>Mobile</span> est recommandé.';
+    } else {
+      hint.innerHTML = '🖥 On dirait que tu es sur ordinateur — <span>Ordinateur</span> est recommandé.';
+    }
+  </script>
+
+</body>
+</html>

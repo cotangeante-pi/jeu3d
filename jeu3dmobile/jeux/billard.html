@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Billard 8-Ball</title>
+<script src="../game_utils.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;overflow:hidden;}
+a.back{color:#f1c40f;text-decoration:none;align-self:flex-start;font-size:14px;margin-bottom:6px;padding:5px 12px;border:1px solid #f1c40f;border-radius:20px;}
+h1{color:#f1c40f;font-size:1.2rem;margin-bottom:4px;}
+#hud{display:flex;gap:10px;align-items:center;margin-bottom:6px;font-size:0.82rem;flex-wrap:wrap;justify-content:center;}
+.hud-box{background:#0d1526;padding:4px 10px;border-radius:10px;border:1px solid #2a3555;}
+.hud-box.active{border-color:#f1c40f;color:#f1c40f;}
+canvas{border-radius:8px;border:3px solid #1a3a1a;display:block;touch-action:none;}
+#msg{font-size:0.82rem;color:#f1c40f;text-align:center;margin-top:4px;min-height:16px;}
+#power-bar-wrap{width:min(calc(100vw-16px),600px);height:10px;background:#0d1526;border-radius:5px;margin-top:4px;border:1px solid #2a3555;overflow:hidden;}
+#power-bar{height:100%;width:0%;background:linear-gradient(to right,#27ae60,#f1c40f,#e74c3c);border-radius:5px;transition:width 0.05s;}
+#win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:100;}
+#win-screen h2{color:#f1c40f;margin-bottom:12px;}
+#win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+</style>
+</head>
+<body>
+<a href="../jeu_societe.html" class="back">← Jeux</a>
+<h1>🎱 Billard 8-Ball</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="hud">
+  <div class="hud-box active" id="p1hud">🟡 Vous (pleines): 0</div>
+  <div class="hud-box" id="p2hud">🔴 Bot (rayées): 0</div>
+  <div class="hud-box" id="turnhud">Votre tour</div>
+</div>
+<canvas id="c"></canvas>
+<div id="power-bar-wrap"><div id="power-bar"></div></div>
+<div id="msg">Pointez et faites glisser pour viser, relâchez pour tirer.</div>
+<div id="win-screen">
+  <h2 id="win-text"></h2>
+  <button onclick="initGame()">Rejouer</button>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=Math.min(window.innerWidth-16, 600);
+const H=Math.round(W*0.55);
+canvas.width=W; canvas.height=H;
+const CUSHION=20;
+const TW=W-CUSHION*2; // table width
+const TH=H-CUSHION*2;
+const R=Math.min(W,H)*0.028; // ball radius
+const FRICTION=0.985;
+const MIN_VEL=0.15;
+const POCKET_R=R*1.4;
+
+// Pocket positions
+const POCKETS=[
+  {x:CUSHION,y:CUSHION},
+  {x:W/2,y:CUSHION},
+  {x:W-CUSHION,y:CUSHION},
+  {x:CUSHION,y:H-CUSHION},
+  {x:W/2,y:H-CUSHION},
+  {x:W-CUSHION,y:H-CUSHION},
+];
+
+// Ball colors
+const BALL_COLORS={
+  1:'#f1c40f',2:'#3498db',3:'#e74c3c',4:'#8e44ad',5:'#e67e22',6:'#27ae60',7:'#7b241c',
+  8:'#111',
+  9:'#f1c40f',10:'#3498db',11:'#e74c3c',12:'#8e44ad',13:'#e67e22',14:'#27ae60',15:'#7b241c',
+};
+
+let balls=[], cueBall, dragging=false, dragStart={x:0,y:0}, dragCur={x:0,y:0};
+let currentPlayer=0; // 0=human,1=bot
+let playerType={0:'solid',1:'stripe'}; // assigned after break
+let typeAssigned=false;
+let pocketed={solid:0,stripe:0};
+let eightPocketed=false;
+let animating=false;
+let gameOver=false;
+
+function initGame(){
+  gameOver=false; dragging=false; animating=false;
+  currentPlayer=0; typeAssigned=false; eightPocketed=false;
+  pocketed={solid:0,stripe:0};
+  playerType={0:'solid',1:'stripe'};
+  document.getElementById('win-screen').style.display='none';
+  setMsg('Pointez et faites glisser pour viser.');
+  // Cue ball
+  cueBall={x:W*0.28,y:H/2,vx:0,vy:0,num:0,pocketed:false};
+  balls=[cueBall];
+  // Rack 15 balls in triangle
+  let bx=W*0.68, by=H/2;
+  let rack=[1,9,2,10,8,11,3,14,7,12,4,15,6,13,5];
+  let idx=0;
+  for(let row=0;row<5;row++){
+    for(let col=0;col<=row;col++){
+      let bnum=rack[idx++];
+      let px=bx+row*(R*2.05);
+      let py=by-(row*R*1.05)+(col*R*2.1);
+      balls.push({x:px,y:py,vx:0,vy:0,num:bnum,pocketed:false});
+    }
+  }
+  updateHUD();
+  render();
+}
+
+function setMsg(m){document.getElementById('msg').textContent=m;}
+function updateHUD(){
+  document.getElementById('p1hud').textContent=`🟡 Vous (${playerType[0]||'?'}): ${pocketed.solid}`;
+  document.getElementById('p2hud').textContent=`🔴 Bot (${playerType[1]||'?'}): ${pocketed.stripe}`;
+  let tn=currentPlayer===0?'Votre tour':'Tour du bot';
+  document.getElementById('turnhud').textContent=tn;
+  document.getElementById('p1hud').className='hud-box'+(currentPlayer===0?' active':'');
+  document.getElementById('p2hud').className='hud-box'+(currentPlayer===1?' active':'');
+}
+
+// ===== PHYSICS =====
+function step(){
+  let moving=false;
+  balls.forEach(b=>{
+    if(b.pocketed)return;
+    b.x+=b.vx; b.y+=b.vy;
+    b.vx*=FRICTION; b.vy*=FRICTION;
+    if(Math.abs(b.vx)<MIN_VEL)b.vx=0;
+    if(Math.abs(b.vy)<MIN_VEL)b.vy=0;
+    // Wall collisions
+    if(b.x-R<CUSHION){b.x=CUSHION+R;b.vx=Math.abs(b.vx);}
+    if(b.x+R>W-CUSHION){b.x=W-CUSHION-R;b.vx=-Math.abs(b.vx);}
+    if(b.y-R<CUSHION){b.y=CUSHION+R;b.vy=Math.abs(b.vy);}
+    if(b.y+R>H-CUSHION){b.y=H-CUSHION-R;b.vy=-Math.abs(b.vy);}
+    if(b.vx!==0||b.vy!==0)moving=true;
+    // Pockets
+    POCKETS.forEach(p=>{
+      if(!b.pocketed&&Math.hypot(b.x-p.x,b.y-p.y)<POCKET_R+R*0.5){
+        b.pocketed=true; b.vx=0; b.vy=0;
+        onBallPocketed(b);
+      }
+    });
+  });
+  // Ball-ball collisions
+  for(let i=0;i<balls.length;i++){
+    if(balls[i].pocketed)continue;
+    for(let j=i+1;j<balls.length;j++){
+      if(balls[j].pocketed)continue;
+      let dx=balls[j].x-balls[i].x, dy=balls[j].y-balls[i].y;
+      let dist=Math.hypot(dx,dy);
+      if(dist<R*2&&dist>0){
+        let nx=dx/dist,ny=dy/dist;
+        let overlap=R*2-dist;
+        balls[i].x-=nx*overlap/2; balls[i].y-=ny*overlap/2;
+        balls[j].x+=nx*overlap/2; balls[j].y+=ny*overlap/2;
+        let dv=(balls[i].vx-balls[j].vx)*nx+(balls[i].vy-balls[j].vy)*ny;
+        if(dv>0){
+          balls[i].vx-=dv*nx; balls[i].vy-=dv*ny;
+          balls[j].vx+=dv*nx; balls[j].vy+=dv*ny;
+        }
+      }
+    }
+  }
+  return moving;
+}
+
+function onBallPocketed(b){
+  if(b.num===0){
+    // Cue ball scratch
+    setTimeout(()=>{
+      if(!gameOver){respawnCue();setMsg('Faute ! Boule blanche empochée.');}
+    },500);
+    return;
+  }
+  if(b.num===8){
+    let myType=playerType[currentPlayer];
+    let myCount=myType==='solid'?pocketed.solid:pocketed.stripe;
+    if(myCount>=7){ // all mine pocketed
+      setTimeout(()=>endGame(currentPlayer===0?'Vous gagnez ! 🎱':'Le bot gagne !'),600);
+    } else {
+      setTimeout(()=>endGame(currentPlayer===0?'Foul ! Bot gagne.':'Vous gagnez !'),600);
+    }
+    eightPocketed=true; return;
+  }
+  let type=b.num<=7?'solid':'stripe';
+  if(!typeAssigned){
+    playerType[currentPlayer]=type;
+    playerType[1-currentPlayer]=type==='solid'?'stripe':'solid';
+    typeAssigned=true;
+    setMsg(`Vous êtes ${currentPlayer===0?type:'l\'autre'}. Bot=${playerType[1]}.`);
+  }
+  if(type==='solid')pocketed.solid++;
+  else pocketed.stripe++;
+}
+
+function respawnCue(){
+  cueBall.x=W*0.28; cueBall.y=H/2;
+  cueBall.vx=0;cueBall.vy=0;cueBall.pocketed=false;
+  // Switch turn on scratch
+  switchTurn();
+}
+
+function switchTurn(){
+  currentPlayer=1-currentPlayer;
+  updateHUD();
+  if(currentPlayer===1&&!gameOver){
+    setTimeout(botShoot,800);
+  }
+}
+
+// ===== RENDERING =====
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // Table felt
+  ctx.fillStyle='#1a5c2a'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#155222'; ctx.fillRect(CUSHION,CUSHION,TW,TH);
+  // Cushions
+  ctx.fillStyle='#0d3a18';
+  ctx.fillRect(0,0,W,CUSHION);ctx.fillRect(0,H-CUSHION,W,CUSHION);
+  ctx.fillRect(0,0,CUSHION,H);ctx.fillRect(W-CUSHION,0,CUSHION,H);
+  // Head string
+  ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(W*0.28,CUSHION); ctx.lineTo(W*0.28,H-CUSHION); ctx.stroke();
+  // Pockets
+  POCKETS.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,POCKET_R,0,Math.PI*2);
+    ctx.fillStyle='#000'; ctx.fill();
+  });
+  // Aim line
+  if(dragging&&!animating&&!cueBall.pocketed){
+    let dx=cueBall.x-dragStart.x, dy=cueBall.y-dragStart.y;
+    let len=Math.hypot(dx,dy);
+    if(len>0){
+      let nx=dx/len,ny=dy/len;
+      ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=1.5;
+      ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.moveTo(cueBall.x,cueBall.y);
+      ctx.lineTo(cueBall.x+nx*Math.min(len*2,W),cueBall.y+ny*Math.min(len*2,H));
+      ctx.stroke(); ctx.setLineDash([]);
+      // Cue stick
+      ctx.strokeStyle='#c8a068'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(dragStart.x,dragStart.y);
+      ctx.lineTo(dragStart.x-nx*80,dragStart.y-ny*80); ctx.stroke();
+    }
+  }
+  // Balls
+  balls.forEach(b=>{
+    if(b.pocketed)return;
+    ctx.beginPath(); ctx.arc(b.x,b.y,R,0,Math.PI*2);
+    if(b.num===0){
+      ctx.fillStyle='#fff';
+    } else {
+      ctx.fillStyle=BALL_COLORS[b.num]||'#888';
+    }
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1;
+    ctx.stroke();
+    // Stripe pattern
+    if(b.num>=9&&b.num<=15){
+      ctx.fillStyle='#fff'; ctx.globalAlpha=0.7;
+      ctx.beginPath(); ctx.arc(b.x,b.y,R*0.7,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+      ctx.beginPath(); ctx.arc(b.x,b.y,R*0.7,0,Math.PI*2);
+      ctx.fillStyle=BALL_COLORS[b.num]; ctx.fill();
+    }
+    // Number
+    if(b.num>0){
+      ctx.fillStyle='#fff'; ctx.font=`bold ${R*0.8}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(b.num,b.x,b.y);
+    }
+    // Shine
+    ctx.beginPath(); ctx.arc(b.x-R*0.3,b.y-R*0.3,R*0.25,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.fill();
+  });
+}
+
+// ===== GAME LOOP =====
+let frameId=null;
+function startPhysics(){
+  animating=true;
+  let pocketedBefore={solid:pocketed.solid,stripe:pocketed.stripe};
+  function loop(){
+    let moving=step();
+    render();
+    if(moving){frameId=requestAnimationFrame(loop);}
+    else{
+      animating=false;
+      if(gameOver||eightPocketed){updateHUD();return;}
+      let pocketedThisShot=(pocketed.solid-pocketedBefore.solid)+(pocketed.stripe-pocketedBefore.stripe);
+      // If player pocketed own ball(s), they play again; otherwise switch
+      let myType=playerType[currentPlayer];
+      let myPocketed=myType==='solid'?(pocketed.solid-pocketedBefore.solid):(pocketed.stripe-pocketedBefore.stripe);
+      if(myPocketed>0&&!cueBall.pocketed){
+        // Player pockets own ball: replay
+        updateHUD();
+        if(currentPlayer===1){setTimeout(botShoot,700);}
+        else{setMsg('Bien joué ! Rejouez.');}
+      } else {
+        // Switch turn
+        currentPlayer=1-currentPlayer;
+        updateHUD();
+        if(currentPlayer===1){setTimeout(botShoot,700);}
+        else{setMsg('Votre tour — visez et tirez !');}
+      }
+    }
+  }
+  frameId=requestAnimationFrame(loop);
+}
+
+function shoot(power,angle){
+  if(cueBall.pocketed)return;
+  let maxForce=20;
+  cueBall.vx=Math.cos(angle)*power*maxForce;
+  cueBall.vy=Math.sin(angle)*power*maxForce;
+  startPhysics();
+}
+
+// ===== INPUT =====
+function getPos(e){
+  let rect=canvas.getBoundingClientRect();
+  let sx=canvas.width/rect.width,sy=canvas.height/rect.height;
+  if(e.touches){return{x:(e.touches[0].clientX-rect.left)*sx,y:(e.touches[0].clientY-rect.top)*sy};}
+  return{x:(e.clientX-rect.left)*sx,y:(e.clientY-rect.top)*sy};
+}
+
+canvas.addEventListener('mousedown',e=>{
+  if(currentPlayer!==0||animating||gameOver||cueBall.pocketed)return;
+  let p=getPos(e); dragStart={...p}; dragCur={...p}; dragging=true;
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  dragCur=getPos(e);
+  let dx=cueBall.x-dragStart.x,dy=cueBall.y-dragStart.y;
+  let pct=Math.min(Math.hypot(dx,dy)/150,1)*100;
+  document.getElementById('power-bar').style.width=pct+'%';
+  render();
+});
+canvas.addEventListener('mouseup',e=>{
+  if(!dragging)return;
+  dragging=false;
+  document.getElementById('power-bar').style.width='0%';
+  let dx=cueBall.x-dragStart.x,dy=cueBall.y-dragStart.y;
+  let len=Math.hypot(dx,dy);
+  if(len<5){render();return;}
+  let angle=Math.atan2(dy,dx);
+  let power=Math.min(len/150,1);
+  shoot(power,angle);
+});
+// Touch events
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(currentPlayer!==0||animating||gameOver||cueBall.pocketed)return;
+  let p=getPos(e); dragStart={...p}; dragCur={...p}; dragging=true;
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(!dragging)return;
+  dragCur=getPos(e);
+  let dx=cueBall.x-dragStart.x,dy=cueBall.y-dragStart.y;
+  let pct=Math.min(Math.hypot(dx,dy)/150,1)*100;
+  document.getElementById('power-bar').style.width=pct+'%';
+  render();
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(!dragging)return;
+  dragging=false;
+  document.getElementById('power-bar').style.width='0%';
+  let dx=cueBall.x-dragStart.x,dy=cueBall.y-dragStart.y;
+  let len=Math.hypot(dx,dy);
+  if(len<5){render();return;}
+  let angle=Math.atan2(dy,dx);
+  let power=Math.min(len/150,1);
+  shoot(power,angle);
+},{passive:false});
+
+// ===== BOT =====
+function botShoot(){
+  if(gameOver||currentPlayer!==1||animating)return;
+  setMsg('Bot réfléchit...');
+  setTimeout(()=>{
+    if(gameOver)return;
+    let myType=playerType[1];
+    let targets=balls.filter(b=>!b.pocketed&&b.num>0&&b.num!==8);
+    if(myType==='solid')targets=targets.filter(b=>b.num<=7);
+    else targets=targets.filter(b=>b.num>=9);
+    let myCount=myType==='solid'?pocketed.solid:pocketed.stripe;
+    if(myCount>=7){targets=[balls.find(b=>b.num===8&&!b.pocketed)].filter(Boolean);}
+    if(targets.length===0){switchTurn();return;}
+    // Accuracy varies with level: low level = random target, high = closest
+    let target;
+    if(GameUtils.shouldRandomize()){
+      target=targets[Math.floor(Math.random()*targets.length)];
+    } else {
+      targets.sort((a,b)=>Math.hypot(a.x-cueBall.x,a.y-cueBall.y)-Math.hypot(b.x-cueBall.x,b.y-cueBall.y));
+      target=targets[0];
+    }
+    if(!target){switchTurn();return;}
+    let angle=Math.atan2(target.y-cueBall.y,target.x-cueBall.x);
+    // Add angular noise based on level
+    const noise = (10-GameUtils.getLevel()) * 0.05;
+    angle += (Math.random()-0.5)*noise*2;
+    let power=0.55+Math.random()*0.3;
+    setMsg(`Bot vise la boule ${target.num}`);
+    shoot(power,angle);
+  },600);
+}
+
+function endGame(msg){
+  gameOver=true;
+  document.getElementById('win-text').textContent=msg;
+  document.getElementById('win-screen').style.display='block';
+}
+
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initGame());
+GameUtils.createOnlineButton(_guRow,'billard',{
+  onConnected:(info)=>{initGame();},
+  onMove:()=>{}
+});
+GameUtils.showTutorial('billard', initGame);
+</script>
+</body>
+</html>

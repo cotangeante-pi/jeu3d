@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Othello</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+    touch-action: manipulation;
+  }
+  a.back {
+    align-self: flex-start;
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  a.back:hover { background: #f1c40f22; }
+  h1 { font-size: 1.8rem; margin-bottom: 6px; letter-spacing: 2px; }
+  #status {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    min-height: 1.5em;
+    color: #fff;
+    text-align: center;
+  }
+  #scoreboard {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+  }
+  .score-box {
+    background: #12182e;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    padding: 6px 18px;
+    text-align: center;
+  }
+  .score-box span { display: block; font-size: 1.5rem; font-weight: bold; }
+  .score-yellow span { color: #f1c40f; }
+  .score-dark span { color: #aaa; }
+  canvas {
+    border: 2px solid #f1c40f55;
+    border-radius: 4px;
+    cursor: pointer;
+    touch-action: none;
+    display: block;
+  }
+  #btn-new {
+    margin-top: 16px;
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 32px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #btn-new:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+<a class="back" href="../jeu_societe.html">← Jeux</a>
+<h1>Othello</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="status">À vous de jouer !</div>
+<div id="scoreboard">
+  <div class="score-box score-yellow">Vous (Jaune)<span id="sy">2</span></div>
+  <div class="score-box score-dark">Bot (Noir)<span id="sb">2</span></div>
+</div>
+<canvas id="c"></canvas>
+<button id="btn-new">Nouvelle partie</button>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const syEl = document.getElementById('sy');
+const sbEl = document.getElementById('sb');
+
+const N = 8;
+// 0=vide, 1=joueur(jaune), 2=bot(noir)
+let board, playerTurn, gameOver;
+let cellSize;
+
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+function newGame() {
+  board = Array.from({length: N}, () => Array(N).fill(0));
+  board[3][3] = 1; board[4][4] = 1;
+  board[3][4] = 2; board[4][3] = 2;
+  playerTurn = true;
+  gameOver = false;
+  statusEl.textContent = 'À vous de jouer !';
+  updateScores();
+  draw();
+}
+
+function inBounds(r, c) { return r >= 0 && r < N && c >= 0 && c < N; }
+
+function getFlips(b, r, c, player) {
+  if (b[r][c] !== 0) return [];
+  const opp = player === 1 ? 2 : 1;
+  let all = [];
+  for (const [dr, dc] of DIRS) {
+    let nr = r + dr, nc = c + dc, seq = [];
+    while (inBounds(nr, nc) && b[nr][nc] === opp) {
+      seq.push([nr, nc]);
+      nr += dr; nc += dc;
+    }
+    if (seq.length && inBounds(nr, nc) && b[nr][nc] === player) {
+      all = all.concat(seq);
+    }
+  }
+  return all;
+}
+
+function validMoves(b, player) {
+  const moves = [];
+  for (let r = 0; r < N; r++)
+    for (let c = 0; c < N; c++)
+      if (getFlips(b, r, c, player).length > 0)
+        moves.push([r, c]);
+  return moves;
+}
+
+function applyMove(b, r, c, player) {
+  const flips = getFlips(b, r, c, player);
+  b[r][c] = player;
+  for (const [fr, fc] of flips) b[fr][fc] = player;
+  return flips;
+}
+
+function countPieces(b) {
+  let y = 0, bl = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (b[r][c] === 1) y++; else if (b[r][c] === 2) bl++;
+  }
+  return { y, bl };
+}
+
+function updateScores() {
+  const { y, bl } = countPieces(board);
+  syEl.textContent = y; sbEl.textContent = bl;
+}
+
+// Heuristique : poids des cases (coins > bords > centre)
+const WEIGHTS = [
+  [100,-20,10,5,5,10,-20,100],
+  [-20,-50,-2,-2,-2,-2,-50,-20],
+  [10,-2,5,1,1,5,-2,10],
+  [5,-2,1,0,0,1,-2,5],
+  [5,-2,1,0,0,1,-2,5],
+  [10,-2,5,1,1,5,-2,10],
+  [-20,-50,-2,-2,-2,-2,-50,-20],
+  [100,-20,10,5,5,10,-20,100]
+];
+
+function evalBoard(b) {
+  let score = 0;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (b[r][c] === 2) score += WEIGHTS[r][c];
+    else if (b[r][c] === 1) score -= WEIGHTS[r][c];
+  }
+  return score;
+}
+
+function botChoose() {
+  if (onlineMode) return null;
+  const moves = validMoves(board, 2);
+  if (!moves.length) return null;
+  if (GameUtils.shouldRandomize()) return moves[Math.floor(Math.random() * moves.length)];
+  let best = -Infinity, bestMove = null;
+  for (const [r, c] of moves) {
+    const copy = board.map(row => [...row]);
+    applyMove(copy, r, c, 2);
+    const val = evalBoard(copy);
+    if (val > best) { best = val; bestMove = [r, c]; }
+  }
+  return bestMove;
+}
+
+function draw() {
+  const s = canvas.width;
+  cellSize = s / N;
+  ctx.clearRect(0, 0, s, s);
+
+  // Fond vert foncé
+  ctx.fillStyle = '#0d4a1a';
+  ctx.fillRect(0, 0, s, s);
+
+  // Grille
+  ctx.strokeStyle = '#1a6b28';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= N; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cellSize, 0); ctx.lineTo(i * cellSize, s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(s, i * cellSize); ctx.stroke();
+  }
+
+  // Coups valides (si tour joueur)
+  if (playerTurn && !gameOver) {
+    const vm = validMoves(board, 1);
+    for (const [r, c] of vm) {
+      ctx.fillStyle = 'rgba(241, 196, 15, 0.25)';
+      ctx.beginPath();
+      ctx.arc(c * cellSize + cellSize/2, r * cellSize + cellSize/2, cellSize * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Pièces
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c] === 0) continue;
+    const cx = c * cellSize + cellSize/2, cy = r * cellSize + cellSize/2;
+    const rad = cellSize * 0.38;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    if (board[r][c] === 1) {
+      ctx.fillStyle = '#f1c40f';
+    } else {
+      ctx.fillStyle = '#1a1a2e';
+    }
+    ctx.fill();
+    ctx.strokeStyle = board[r][c] === 1 ? '#d4ac0d' : '#444';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function handleClick(px, py) {
+  if (!playerTurn || gameOver) return;
+  const c = Math.floor(px / cellSize), r = Math.floor(py / cellSize);
+  if (!inBounds(r, c)) return;
+  const flips = getFlips(board, r, c, 1);
+  if (!flips.length) return;
+  applyMove(board, r, c, 1);
+  if (onlineMode) GameUtils.sendMove({type:'move', r, c});
+  updateScores();
+  playerTurn = false;
+  draw();
+
+  // Vérif fin
+  const botMoves = validMoves(board, 2);
+  const playerMoves = validMoves(board, 1);
+
+  if (!botMoves && !playerMoves) { endGame(); return; }
+  if (!botMoves) { statusEl.textContent = 'Bot passe son tour !'; playerTurn = true; draw(); return; }
+
+  if (onlineMode) { statusEl.textContent = 'Adversaire réfléchit…'; return; }
+  statusEl.textContent = 'Bot réfléchit...';
+  setTimeout(() => {
+    const move = botChoose();
+    if (move) applyMove(board, move[0], move[1], 2);
+    updateScores();
+    playerTurn = true;
+
+    const pm = validMoves(board, 1);
+    const bm = validMoves(board, 2);
+    if (!pm && !bm) { endGame(); return; }
+    if (!pm) { statusEl.textContent = 'Vous passez votre tour !'; playerTurn = false; setTimeout(() => { playerTurn = true; statusEl.textContent = 'À vous !'; draw(); }, 1200); }
+    else { statusEl.textContent = 'À vous de jouer !'; }
+    draw();
+  }, 400);
+}
+
+function endGame() {
+  gameOver = true;
+  const { y, bl } = countPieces(board);
+  if (y > bl) statusEl.textContent = `Vous gagnez ! (${y} vs ${bl})`;
+  else if (bl > y) statusEl.textContent = `Bot gagne ! (${bl} vs ${y})`;
+  else statusEl.textContent = `Égalité ! (${y} vs ${bl})`;
+  draw();
+}
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  handleClick(e.clientX - r.left, e.clientY - r.top);
+});
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const r = canvas.getBoundingClientRect();
+  handleClick(t.clientX - r.left, t.clientY - r.top);
+}, { passive: false });
+
+let onlineMode=false, onlineIsHost=false;
+document.getElementById('btn-new').addEventListener('click', newGame);
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>newGame());
+GameUtils.createOnlineButton(_guRow,'othello',{
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;newGame();},
+  onMove:(data)=>{
+    if(data.type==='move'){applyMove(board,data.r,data.c,2);updateScores();playerTurn=true;statusEl.textContent='À vous de jouer !';draw();}
+  }
+});
+
+function resize() {
+  const size = Math.min(window.innerWidth - 32, 400);
+  canvas.width = size;
+  canvas.height = size;
+  draw();
+}
+window.addEventListener('resize', resize);
+resize();
+GameUtils.showTutorial('othello', newGame);
+</script>
+</body>
+</html>

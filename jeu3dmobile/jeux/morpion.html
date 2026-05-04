@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Morpion</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+    touch-action: manipulation;
+  }
+  a.back {
+    align-self: flex-start;
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  a.back:hover { background: #f1c40f22; }
+  h1 { font-size: 1.8rem; margin-bottom: 6px; letter-spacing: 2px; }
+  #status {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    min-height: 1.5em;
+    color: #fff;
+    text-align: center;
+  }
+  #scores {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+  }
+  .score-box {
+    background: #12182e;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    padding: 6px 14px;
+    text-align: center;
+  }
+  .score-box span { display: block; font-size: 1.4rem; font-weight: bold; color: #f1c40f; }
+  #diff-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .diff-btn {
+    background: #12182e;
+    color: #f1c40f;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .diff-btn.active, .diff-btn:hover { background: #f1c40f22; border-color: #f1c40f; }
+  canvas {
+    border: 2px solid #f1c40f55;
+    border-radius: 12px;
+    cursor: pointer;
+    touch-action: none;
+    display: block;
+  }
+  #btn-new {
+    margin-top: 16px;
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 32px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #btn-new:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+<a class="back" href="../jeu_societe.html">← Jeux</a>
+<h1>Morpion</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="status">À vous de jouer !</div>
+<div id="scores">
+  <div class="score-box">Victoires<span id="sw">0</span></div>
+  <div class="score-box">Nuls<span id="sn">0</span></div>
+  <div class="score-box">Défaites<span id="sd">0</span></div>
+</div>
+<canvas id="c"></canvas>
+<button id="btn-new">Nouvelle partie</button>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const swEl = document.getElementById('sw');
+const snEl = document.getElementById('sn');
+const sdEl = document.getElementById('sd');
+let scores = { w: 0, n: 0, d: 0 };
+let board, current, gameOver;
+let onlineMode=false, onlineIsHost=false;
+
+function resize() {
+  const size = Math.min(window.innerWidth - 32, 340);
+  canvas.width = size;
+  canvas.height = size;
+  draw();
+}
+
+function newGame() {
+  board = Array(9).fill(null);
+  current = 'X';
+  gameOver = false;
+  statusEl.textContent = 'À vous de jouer !';
+  draw();
+}
+
+function draw() {
+  const s = canvas.width;
+  const cell = s / 3;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = '#12182e';
+  ctx.fillRect(0, 0, s, s);
+
+  // Grille
+  ctx.strokeStyle = '#f1c40f88';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath(); ctx.moveTo(cell * i, 8); ctx.lineTo(cell * i, s - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, cell * i); ctx.lineTo(s - 8, cell * i); ctx.stroke();
+  }
+
+  // Pièces
+  for (let i = 0; i < 9; i++) {
+    const col = i % 3, row = Math.floor(i / 3);
+    const cx = col * cell + cell / 2, cy = row * cell + cell / 2;
+    const r = cell * 0.32;
+    if (board[i] === 'X') {
+      ctx.strokeStyle = '#f1c40f';
+      ctx.lineWidth = Math.max(4, s / 80);
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx - r, cy + r); ctx.stroke();
+    } else if (board[i] === 'O') {
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = Math.max(4, s / 80);
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+}
+
+function getWinner(b) {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for (const [a, bi, c] of lines) {
+    if (b[a] && b[a] === b[bi] && b[a] === b[c]) return { winner: b[a], line: [a, bi, c] };
+  }
+  if (b.every(c => c)) return { winner: 'draw' };
+  return null;
+}
+
+function minimax(b, depth, isMax, alpha, beta, maxDepth) {
+  const res = getWinner(b);
+  if (res) { if (res.winner === 'O') return 10 - depth; if (res.winner === 'X') return depth - 10; return 0; }
+  if (depth >= maxDepth) return 0;
+  let best = isMax ? -Infinity : Infinity;
+  for (let i = 0; i < 9; i++) {
+    if (!b[i]) {
+      b[i] = isMax ? 'O' : 'X';
+      const val = minimax(b, depth + 1, !isMax, alpha, beta, maxDepth);
+      b[i] = null;
+      if (isMax) { best = Math.max(best, val); alpha = Math.max(alpha, val); }
+      else { best = Math.min(best, val); beta = Math.min(beta, val); }
+      if (beta <= alpha) break;
+    }
+  }
+  return best;
+}
+
+function botMove() {
+  if (onlineMode) return;
+  const empty = board.map((v, i) => v ? null : i).filter(i => i !== null);
+  if (!empty.length) return;
+
+  let idx;
+  if (GameUtils.shouldRandomize()) {
+    idx = empty[Math.floor(Math.random() * empty.length)];
+  } else {
+    idx = getBestMove(Math.max(1, GameUtils.getDepth()) * 2);
+  }
+
+  board[idx] = 'O';
+  current = 'X';
+  if (onlineMode) GameUtils.sendMove({type:'move',idx});
+  const result = getWinner(board);
+  if (result) endGame(result);
+  else statusEl.textContent = 'À vous de jouer !';
+  draw();
+}
+
+function getBestMove(maxDepth) {
+  let best = -Infinity, idx = -1;
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = 'O';
+      const val = minimax(board, 0, false, -Infinity, Infinity, maxDepth);
+      board[i] = null;
+      if (val > best) { best = val; idx = i; }
+    }
+  }
+  return idx;
+}
+
+function endGame(result) {
+  gameOver = true;
+  if (result.winner === 'X') { statusEl.textContent = 'Vous gagnez !'; scores.w++; swEl.textContent = scores.w; }
+  else if (result.winner === 'O') { statusEl.textContent = 'Le bot gagne !'; scores.d++; sdEl.textContent = scores.d; }
+  else { statusEl.textContent = 'Égalité !'; scores.n++; snEl.textContent = scores.n; }
+}
+
+function handleClick(x, y) {
+  if (gameOver || current !== 'X') return;
+  const cell = canvas.width / 3;
+  const col = Math.floor(x / cell), row = Math.floor(y / cell);
+  const idx = row * 3 + col;
+  if (board[idx]) return;
+  board[idx] = 'X';
+  if (onlineMode) GameUtils.sendMove({type:'move',idx});
+  current = 'O';
+  draw();
+  const result = getWinner(board);
+  if (result) { endGame(result); draw(); return; }
+  if (onlineMode) { statusEl.textContent = 'Adversaire réfléchit…'; return; }
+  statusEl.textContent = 'Bot réfléchit...';
+  setTimeout(() => botMove(), 250);
+}
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  handleClick(e.clientX - r.left, e.clientY - r.top);
+});
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const r = canvas.getBoundingClientRect();
+  handleClick(t.clientX - r.left, t.clientY - r.top);
+}, { passive: false });
+
+document.getElementById('btn-new').addEventListener('click', newGame);
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>newGame());
+GameUtils.createOnlineButton(_guRow,'morpion',{
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;newGame();},
+  onMove:(data)=>{
+    if(data.type==='move'){
+      board[data.idx]='O'; current='X';draw();
+      const r=getWinner(board); if(r){endGame(r);draw();return;}
+      statusEl.textContent='À vous de jouer !';
+    }
+  }
+});
+window.addEventListener('resize', resize);
+resize();
+GameUtils.showTutorial('morpion',newGame);
+</script>
+</body>
+</html>

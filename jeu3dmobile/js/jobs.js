@@ -1,0 +1,111 @@
+const Jobs = {
+  _ZONES: {
+    baker:      { xMin: -32, xMax: -24, zMin: -36, zMax: -28 },
+    consultant: { xMin:  -4, xMax:   4, zMin:  42, zMax:  50 },
+    security:   { xMin:  38, xMax:  46, zMin: -36, zMax: -28 },
+    chef:       { xMin:  38, xMax:  46, zMin:  42, zMax:  50 },
+    doctor:     { xMin:  38, xMax:  46, zMin:  70, zMax:  78 },
+    banker:     { xMin:  38, xMax:  46, zMin: -50, zMax: -42 },
+    cashier:    { xMin:  38, xMax:  46, zMin:  -4, zMax:   8 },
+    coach:      { xMin:  -4, xMax:   4, zMin:  84, zMax:  92 },
+    worker:     { xMin: -32, xMax: -24, zMin: -50, zMax: -42 },
+    nurse:      { xMin:  -4, xMax:   4, zMin: -78, zMax: -70 },
+    athlete:          { xMin: -46, xMax: -38, zMin:  0, zMax:  8 },
+    arena_athlete:    { xMin:  80, xMax:  88, zMin:  0, zMax:  8 },
+    circuit_vitesse:  { xMin:  80, xMax:  88, zMin: 28, zMax: 36 },
+    hotel:            { xMin: -46, xMax: -38, zMin: 24, zMax: 32 },
+    football:         { xMin: -60, xMax: -52, zMin: -4, zMax:  4 },
+    farm:             { xMin: -60, xMax: -52, zMin: 24, zMax: 32 },
+  },
+
+  tick(delta) {
+    if (State.paused || State.gameOver) return;
+    if (!State.currentJob) { State.inJobZone = false; return; }
+
+    // Salaire passif
+    State.salaryTimer += delta;
+    if (State.salaryTimer >= CONFIG.SALARY_INTERVAL) {
+      State.salaryTimer -= CONFIG.SALARY_INTERVAL;
+      State.money += State.currentJob.salary;
+      this._trackProgress(State.currentJob.id, State.currentJob.salary);
+      Sound.coin();
+      HUD.update();
+      Save.write();
+      this._notify(`Salaire : +${State.currentJob.salary}$`, '#88ff88');
+    }
+
+    // Détection de zone (uniquement hors mode travail et hors voiture)
+    if (!State.inWorkMode && !State.inCar) {
+      const zone = this._ZONES[State.currentJob.id];
+      State.inJobZone = zone
+        ? State.posX >= zone.xMin && State.posX <= zone.xMax &&
+          State.posZ >= zone.zMin && State.posZ <= zone.zMax
+        : false;
+    } else {
+      State.inJobZone = false;
+    }
+  },
+
+  enterWork() {
+    if (!State.currentJob || State.inWorkMode) return;
+    const id = State.currentJob.id;
+    if (id === 'baker')            { Bakery3D.enter();                   return; }
+    if (id === 'coach')            { Athletics.enter();                  return; }
+    if (id === 'athlete')          { Athletisme.enter();                 return; }
+    if (id === 'arena_athlete')    { MondeTelepporte.enterAthletics();   return; }
+    if (id === 'circuit_vitesse')  { CircuitVitesse.enter();             return; }
+    WorkOverlay.enter(id);
+  },
+
+  exitWork() {
+    if (!State.inWorkMode) return;
+    const id = State.currentJob ? State.currentJob.id : '';
+    if (id === 'baker')            { Bakery3D.exit();            return; }
+    if (id === 'coach')            { Athletics.exit();           return; }
+    if (id === 'athlete')          { Athletisme.exit();          return; }
+    if (id === 'arena_athlete')    { MondeTelepporte.exit();     return; }
+    if (id === 'circuit_vitesse')  { CircuitVitesse.exit();      return; }
+    WorkOverlay.exit();
+  },
+
+  earnFromWork(amount) {
+    Sound.coin();
+    State.money += amount;
+    if (State.currentJob) this._trackProgress(State.currentJob.id, amount);
+    HUD.update();
+    Save.write();
+    this._notify(`✓ Bien joué ! +${amount}$`, '#88ff88');
+  },
+
+  _trackProgress(id, amount) {
+    const key = 'jeu3d_jobs_progress_mobile';
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+    if (!data[id]) data[id] = { totalEarned: 0 };
+    data[id].totalEarned += amount;
+    localStorage.setItem(key, JSON.stringify(data));
+  },
+
+  hire(job) {
+    State.currentJob  = { ...job };
+    State.salaryTimer = 0;
+    State.inJobZone   = false;
+    if (!State.badges.includes(job.id)) State.badges.push(job.id);
+  },
+
+  quit() {
+    State.currentJob  = null;
+    State.salaryTimer = 0;
+    State.inJobZone   = false;
+  },
+
+  _notify(text, color) {
+    const el = document.getElementById('job-notify');
+    if (!el) return;
+    el.textContent   = text;
+    el.style.color   = color || '#ffffff';
+    el.style.display = 'block';
+    clearTimeout(this._notifyTO);
+    this._notifyTO   = setTimeout(() => { el.style.display = 'none'; }, 5000);
+  },
+};

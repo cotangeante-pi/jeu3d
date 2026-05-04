@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Yam's</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  header {
+    width: 100%;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #0d1220;
+    border-bottom: 2px solid #f1c40f33;
+    flex-shrink: 0;
+  }
+  header a {
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 15px;
+    padding: 6px 12px;
+    border: 1px solid #f1c40f55;
+    border-radius: 6px;
+  }
+  header a:hover { background: #f1c40f22; }
+  header h1 { font-size: 20px; letter-spacing: 2px; }
+  #gameArea {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 10px;
+    gap: 10px;
+  }
+  /* Dice area */
+  #diceArea {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .dieWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  canvas.die {
+    border-radius: 12px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    touch-action: none;
+  }
+  canvas.die.kept {
+    box-shadow: 0 0 0 3px #f1c40f, 0 0 12px #f1c40f88;
+    transform: translateY(-6px);
+  }
+  .keptLabel {
+    font-size: 11px;
+    color: #f1c40f;
+    height: 14px;
+  }
+  /* Controls */
+  #controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:hover:not(:disabled) { opacity: 0.85; }
+  #rollInfo {
+    font-size: 13px;
+    color: #aaa;
+  }
+  #status {
+    font-size: 13px;
+    color: #ccc;
+    text-align: center;
+    min-height: 18px;
+  }
+  /* Score sheet */
+  #scoreSheet {
+    width: 100%;
+    max-width: 420px;
+    background: #0d1628;
+    border-radius: 10px;
+    border: 1px solid #f1c40f33;
+    overflow: hidden;
+  }
+  .section-title {
+    background: #1a2744;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #f1c40fcc;
+  }
+  .score-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-bottom: 1px solid #f1c40f11;
+    cursor: pointer;
+    transition: background 0.15s;
+    gap: 6px;
+  }
+  .score-row:hover:not(.disabled):not(.special) { background: #f1c40f11; }
+  .score-row.disabled { opacity: 0.45; cursor: default; }
+  .score-row.special { cursor: default; background: #0a1022; }
+  .score-row.scored { color: #ccc; cursor: default; }
+  .score-name {
+    flex: 1;
+    font-size: 13px;
+  }
+  .score-preview {
+    min-width: 36px;
+    text-align: right;
+    font-size: 13px;
+    color: #f1c40f88;
+  }
+  .score-val {
+    min-width: 40px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: bold;
+    color: #f1c40f;
+  }
+  .score-val.zero { color: #555; }
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #1a2744;
+    border-top: 2px solid #f1c40f44;
+    font-size: 15px;
+    font-weight: bold;
+  }
+  #grandTotal { font-size: 18px; color: #f1c40f; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../jeu_societe.html">← Jeux</a>
+  <h1>Yam's</h1>
+</header>
+<div id="gameArea">
+  <div id="diceArea"></div>
+  <div id="controls">
+    <button id="btnRoll">Lancer</button>
+    <span id="rollInfo">Lancer 1/3</span>
+    <button id="btnNew">Nouvelle partie</button>
+  </div>
+  <div id="status">Appuyez sur "Lancer" pour commencer</div>
+  <div id="scoreSheet"></div>
+</div>
+
+<script>
+// ── Dice drawing ──────────────────────────────────────────
+const DIE_SIZE = Math.min(Math.max(Math.floor((Math.min(window.innerWidth, 480) - 60) / 5), 52), 72);
+
+const DOT_POSITIONS = {
+  1: [[0.5, 0.5]],
+  2: [[0.25,0.25],[0.75,0.75]],
+  3: [[0.25,0.25],[0.5,0.5],[0.75,0.75]],
+  4: [[0.25,0.25],[0.75,0.25],[0.25,0.75],[0.75,0.75]],
+  5: [[0.25,0.25],[0.75,0.25],[0.5,0.5],[0.25,0.75],[0.75,0.75]],
+  6: [[0.25,0.25],[0.75,0.25],[0.25,0.5],[0.75,0.5],[0.25,0.75],[0.75,0.75]],
+};
+
+function drawDieFace(ctx, size, value, kept) {
+  const s = size;
+  ctx.clearRect(0, 0, s, s);
+  // Background
+  const grad = ctx.createLinearGradient(0,0,s,s);
+  if (kept) { grad.addColorStop(0,'#3a2800'); grad.addColorStop(1,'#5a3e00'); }
+  else       { grad.addColorStop(0,'#1e2a40'); grad.addColorStop(1,'#131d30'); }
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.roundRect(0,0,s,s,s*0.15); ctx.fill();
+
+  // Border
+  ctx.strokeStyle = kept ? '#f1c40f' : '#2a3a55';
+  ctx.lineWidth = kept ? 2 : 1.5;
+  ctx.stroke();
+
+  if (value === 0) return;
+  // Dots
+  const dots = DOT_POSITIONS[value] || [];
+  const r = s * 0.11;
+  dots.forEach(([dx, dy]) => {
+    ctx.beginPath();
+    ctx.arc(dx*s, dy*s, r, 0, Math.PI*2);
+    ctx.fillStyle = kept ? '#f1c40f' : '#e8e8e8';
+    ctx.fill();
+  });
+}
+
+// ── State ────────────────────────────────────────────────
+let dice, kept, rollsLeft, turn, scores, gameOver;
+
+const CATEGORIES = [
+  // Upper section
+  {id:'ones',   name:'As',          section:'upper'},
+  {id:'twos',   name:'Deux',        section:'upper'},
+  {id:'threes', name:'Trois',       section:'upper'},
+  {id:'fours',  name:'Quatre',      section:'upper'},
+  {id:'fives',  name:'Cinq',        section:'upper'},
+  {id:'sixes',  name:'Six',         section:'upper'},
+  // Lower section
+  {id:'three_of_a_kind', name:'Brelan',           section:'lower'},
+  {id:'four_of_a_kind',  name:'Carré',            section:'lower'},
+  {id:'full_house',      name:'Full (25)',         section:'lower'},
+  {id:'small_straight',  name:'Petite Suite (30)', section:'lower'},
+  {id:'large_straight',  name:'Grande Suite (40)', section:'lower'},
+  {id:'yahtzee',         name:'Yam\'s (50)',       section:'lower'},
+  {id:'chance',          name:'Chance',            section:'lower'},
+];
+
+function calcScore(catId, diceVals) {
+  const counts = Array(7).fill(0);
+  diceVals.forEach(v => counts[v]++);
+  const sum = diceVals.reduce((a,b)=>a+b, 0);
+  const sorted = [...diceVals].sort((a,b)=>a-b);
+
+  switch(catId) {
+    case 'ones':   return counts[1]*1;
+    case 'twos':   return counts[2]*2;
+    case 'threes': return counts[3]*3;
+    case 'fours':  return counts[4]*4;
+    case 'fives':  return counts[5]*5;
+    case 'sixes':  return counts[6]*6;
+    case 'three_of_a_kind': return counts.some(c=>c>=3) ? sum : 0;
+    case 'four_of_a_kind':  return counts.some(c=>c>=4) ? sum : 0;
+    case 'full_house': {
+      const hasThree = counts.some(c=>c===3);
+      const hasTwo   = counts.some(c=>c===2);
+      return hasThree && hasTwo ? 25 : 0;
+    }
+    case 'small_straight': {
+      const u = [...new Set(sorted)].join('');
+      return (u.includes('1234')||u.includes('2345')||u.includes('3456')) ? 30 : 0;
+    }
+    case 'large_straight': {
+      const u = [...new Set(sorted)].join('');
+      return (u==='12345'||u==='23456') ? 40 : 0;
+    }
+    case 'yahtzee': return counts.some(c=>c===5) ? 50 : 0;
+    case 'chance':  return sum;
+    default: return 0;
+  }
+}
+
+function initGame() {
+  dice     = [0,0,0,0,0];
+  kept     = [false,false,false,false,false];
+  rollsLeft = 3;
+  turn     = 0;
+  gameOver = false;
+  scores   = {};
+  CATEGORIES.forEach(c => scores[c.id] = null);
+  document.getElementById('btnRoll').disabled = false;
+  document.getElementById('status').textContent = 'Appuyez sur "Lancer" pour commencer';
+  buildDiceUI();
+  buildScoreSheet();
+  updateUI();
+}
+
+// ── Dice UI ───────────────────────────────────────────────
+function buildDiceUI() {
+  const area = document.getElementById('diceArea');
+  area.innerHTML = '';
+  dice.forEach((_, i) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dieWrapper';
+    wrapper.id = `dieWrapper${i}`;
+
+    const cv = document.createElement('canvas');
+    cv.className = 'die';
+    cv.width = DIE_SIZE; cv.height = DIE_SIZE;
+    cv.id = `die${i}`;
+    drawDieFace(cv.getContext('2d'), DIE_SIZE, 0, false);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'keptLabel';
+    lbl.id = `keptLbl${i}`;
+    lbl.textContent = '';
+
+    wrapper.appendChild(cv);
+    wrapper.appendChild(lbl);
+
+    const toggle = () => {
+      if (rollsLeft === 3 || gameOver) return; // before first roll
+      if (rollsLeft === 0) return; // no rolls left
+      kept[i] = !kept[i];
+      updateDiceDisplay();
+    };
+    wrapper.addEventListener('click', toggle);
+    wrapper.addEventListener('touchstart', e=>{ e.preventDefault(); toggle(); }, {passive:false});
+    area.appendChild(wrapper);
+  });
+}
+
+function updateDiceDisplay() {
+  dice.forEach((val, i) => {
+    const cv = document.getElementById(`die${i}`);
+    const lbl= document.getElementById(`keptLbl${i}`);
+    const ctx= cv.getContext('2d');
+    drawDieFace(ctx, DIE_SIZE, val, kept[i]);
+    cv.className='die'+(kept[i]?' kept':'');
+    lbl.textContent = kept[i] ? 'Gardé' : '';
+  });
+}
+
+// ── Roll ──────────────────────────────────────────────────
+document.getElementById('btnRoll').addEventListener('click', () => {
+  if (rollsLeft <= 0 || gameOver) return;
+  // Roll non-kept dice
+  dice = dice.map((v,i) => kept[i] ? v : Math.ceil(Math.random()*6));
+  rollsLeft--;
+  // After first roll, reset kept if all were 0
+  if (rollsLeft===2) kept = [false,false,false,false,false]; // first roll: reset
+  updateDiceDisplay();
+  updateUI();
+  buildScoreSheet(); // refresh previews
+  document.getElementById('status').textContent = rollsLeft > 0 ? 'Gardez des dés, relancez ou choisissez une case.' : 'Choisissez une catégorie pour scorer !';
+});
+
+function updateUI() {
+  const rollBtn = document.getElementById('btnRoll');
+  const info    = document.getElementById('rollInfo');
+  const rollsUsed = 3 - rollsLeft;
+  info.textContent = `Lancer ${rollsUsed}/${3}`;
+  rollBtn.disabled = rollsLeft <= 0 || gameOver;
+}
+
+// ── Score sheet ───────────────────────────────────────────
+function buildScoreSheet() {
+  const sheet = document.getElementById('scoreSheet');
+  sheet.innerHTML = '';
+
+  const upperCats = CATEGORIES.filter(c=>c.section==='upper');
+  const lowerCats = CATEGORIES.filter(c=>c.section==='lower');
+
+  appendSection(sheet, 'SECTION HAUTE', upperCats);
+
+  // Upper bonus
+  const upperTotal = upperCats.reduce((a,c)=> a+(scores[c.id]??0), 0);
+  const upperBonus = upperTotal >= 63;
+  const bonusRow = makeSpecialRow(
+    `Bonus (si total ≥ 63) : ${upperTotal}/63`,
+    upperBonus ? '+35' : (upperTotal < 63 ? `+${Math.max(0,63-upperTotal)} manquant` : '+35'),
+    upperBonus ? 35 : ''
+  );
+  sheet.appendChild(bonusRow);
+
+  appendSection(sheet, 'SECTION BASSE', lowerCats);
+
+  // Total
+  const totalRow = document.createElement('div');
+  totalRow.className='total-row';
+  const lowerTotal = lowerCats.reduce((a,c)=>a+(scores[c.id]??0),0);
+  const grand = upperTotal + (upperBonus?35:0) + lowerTotal;
+  totalRow.innerHTML=`<span>Score total</span><span id="grandTotal">${grand}</span>`;
+  sheet.appendChild(totalRow);
+
+  if (gameOver) {
+    const endRow = document.createElement('div');
+    endRow.style.cssText='text-align:center;padding:10px;font-size:15px;background:#1a2744;color:#f1c40f;font-weight:bold;';
+    endRow.textContent=`Partie terminée ! Score : ${grand}`;
+    sheet.appendChild(endRow);
+  }
+}
+
+function appendSection(parent, title, cats) {
+  const sec = document.createElement('div');
+  sec.className='section-title';
+  sec.textContent=title;
+  parent.appendChild(sec);
+
+  cats.forEach(cat => {
+    const row = document.createElement('div');
+    const already = scores[cat.id] !== null;
+    const hasRolled = rollsLeft < 3;
+    const preview = hasRolled && !already && !gameOver ? calcScore(cat.id, dice) : null;
+    const canScore = hasRolled && !already && !gameOver;
+
+    row.className='score-row'+(already?' scored disabled':'')+(canScore?'':' disabled');
+    row.innerHTML=`
+      <span class="score-name">${cat.name}</span>
+      <span class="score-preview">${preview!==null ? (preview>0?'+'+preview:'0') : ''}</span>
+      <span class="score-val${already&&scores[cat.id]===0?' zero':''}">${already ? scores[cat.id] : ''}</span>
+    `;
+
+    if (canScore) {
+      const score = () => {
+        if (scores[cat.id]!==null||!hasRolled||gameOver) return;
+        scores[cat.id] = calcScore(cat.id, dice);
+        turn++;
+        // Reset for next turn
+        kept = [false,false,false,false,false];
+        rollsLeft = 3;
+        dice = [0,0,0,0,0];
+        updateDiceDisplay();
+        updateUI();
+        if (turn >= CATEGORIES.length) {
+          gameOver = true;
+          document.getElementById('btnRoll').disabled=true;
+          document.getElementById('status').textContent='Partie terminée !';
+        } else {
+          document.getElementById('status').textContent='Lancez les dés pour le prochain tour !';
+        }
+        buildScoreSheet();
+      };
+      row.addEventListener('click', score);
+      row.addEventListener('touchstart', e=>{e.preventDefault();score();},{passive:false});
+    }
+    parent.appendChild(row);
+  });
+}
+
+function makeSpecialRow(name, preview, val) {
+  const row = document.createElement('div');
+  row.className='score-row special';
+  row.innerHTML=`
+    <span class="score-name">${name}</span>
+    <span class="score-preview">${preview}</span>
+    <span class="score-val${!val?' zero':''}">${val}</span>
+  `;
+  return row;
+}
+
+document.getElementById('btnNew').addEventListener('click', initGame);
+GameUtils.showTutorial('yams', initGame);
+</script>
+</body>
+</html>

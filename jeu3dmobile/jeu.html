@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jeu 3D</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/hud.css">
+</head>
+<body>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="money-display">$ 50</div>
+    <canvas id="minimap" width="80" height="80"></canvas>
+
+    <div id="top-right">
+      <button id="btn-pause">⏸</button>
+      <div id="iq-display">QI : 0</div>
+      <div id="badges-container"></div>
+      <button id="btn-capacities">Capacités</button>
+    </div>
+
+    <div id="bottom-bars">
+      <div id="oxygen-bar">
+        <div class="oxy-dot full" id="oxy-0"></div>
+        <div class="oxy-dot full" id="oxy-1"></div>
+        <div class="oxy-dot full" id="oxy-2"></div>
+        <div class="oxy-dot full" id="oxy-3"></div>
+        <div class="oxy-dot full" id="oxy-4"></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label">Nourr.</div>
+        <div class="bar-bg"><div class="bar-fill hunger-fill" id="bar-hunger"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label">Vie</div>
+        <div class="bar-bg"><div class="bar-fill health-fill" id="bar-health"></div></div>
+      </div>
+    </div>
+
+    <div id="hotbar">
+      <div class="hb-slot" id="hb-0"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-1"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-2"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-3"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-4"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-5"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-6"><div class="hb-icon"></div><span class="hb-count"></span></div>
+      <div class="hb-slot" id="hb-7"><div class="hb-icon"></div><span class="hb-count"></span></div>
+    </div>
+
+    <div id="game-clock"></div>
+
+    <div id="wanted-stars" style="display:none"></div>
+    <div id="job-notify" style="display:none"></div>
+
+    <div id="job-task-panel" style="display:none">
+      <div id="jt-title"></div>
+      <div id="jt-desc"></div>
+      <div id="jt-bar-bg"><div id="jt-bar-fill"></div></div>
+      <div id="jt-time"></div>
+    </div>
+
+    <div id="hold-t-bar" style="display:none">
+      <div id="hold-t-label">Traitement du dossier…</div>
+      <div id="hold-t-track"><div id="hold-t-fill"></div></div>
+      <div id="hold-t-pct">0 %</div>
+    </div>
+
+    <div id="interact-hint" style="display:none">Toucher E pour interagir</div>
+    <div id="coords-display" style="display:none;position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:4px 14px;font-size:0.85em;color:#fff;pointer-events:none;font-family:monospace;"></div>
+  </div>
+
+  <!-- Contrôles tactiles -->
+  <div id="touch-controls">
+    <!-- Joystick gauche -->
+    <div id="joystick-zone">
+      <div id="joystick-bg">
+        <div id="joystick-handle"></div>
+      </div>
+    </div>
+
+    <!-- Boutons action droite -->
+    <div id="action-buttons">
+      <button id="btn-jump" class="act-btn btn-jump">↑</button>
+      <button id="btn-punch" class="act-btn btn-punch">👊</button>
+      <button id="btn-interact" class="act-btn btn-interact">E</button>
+      <button id="btn-work" class="act-btn btn-work">T</button>
+      <button id="btn-car" class="act-btn btn-car">🚗</button>
+      <button id="btn-boost" class="act-btn btn-boost">🔥</button>
+    </div>
+  </div>
+
+  <!-- Overlays -->
+  <div id="pause-menu" style="display:none">
+    <div class="overlay-box">
+      <h2>Pause</h2>
+      <button id="btn-resume">Reprendre</button>
+      <button id="btn-quit">Quitter (sauvegarder)</button>
+    </div>
+  </div>
+
+  <div id="gameover-overlay" style="display:none">
+    <div class="overlay-box">
+      <h2>Game Over</h2>
+      <p id="gameover-reason"></p>
+      <button id="btn-restart">Recommencer</button>
+    </div>
+  </div>
+
+  <div id="capacities-panel" style="display:none">
+    <div class="overlay-box">
+      <h2>Capacités physiques</h2>
+      <div id="capacities-content"></div>
+      <button id="btn-close-cap">Fermer</button>
+    </div>
+  </div>
+
+  <div id="dialog-box" style="display:none">
+    <div class="overlay-box dialog-inner">
+      <h3 id="dialog-title"></h3>
+      <p id="dialog-desc"></p>
+      <div id="dialog-options"></div>
+      <button id="btn-close-dialog">Fermer</button>
+    </div>
+  </div>
+
+  <!-- Mini-jeu Boulangerie -->
+  <div id="bakery-overlay" style="display:none">
+    <div id="bk-box">
+      <div id="bk-header">
+        <h2>🏪 La Boulangerie</h2>
+        <button id="bk-exit-btn">T — Partir</button>
+      </div>
+      <div id="bk-workspace">
+        <div id="bk-icon">🌾</div>
+        <div id="bk-label">Prendre la farine</div>
+        <div id="bk-track"><div id="bk-fill"></div></div>
+        <button id="bk-action-btn">Faire ça !</button>
+      </div>
+      <div id="bk-dots">
+        <div class="bk-dot active"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutoriel -->
+  <div id="tutorial-overlay" style="display:none">
+    <button id="tutorial-skip">Passer</button>
+    <div id="tutorial-card">
+      <span id="tutorial-icon"></span>
+      <h2 id="tutorial-title"></h2>
+      <p id="tutorial-desc"></p>
+      <div id="tutorial-keys"></div>
+    </div>
+    <div id="tutorial-footer">
+      <span id="tutorial-progress"></span>
+      <button id="tutorial-next"></button>
+    </div>
+  </div>
+
+  <!-- Canvas Three.js -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- SDKs plateformes -->
+  <script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v2.js"></script>
+
+  <!-- Three.js (local) -->
+  <script src="js/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.body.innerHTML = '<div style="color:#fff;background:#1a1a2e;padding:40px;font-family:Arial;font-size:1.2em;text-align:center;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">' +
+        '<h2 style="color:#e74c3c;margin-bottom:20px">Erreur de chargement</h2>' +
+        '<p>Three.js (librairie 3D) n\'a pas pu charger.</p></div>';
+    }
+  </script>
+
+  <!-- Modules du jeu -->
+  <script src="js/tutorial.js"></script>
+  <script src="js/poki.js"></script>
+  <script src="js/fountain.js"></script>
+  <script src="js/hand.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/npc.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/humans.js"></script>
+  <script src="js/cars.js"></script>
+  <script src="js/interactions.js"></script>
+  <script src="js/jobs.js"></script>
+  <script src="js/light_vehicles.js"></script>
+  <script src="js/housing.js"></script>
+  <script src="js/bakery.js"></script>
+  <script src="js/work_overlay.js"></script>
+  <script src="js/athletics.js"></script>
+  <script src="js/athletisme.js"></script>
+  <script src="js/monde_teleporte.js"></script>
+  <script src="js/circuit_vitesse.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>

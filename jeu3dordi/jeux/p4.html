@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Puissance 4</title>
+  <script src="../game_utils.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; padding: 18px 16px 40px; gap: 12px;
+      -webkit-tap-highlight-color: transparent; }
+    header { width: 100%; max-width: 620px; display: flex; align-items: center; gap: 14px; }
+    .btn-back { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18);
+      color: #aaa; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 0.88em;
+      text-decoration: none; transition: color 0.15s, border-color 0.15s; touch-action: manipulation; }
+    .btn-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+    h1 { font-size: 1.4em; color: #f1c40f; }
+    #diff-row { display: flex; gap: 8px; }
+    .diff-btn { padding: 6px 16px; border-radius: 8px; border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05); color: #888; cursor: pointer; font-size: 0.85em;
+      touch-action: manipulation; }
+    .diff-btn.active { border-color: #f1c40f; color: #f1c40f; background: rgba(241,196,15,0.08); }
+    #score-row { display: flex; align-items: center; gap: 18px; font-size: 0.88em; color: #777; }
+    #score-row .val { font-weight: bold; font-size: 1.1em; }
+    .sv { color: #f1c40f; } .sn { color: #aaa; } .sd { color: #e74c3c; }
+    #btn-reset { background: none; border: 1px solid rgba(255,255,255,0.13); color: #555;
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 1em; touch-action: manipulation; }
+    canvas { border-radius: 10px; cursor: pointer; display: block; touch-action: none; }
+    #status { font-size: 1em; font-weight: bold; min-height: 1.5em; text-align: center; }
+    #btn-new { background: rgba(241,196,15,0.08); border: 1.5px solid rgba(241,196,15,0.4);
+      color: #f1c40f; padding: 9px 30px; border-radius: 10px; font-size: 0.95em; font-weight: bold;
+      cursor: pointer; touch-action: manipulation; }
+    #legend { display: flex; gap: 20px; font-size: 0.8em; color: #666; }
+    .leg { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="btn-back" href="../jeu_societe.html">← Jeux</a>
+    <h1>🔴 Puissance 4</h1>
+  </header>
+  <div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+  <div id="score-row">
+    <span>Victoires : <span class="val sv" id="sw">0</span></span>
+    <span>Nuls : <span class="val sn" id="sn">0</span></span>
+    <span>Défaites : <span class="val sd" id="sd">0</span></span>
+    <button id="btn-reset">↺</button>
+  </div>
+  <canvas id="board"></canvas>
+  <div id="status"></div>
+  <div id="legend">
+    <span class="leg"><span class="dot" style="background:#f1c40f"></span>Toi</span>
+    <span class="leg"><span class="dot" style="background:#e74c3c"></span>Bot</span>
+  </div>
+  <button id="btn-new">Nouvelle partie</button>
+<script>
+  const ROWS=6,COLS=7,EMPTY=0,PLAYER=1,BOT=2;
+  const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
+  const SCORE_KEY='jeu3d_p4';
+  let board,gameOver,thinking,hoverCol,winCells;
+  let onlineMode=false,onlineIsHost=false;
+  let scores={wins:0,draws:0,losses:0};
+  const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
+  const DPR=window.devicePixelRatio||1;
+  const maxCW=Math.floor((Math.min(window.innerWidth,620)-32)/COLS);
+  const maxCH=Math.floor((window.innerHeight*0.52)/(ROWS+0.75));
+  const CELL=Math.min(82,maxCW,maxCH),R=Math.round(CELL*0.41),PH=Math.round(CELL*0.75);
+  canvas.style.width=COLS*CELL+'px';canvas.style.height=ROWS*CELL+PH+'px';
+  canvas.width=COLS*CELL*DPR;canvas.height=(ROWS*CELL+PH)*DPR;ctx.scale(DPR,DPR);
+
+  function dropIn(b,col,who){for(let r=ROWS-1;r>=0;r--)if(b[r][col]===EMPTY){const nb=b.map(r=>[...r]);nb[r][col]=who;return nb;}return null;}
+  function validCols(b){return Array.from({length:COLS},(_,i)=>i).filter(c=>b[0][c]===EMPTY);}
+  function checkWinner(b){for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const v=b[r][c];if(!v)continue;let ok=true;for(let i=1;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS||b[nr][nc]!==v){ok=false;break;}}if(ok)return v;}return 0;}
+  function getWinCells(b){for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const v=b[r][c];if(!v)continue;const cells=[[r,c]];let ok=true;for(let i=1;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS||b[nr][nc]!==v){ok=false;break;}cells.push([nr,nc]);}if(ok)return cells;}return null;}
+  function isFull(b){return b[0].every(c=>c!==EMPTY);}
+  function scoreW(w,who){const opp=who===BOT?PLAYER:BOT,mine=w.filter(x=>x===who).length,theirs=w.filter(x=>x===opp).length;if(theirs>0)return 0;if(mine===4)return 1000;if(mine===3)return 5;if(mine===2)return 2;return 0;}
+  function evaluate(b){let s=0;for(let r=0;r<ROWS;r++){if(b[r][3]===BOT)s+=3;else if(b[r][3]===PLAYER)s-=3;}for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const w=[];for(let i=0;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS)break;w.push(b[nr][nc]);}if(w.length===4)s+=scoreW(w,BOT)-scoreW(w,PLAYER);}return s;}
+  function minimax(b,depth,alpha,beta,maxing){const w=checkWinner(b);if(w===BOT)return 100000+depth;if(w===PLAYER)return -100000-depth;const cols=validCols(b);if(!cols.length||depth===0)return evaluate(b);cols.sort((a,b)=>Math.abs(a-3)-Math.abs(b-3));if(maxing){let best=-Infinity;for(const c of cols){const val=minimax(dropIn(b,c,BOT),depth-1,alpha,beta,false);if(val>best)best=val;if(best>alpha)alpha=best;if(alpha>=beta)break;}return best;}else{let best=Infinity;for(const c of cols){const val=minimax(dropIn(b,c,PLAYER),depth-1,alpha,beta,true);if(val<best)best=val;if(best<beta)beta=best;if(alpha>=beta)break;}return best;}}
+  function getBotCol(){
+    if(onlineMode)return -1;
+    const cols=validCols(board);cols.sort((a,b)=>Math.abs(a-3)-Math.abs(b-3));
+    if(GameUtils.shouldRandomize())return cols[Math.floor(Math.random()*cols.length)];
+    const d=Math.max(1,GameUtils.getDepth());
+    let bv=-Infinity,bc=cols[0];
+    for(const c of cols){const val=minimax(dropIn(board,c,BOT),d-1,-Infinity,Infinity,false);if(val>bv){bv=val;bc=c;}}
+    return bc;
+  }
+  function draw(){ctx.clearRect(0,0,COLS*CELL,ROWS*CELL+PH);ctx.fillStyle='#070b14';ctx.fillRect(0,0,COLS*CELL,PH);ctx.fillStyle='#163080';ctx.fillRect(0,PH,COLS*CELL,ROWS*CELL);const ws=winCells?new Set(winCells.map(([r,c])=>`${r},${c}`)):null;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const cx=c*CELL+CELL/2,cy=PH+r*CELL+CELL/2,v=board[r][c],win=ws&&ws.has(`${r},${c}`);if(win){ctx.shadowColor=v===PLAYER?'#ffe000':'#ff5050';ctx.shadowBlur=22;}ctx.beginPath();ctx.arc(cx,cy,win?R*1.13:R,0,Math.PI*2);ctx.fillStyle=v===PLAYER?'#f1c40f':v===BOT?'#e74c3c':'#0a0e1a';ctx.fill();ctx.shadowBlur=0;}if(!gameOver&&!thinking&&hoverCol>=0&&hoverCol<COLS&&board[0][hoverCol]===EMPTY){ctx.beginPath();ctx.arc(hoverCol*CELL+CELL/2,PH/2,R*0.82,0,Math.PI*2);ctx.fillStyle='rgba(241,196,15,0.5)';ctx.fill();}}
+  const statusEl=document.getElementById('status');
+  function setStatus(t){statusEl.textContent=t;}
+  function endGame(winner){gameOver=true;winCells=getWinCells(board);draw();if(winner===PLAYER){scores.wins++;setStatus('Tu as gagné ! 🎉');}else if(winner===BOT){scores.losses++;setStatus('Le bot a gagné. 😬');}else{scores.draws++;setStatus('Match nul !');}saveScores();updateScoreUI();}
+  function playerPlay(col){
+    if(gameOver||thinking)return;
+    if(col<0||col>=COLS||board[0][col]!==EMPTY)return;
+    board=dropIn(board,col,PLAYER);
+    if(onlineMode)GameUtils.sendMove({type:'col',col});
+    draw();
+    const w=checkWinner(board);if(w){endGame(w);return;}if(isFull(board)){endGame(0);return;}
+    if(onlineMode){setStatus('Adversaire réfléchit…');return;}
+    thinking=true;setStatus('Le bot réfléchit…');
+    setTimeout(()=>{const bc=getBotCol();board=dropIn(board,bc,BOT);thinking=false;draw();const w2=checkWinner(board);if(w2){endGame(w2);return;}if(isFull(board)){endGame(0);return;}setStatus('À toi de jouer ! 🟡');},350);
+  }
+  function newGame(){board=Array.from({length:ROWS},()=>Array(COLS).fill(EMPTY));gameOver=false;thinking=false;hoverCol=-1;winCells=null;setStatus('À toi de jouer ! 🟡');draw();}
+  function loadScores(){try{const s=JSON.parse(localStorage.getItem(SCORE_KEY)||'{}');Object.assign(scores,s);}catch(e){}scores.wins=scores.wins||0;scores.draws=scores.draws||0;scores.losses=scores.losses||0;}
+  function saveScores(){localStorage.setItem(SCORE_KEY,JSON.stringify(scores));}
+  function resetScores(){scores={wins:0,draws:0,losses:0};saveScores();updateScoreUI();}
+  function updateScoreUI(){document.getElementById('sw').textContent=scores.wins;document.getElementById('sn').textContent=scores.draws;document.getElementById('sd').textContent=scores.losses;}
+  canvas.addEventListener('click',e=>{const rect=canvas.getBoundingClientRect();playerPlay(Math.floor((e.clientX-rect.left)/CELL));});
+  canvas.addEventListener('mousemove',e=>{const rect=canvas.getBoundingClientRect();const h=Math.floor((e.clientX-rect.left)/CELL);if(h!==hoverCol){hoverCol=h;draw();}});
+  canvas.addEventListener('mouseleave',()=>{hoverCol=-1;draw();});
+  canvas.addEventListener('touchend',e=>{e.preventDefault();const rect=canvas.getBoundingClientRect();const t=e.changedTouches[0];playerPlay(Math.floor((t.clientX-rect.left)/CELL));},{passive:false});
+  document.getElementById('btn-new').addEventListener('click',newGame);
+  document.getElementById('btn-reset').addEventListener('click',resetScores);
+  const _guRow=document.getElementById('gu-row');
+  GameUtils.createLevelSelector(_guRow,()=>newGame());
+  GameUtils.createOnlineButton(_guRow,'p4',{
+    onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;newGame();},
+    onMove:(data)=>{
+      if(data.type==='col'){
+        board=dropIn(board,data.col,PLAYER);draw();
+        const w=checkWinner(board);if(w){endGame(w);return;}if(isFull(board)){endGame(0);return;}
+        setStatus('À toi de jouer ! 🟡');
+      }
+    }
+  });
+  loadScores();updateScoreUI();
+  GameUtils.showTutorial('p4',newGame);
+</script>
+</body>
+</html>

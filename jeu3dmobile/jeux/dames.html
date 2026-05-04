@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Jeu de Dames</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+    user-select: none;
+  }
+  header {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 6px;
+  }
+  header a {
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 0.95rem;
+    background: rgba(241,196,15,0.12);
+    border: 1px solid #f1c40f44;
+    border-radius: 6px;
+    padding: 5px 12px;
+    transition: background 0.2s;
+  }
+  header a:hover { background: rgba(241,196,15,0.25); }
+  h1 { font-size: 1.3rem; letter-spacing: 1px; }
+  #status {
+    font-size: 1rem;
+    color: #fff;
+    background: #12182e;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    padding: 6px 18px;
+    margin: 6px 0;
+    min-width: 200px;
+    text-align: center;
+    min-height: 34px;
+  }
+  #status.warn { color: #f1c40f; font-weight: bold; }
+  #canvas-wrap { margin: 4px 0; }
+  canvas {
+    display: block;
+    touch-action: none;
+    border-radius: 4px;
+    box-shadow: 0 0 32px #f1c40f22;
+  }
+  #btn-new {
+    margin: 10px 0 6px;
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  #btn-new:hover { background: #d4ac0d; }
+  #btn-new:active { transform: scale(0.97); }
+  #score-bar {
+    display: flex;
+    gap: 30px;
+    font-size: 0.9rem;
+    color: #bbb;
+    margin-bottom: 2px;
+  }
+  .score-item { display: flex; align-items: center; gap: 6px; }
+  .dot-y { width:12px;height:12px;border-radius:50%;background:#f1c40f;border:2px solid #c49a06; }
+  .dot-r { width:12px;height:12px;border-radius:50%;background:#e74c3c;border:2px solid #922b21; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../jeu_societe.html">← Jeux</a>
+  <h1>Dames</h1>
+  <div style="width:70px"></div>
+</header>
+
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="status">À vous de jouer !</div>
+<div id="score-bar">
+  <div class="score-item"><div class="dot-y"></div><span>Vous : <b id="s-y">12</b></span></div>
+  <div class="score-item"><div class="dot-r"></div><span>Bot : <b id="s-r">12</b></span></div>
+</div>
+<div id="canvas-wrap">
+  <canvas id="board"></canvas>
+</div>
+<button id="btn-new">Nouvelle partie</button>
+
+<script>
+// ===================== CONSTANTES =====================
+const PLAYER=1,BOT=-1; // PLAYER=jaune(bas), BOT=rouge(haut)
+const MAN=1,KING=2;
+
+// ===================== ÉTAT =====================
+let board, turn, selected, highlights, mustCapture, gameOver;
+let thinkingTimeout=null;
+let captureChain=null; // pour la multicapture en cours
+
+function initBoard(){
+  // board[r][c] = {color,type} ou null (seules les cases noires jouables comptent)
+  board=Array.from({length:8},()=>Array(8).fill(null));
+  for(let r=0;r<3;r++){
+    for(let c=0;c<8;c++){
+      if((r+c)%2!==0) board[r][c]={color:BOT,type:MAN};
+    }
+  }
+  for(let r=5;r<8;r++){
+    for(let c=0;c<8;c++){
+      if((r+c)%2!==0) board[r][c]={color:PLAYER,type:MAN};
+    }
+  }
+  turn=PLAYER;
+  selected=null;
+  highlights=[];
+  gameOver=false;
+  captureChain=null;
+  mustCapture=false;
+  if(thinkingTimeout){clearTimeout(thinkingTimeout);thinkingTimeout=null;}
+  updateStatus('À vous de jouer !');
+  updateScore();
+  draw();
+}
+
+// ===================== CANVAS =====================
+const canvas=document.getElementById('board');
+const ctx=canvas.getContext('2d');
+let CELL=60;
+
+function resize(){
+  const maxW=Math.min(window.innerWidth-20,520);
+  CELL=Math.floor(maxW/8);
+  canvas.width=CELL*8;
+  canvas.height=CELL*8;
+  draw();
+}
+window.addEventListener('resize',resize);
+
+// ===================== DESSIN =====================
+function draw(){
+  if(!board) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      // Cases
+      const dark=(r+c)%2!==0;
+      ctx.fillStyle=dark?'#2c3a1e':'#c8b88a';
+      ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+
+      if(dark){
+        // Highlight sélection
+        if(selected&&selected.r===r&&selected.c===c){
+          ctx.fillStyle='rgba(241,196,15,0.45)';
+          ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+        }
+        // Destinations possibles
+        const hi=highlights.find(h=>h.r===r&&h.c===c);
+        if(hi){
+          ctx.fillStyle='rgba(60,220,100,0.4)';
+          ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+          // Cercle
+          ctx.fillStyle='rgba(60,220,100,0.7)';
+          ctx.beginPath();
+          ctx.arc(c*CELL+CELL/2,r*CELL+CELL/2,CELL*0.2,0,Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Pièce
+      const p=board[r][c];
+      if(p) drawPiece(ctx,p,c*CELL+CELL/2,r*CELL+CELL/2);
+    }
+  }
+}
+
+function drawPiece(ctx,p,cx,cy){
+  const r=CELL*0.38;
+  // Ombre
+  ctx.beginPath();
+  ctx.arc(cx+2,cy+3,r,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,0,0,0.35)';
+  ctx.fill();
+
+  // Couleur principale
+  const isPlayer=p.color===PLAYER;
+  const grad=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.1,cx,cy,r);
+  if(isPlayer){
+    grad.addColorStop(0,'#ffe066');
+    grad.addColorStop(1,'#c49a06');
+  } else {
+    grad.addColorStop(0,'#f1756a');
+    grad.addColorStop(1,'#922b21');
+  }
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle=grad;
+  ctx.fill();
+  ctx.strokeStyle=isPlayer?'#a07800':'#6e1f1a';
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  // Couronne pour dame
+  if(p.type===KING){
+    ctx.font=`bold ${CELL*0.38}px serif`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillStyle=isPlayer?'#4a3000':'#fff';
+    ctx.fillText('♛',cx,cy+1);
+  }
+}
+
+// ===================== RÈGLES DES DAMES =====================
+function isPlayable(r,c){return r>=0&&r<8&&c>=0&&c<8&&(r+c)%2!==0;}
+
+// Retourne les prises disponibles pour une pièce
+function getCaptures(brd,r,c,chainR,chainC){
+  // chainR/chainC : liste des pièces déjà capturées dans cette chaîne
+  const p=brd[r][c];
+  if(!p) return [];
+  const caps=[];
+  const dirs=p.type===KING?[-1,1]:(p.color===PLAYER?[-1]:[1]);
+  const allDirs=[-1,1];
+
+  if(p.type===MAN){
+    for(const dr of[-1,1]){
+      for(const dc of allDirs){
+        const mr=r+dr,mc=c+dc;
+        const lr=r+2*dr,lc=c+2*dc;
+        if(!isPlayable(lr,lc)) continue;
+        const mid=brd[mr][mc];
+        const land=brd[lr][lc];
+        if(mid&&mid.color!==p.color&&!land){
+          if(!chainR||!chainR.some((rr,i)=>rr===mr&&chainC[i]===mc)){
+            caps.push({r:lr,c:lc,capR:mr,capC:mc});
+          }
+        }
+      }
+    }
+  } else {
+    // Dame : glisse sur la diagonale
+    for(const dr of[-1,1]) for(const dc of[-1,1]){
+      let nr=r+dr,nc=c+dc;
+      let foundEnemy=null,foundEnemyR=-1,foundEnemyC=-1;
+      while(isPlayable(nr,nc)){
+        const t=brd[nr][nc];
+        if(t){
+          if(t.color===p.color) break;
+          if(foundEnemy) break; // deux pièces ennemies
+          if(chainR&&chainR.some((rr,i)=>rr===nr&&chainC[i]===nc)) break;
+          foundEnemy=t;foundEnemyR=nr;foundEnemyC=nc;
+          nr+=dr;nc+=dc;
+          continue;
+        }
+        if(foundEnemy){
+          caps.push({r:nr,c:nc,capR:foundEnemyR,capC:foundEnemyC});
+        }
+        nr+=dr;nc+=dc;
+      }
+    }
+  }
+  return caps;
+}
+
+// Retourne les déplacements simples (sans prise)
+function getMoves(brd,r,c){
+  const p=brd[r][c];
+  if(!p) return [];
+  const moves=[];
+  if(p.type===MAN){
+    const dr=p.color===PLAYER?-1:1;
+    for(const dc of[-1,1]){
+      if(isPlayable(r+dr,c+dc)&&!brd[r+dr][c+dc])
+        moves.push({r:r+dr,c:c+dc});
+    }
+  } else {
+    for(const dr of[-1,1]) for(const dc of[-1,1]){
+      let nr=r+dr,nc=c+dc;
+      while(isPlayable(nr,nc)&&!brd[nr][nc]){
+        moves.push({r:nr,c:nc});
+        nr+=dr;nc+=dc;
+      }
+    }
+  }
+  return moves;
+}
+
+// Vérifie si une couleur a des prises obligatoires
+function hasMandatoryCapture(brd,color){
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=brd[r][c];
+    if(p&&p.color===color&&getCaptures(brd,r,c,null,null).length>0) return true;
+  }
+  return false;
+}
+
+// ===================== ÉVALUATION IA =====================
+function countPieces(brd,color){
+  let men=0,kings=0;
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=brd[r][c];
+    if(p&&p.color===color){p.type===MAN?men++:kings++;}
+  }
+  return {men,kings};
+}
+
+function evaluate(brd){
+  let score=0;
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=brd[r][c];
+    if(!p) continue;
+    const val=p.type===MAN?100:300;
+    // Bonus avance pour les pions
+    let posBonus=0;
+    if(p.type===MAN){
+      posBonus=p.color===BOT?(7-r)*5:r*5;
+    }
+    // Bonus bord (protection contre prise)
+    if(c===0||c===7) posBonus+=10;
+    score+=p.color*(val+posBonus);
+  }
+  return score;
+}
+
+function cloneBoard(brd){
+  return brd.map(row=>row.map(p=>p?{...p}:null));
+}
+
+function applyCapture(brd,fromR,fromC,cap){
+  const nb=cloneBoard(brd);
+  const p={...nb[fromR][fromC]};
+  nb[cap.r][cap.c]=p;
+  nb[fromR][fromC]=null;
+  nb[cap.capR][cap.capC]=null;
+  // Promotion
+  if(p.type===MAN&&(cap.r===0&&p.color===PLAYER||cap.r===7&&p.color===BOT)){
+    nb[cap.r][cap.c]={...p,type:KING};
+  }
+  return nb;
+}
+
+function applySimpleMove(brd,fromR,fromC,move){
+  const nb=cloneBoard(brd);
+  const p={...nb[fromR][fromC]};
+  nb[move.r][move.c]=p;
+  nb[fromR][fromC]=null;
+  if(p.type===MAN&&(move.r===0&&p.color===PLAYER||move.r===7&&p.color===BOT)){
+    nb[move.r][move.c]={...p,type:KING};
+  }
+  return nb;
+}
+
+// Génère tous les coups possibles pour une couleur (prise obligatoire si disponible)
+function getAllColorMoves(brd,color){
+  const capMoves=[];
+  const simMoves=[];
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=brd[r][c];
+    if(!p||p.color!==color) continue;
+    const caps=getCaptures(brd,r,c,null,null);
+    caps.forEach(cap=>capMoves.push({fromR:r,fromC:c,cap,isCapture:true}));
+    if(caps.length===0){
+      getMoves(brd,r,c).forEach(m=>simMoves.push({fromR:r,fromC:c,move:m,isCapture:false}));
+    }
+  }
+  return capMoves.length>0?capMoves:simMoves;
+}
+
+function minimaxDames(brd,depth,alpha,beta,maximizing){
+  if(depth===0) return evaluate(brd);
+  const color=maximizing?BOT:PLAYER;
+  const moves=getAllColorMoves(brd,color);
+  if(moves.length===0) return maximizing?-99999:99999;
+
+  if(maximizing){
+    let best=-Infinity;
+    for(const mv of moves){
+      const nb=mv.isCapture
+        ?applyCapture(brd,mv.fromR,mv.fromC,mv.cap)
+        :applySimpleMove(brd,mv.fromR,mv.fromC,mv.move);
+      // Multicapture : si prise et encore des prises possibles, continuer
+      let score;
+      if(mv.isCapture){
+        const furtherCaps=getCaptures(nb,mv.cap.r,mv.cap.c,null,null);
+        if(furtherCaps.length>0&&depth>0){
+          // Simuler le tour continue
+          score=minimaxDamesCapture(nb,depth,alpha,beta,maximizing,mv.cap.r,mv.cap.c);
+        } else {
+          score=minimaxDames(nb,depth-1,alpha,beta,false);
+        }
+      } else {
+        score=minimaxDames(nb,depth-1,alpha,beta,false);
+      }
+      best=Math.max(best,score);
+      alpha=Math.max(alpha,score);
+      if(beta<=alpha) break;
+    }
+    return best;
+  } else {
+    let best=Infinity;
+    for(const mv of moves){
+      const nb=mv.isCapture
+        ?applyCapture(brd,mv.fromR,mv.fromC,mv.cap)
+        :applySimpleMove(brd,mv.fromR,mv.fromC,mv.move);
+      let score;
+      if(mv.isCapture){
+        const furtherCaps=getCaptures(nb,mv.cap.r,mv.cap.c,null,null);
+        if(furtherCaps.length>0&&depth>0){
+          score=minimaxDamesCapture(nb,depth,alpha,beta,maximizing,mv.cap.r,mv.cap.c);
+        } else {
+          score=minimaxDames(nb,depth-1,alpha,beta,true);
+        }
+      } else {
+        score=minimaxDames(nb,depth-1,alpha,beta,true);
+      }
+      best=Math.min(best,score);
+      beta=Math.min(beta,score);
+      if(beta<=alpha) break;
+    }
+    return best;
+  }
+}
+
+function minimaxDamesCapture(brd,depth,alpha,beta,maximizing,r,c){
+  const caps=getCaptures(brd,r,c,null,null);
+  if(caps.length===0) return evaluate(brd);
+  if(maximizing){
+    let best=-Infinity;
+    for(const cap of caps){
+      const nb=applyCapture(brd,r,c,cap);
+      const furtherCaps=getCaptures(nb,cap.r,cap.c,null,null);
+      const score=furtherCaps.length>0
+        ?minimaxDamesCapture(nb,depth,alpha,beta,maximizing,cap.r,cap.c)
+        :minimaxDames(nb,depth-1,alpha,beta,false);
+      best=Math.max(best,score);alpha=Math.max(alpha,score);
+      if(beta<=alpha) break;
+    }
+    return best;
+  } else {
+    let best=Infinity;
+    for(const cap of caps){
+      const nb=applyCapture(brd,r,c,cap);
+      const furtherCaps=getCaptures(nb,cap.r,cap.c,null,null);
+      const score=furtherCaps.length>0
+        ?minimaxDamesCapture(nb,depth,alpha,beta,maximizing,cap.r,cap.c)
+        :minimaxDames(nb,depth-1,alpha,beta,true);
+      best=Math.min(best,score);beta=Math.min(beta,score);
+      if(beta<=alpha) break;
+    }
+    return best;
+  }
+}
+
+// ===================== TOUR DU BOT =====================
+function botTurn(){
+  if(onlineMode){return;}
+  const allMoves=getAllColorMoves(board,BOT);
+  if(allMoves.length===0){
+    gameOver=true;
+    updateStatus('Vous gagnez ! Le bot n\'a plus de coups.');
+    return;
+  }
+  let bestScore=-Infinity,bestMv=null;
+  if(GameUtils.shouldRandomize()){
+    bestMv=allMoves[Math.floor(Math.random()*allMoves.length)];
+  } else {
+    const depth=Math.max(1,GameUtils.getDepth());
+    for(const mv of allMoves){
+      const nb=mv.isCapture
+        ?applyCapture(board,mv.fromR,mv.fromC,mv.cap)
+        :applySimpleMove(board,mv.fromR,mv.fromC,mv.move);
+      let score;
+      if(mv.isCapture){
+        const furtherCaps=getCaptures(nb,mv.cap.r,mv.cap.c,null,null);
+        if(furtherCaps.length>0){
+          score=minimaxDamesCapture(nb,depth,-Infinity,Infinity,true,mv.cap.r,mv.cap.c);
+        } else {
+          score=minimaxDames(nb,depth,-Infinity,Infinity,false);
+        }
+      } else {
+        score=minimaxDames(nb,depth,-Infinity,Infinity,false);
+      }
+      if(score>bestScore){bestScore=score;bestMv=mv;}
+    }
+  }
+
+  if(bestMv){
+    if(bestMv.isCapture){
+      executeBotCapture(bestMv.fromR,bestMv.fromC,[bestMv.cap]);
+    } else {
+      board=applySimpleMove(board,bestMv.fromR,bestMv.fromC,bestMv.move);
+      endTurn();
+    }
+  }
+}
+
+function executeBotCapture(fromR,fromC,caps){
+  // Joue la première capture, puis vérifie si d'autres sont possibles
+  const cap=caps[0];
+  board=applyCapture(board,fromR,fromC,cap);
+  updateScore();
+  draw();
+  const furtherCaps=getCaptures(board,cap.r,cap.c,null,null);
+  if(furtherCaps.length>0){
+    // Choisir la meilleure continuation
+    let bestScore=-Infinity,bestCap=null;
+    for(const fc of furtherCaps){
+      const nb=applyCapture(board,cap.r,cap.c,fc);
+      const score=evaluate(nb);
+      if(score>bestScore){bestScore=score;bestCap=fc;}
+    }
+    thinkingTimeout=setTimeout(()=>executeBotCapture(cap.r,cap.c,[bestCap]),500);
+  } else {
+    endTurn();
+  }
+}
+
+function endTurn(){
+  turn=-turn;
+  selected=null;highlights=[];
+  captureChain=null;
+  updateScore();
+  draw();
+  checkWin();
+}
+
+function checkWin(){
+  if(gameOver) return;
+  const {men:pm,kings:pk}=countPieces(board,PLAYER);
+  const {men:bm,kings:bk}=countPieces(board,BOT);
+  if(pm+pk===0){gameOver=true;updateStatus('Le bot gagne !',true);return;}
+  if(bm+bk===0){gameOver=true;updateStatus('Vous gagnez !',true);return;}
+  const playerMoves=getAllColorMoves(board,PLAYER);
+  if(playerMoves.length===0){gameOver=true;updateStatus('Vous êtes bloqué ! Le bot gagne.',true);return;}
+  if(turn===PLAYER){
+    const hasCapt=hasMandatoryCapture(board,PLAYER);
+    if(hasCapt) updateStatus('Prise obligatoire !','warn');
+    else updateStatus('À vous de jouer !');
+  } else {
+    if(onlineMode){updateStatus('Adversaire réfléchit…');return;}
+    updateStatus('Bot réfléchit...');
+    thinkingTimeout=setTimeout(botTurn,400);
+  }
+}
+
+// ===================== INTERACTIONS JOUEUR =====================
+function cellFromXY(x,y){
+  return {r:Math.floor(y/CELL),c:Math.floor(x/CELL)};
+}
+
+function handleClick(x,y){
+  if(gameOver||turn!==PLAYER) return;
+  const {r,c}=cellFromXY(x,y);
+  if(r<0||r>=8||c<0||c>=8) return;
+  if((r+c)%2===0) return; // case claire, non jouable
+
+  // Mode multicapture en cours
+  if(captureChain){
+    const {r:fr,c:fc}=captureChain;
+    const caps=getCaptures(board,fr,fc,null,null);
+    const cap=caps.find(cap=>cap.r===r&&cap.c===c);
+    if(cap){
+      board=applyCapture(board,fr,fc,cap);
+      updateScore();
+      const furtherCaps=getCaptures(board,r,c,null,null);
+      if(furtherCaps.length>0){
+        captureChain={r,c};
+        selected={r,c};
+        highlights=furtherCaps.map(c=>({r:c.r,c:c.c}));
+        draw();
+        return;
+      } else {
+        captureChain=null;
+        endTurn();
+        return;
+      }
+    }
+    // Si clic ailleurs, annuler sélection
+    if(board[r][c]&&board[r][c].color===PLAYER){
+      // Changer de pièce seulement si pas dans une chaîne
+      // En chaîne, on doit finir
+    }
+    return;
+  }
+
+  const mandatory=hasMandatoryCapture(board,PLAYER);
+
+  if(selected){
+    // Essayer de jouer vers cette case
+    const {r:fr,c:fc}=selected;
+    if(mandatory){
+      const caps=getCaptures(board,fr,fc,null,null);
+      const cap=caps.find(cap=>cap.r===r&&cap.c===c);
+      if(cap){
+        if(onlineMode)GameUtils.sendMove({type:'capture',fromR:fr,fromC:fc,cap});
+        board=applyCapture(board,fr,fc,cap);
+        updateScore();
+        const furtherCaps=getCaptures(board,r,c,null,null);
+        if(furtherCaps.length>0){
+          captureChain={r,c};
+          selected={r,c};
+          highlights=furtherCaps.map(c=>({r:c.r,c:c.c}));
+          draw();
+          return;
+        } else {
+          endTurn();
+          return;
+        }
+      }
+      // Clic sur une autre pièce qui peut capturer
+      if(board[r][c]&&board[r][c].color===PLAYER&&getCaptures(board,r,c,null,null).length>0){
+        selected={r,c};
+        highlights=getCaptures(board,r,c,null,null).map(c=>({r:c.r,c:c.c}));
+        draw();
+        return;
+      }
+    } else {
+      const moves=getMoves(board,fr,fc);
+      const mv=moves.find(m=>m.r===r&&m.c===c);
+      if(mv){
+        if(onlineMode)GameUtils.sendMove({type:'move',fromR:fr,fromC:fc,move:mv});
+        board=applySimpleMove(board,fr,fc,mv);
+        endTurn();
+        return;
+      }
+    }
+    // Clic sur autre pièce joueur
+    if(board[r][c]&&board[r][c].color===PLAYER){
+      selectPiece(r,c,mandatory);
+      return;
+    }
+    selected=null;highlights=[];
+    draw();
+    return;
+  }
+
+  // Sélectionner une pièce
+  if(board[r][c]&&board[r][c].color===PLAYER){
+    selectPiece(r,c,mandatory);
+  }
+}
+
+function selectPiece(r,c,mandatory){
+  if(mandatory){
+    const caps=getCaptures(board,r,c,null,null);
+    if(caps.length===0){
+      updateStatus('Prise obligatoire ! Choisissez une pièce qui peut capturer.','warn');
+      return;
+    }
+    selected={r,c};
+    highlights=caps.map(cap=>({r:cap.r,c:cap.c}));
+  } else {
+    selected={r,c};
+    highlights=getMoves(board,r,c).map(m=>({r:m.r,c:m.c}));
+  }
+  draw();
+}
+
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect();
+  handleClick(e.clientX-rect.left,e.clientY-rect.top);
+});
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const t=e.changedTouches[0];
+  handleClick(t.clientX-rect.left,t.clientY-rect.top);
+},{passive:false});
+
+document.getElementById('btn-new').addEventListener('click',()=>{
+  if(thinkingTimeout){clearTimeout(thinkingTimeout);thinkingTimeout=null;}
+  initBoard();
+});
+
+// ===================== UTILS =====================
+function updateStatus(msg,warn=false){
+  const el=document.getElementById('status');
+  el.textContent=msg;
+  el.className=warn?'warn':'';
+}
+function updateScore(){
+  const {men:pm,kings:pk}=countPieces(board,PLAYER);
+  const {men:bm,kings:bk}=countPieces(board,BOT);
+  document.getElementById('s-y').textContent=pm+pk;
+  document.getElementById('s-r').textContent=bm+bk;
+}
+
+// ===================== DÉMARRAGE =====================
+let onlineMode=false, onlineIsHost=false;
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initBoard());
+GameUtils.createOnlineButton(_guRow,'dames',{
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;initBoard();},
+  onMove:(data)=>{
+    if(data.type==='capture'){board=applyCapture(board,data.fromR,data.fromC,data.cap);updateScore();draw();}
+    else if(data.type==='move'){board=applySimpleMove(board,data.fromR,data.fromC,data.move);draw();}
+    endTurn();
+  }
+});
+resize();
+GameUtils.showTutorial('dames',initBoard);
+</script>
+</body>
+</html>

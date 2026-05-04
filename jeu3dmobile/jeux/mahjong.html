@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mahjong Solitaire</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;}
+a.back{color:#f1c40f;text-decoration:none;align-self:flex-start;font-size:14px;margin-bottom:6px;padding:5px 12px;border:1px solid #f1c40f;border-radius:20px;}
+h1{color:#f1c40f;font-size:1.2rem;margin-bottom:6px;}
+#hud{display:flex;gap:12px;align-items:center;margin-bottom:8px;font-size:0.85rem;}
+#tiles-left{color:#f1c40f;font-weight:bold;}
+#replay-btn{background:#f1c40f;color:#000;border:none;padding:6px 14px;border-radius:16px;font-size:0.85rem;font-weight:bold;cursor:pointer;}
+#hint-btn{background:#1a2035;color:#f1c40f;border:1px solid #f1c40f;padding:6px 14px;border-radius:16px;font-size:0.85rem;cursor:pointer;}
+#board{position:relative;overflow:auto;width:100%;max-width:600px;}
+.tile{position:absolute;width:36px;height:44px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;cursor:pointer;user-select:none;transition:background 0.1s,box-shadow 0.1s;border:1px solid #2a3555;background:linear-gradient(135deg,#1e2a45,#162038);box-shadow:3px 3px 0 #0a0e1a;line-height:1;}
+.tile.free{background:linear-gradient(135deg,#243050,#1a2540);box-shadow:2px 2px 0 #0a0e1a,inset 0 1px 0 rgba(255,255,255,0.1);}
+.tile.free:hover,.tile.free:active{background:linear-gradient(135deg,#2e3d66,#243257);box-shadow:0 0 12px rgba(241,196,15,0.5);}
+.tile.selected{background:linear-gradient(135deg,#3d4f2a,#2d3d1e);box-shadow:0 0 16px rgba(241,196,15,0.8);border-color:#f1c40f;}
+.tile.matched{opacity:0;pointer-events:none;transition:opacity 0.3s;}
+.tile.blocked{opacity:0.55;cursor:not-allowed;}
+.tile.hint{box-shadow:0 0 16px rgba(52,152,219,0.9);border-color:#3498db;}
+#msg{font-size:0.85rem;color:#aaa;text-align:center;margin-top:4px;min-height:18px;}
+#win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:100;}
+#win-screen h2{color:#f1c40f;margin-bottom:12px;}
+#win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+</style>
+</head>
+<body>
+<a href="../jeu_societe.html" class="back">← Jeux</a>
+<h1>🀄 Mahjong Solitaire</h1>
+<div id="hud">
+  <span id="tiles-left">Tuiles: 144</span>
+  <button id="hint-btn" onclick="showHint()">Indice</button>
+  <button id="replay-btn" onclick="initGame()">Rejouer</button>
+</div>
+<div id="board"></div>
+<div id="msg"></div>
+<div id="win-screen">
+  <h2 id="win-text"></h2>
+  <button onclick="initGame()">Rejouer</button>
+</div>
+
+<script>
+// ==========================================
+// MAHJONG SOLITAIRE
+// ==========================================
+// Tile types (each appears 4 times = 144 total, except flowers/seasons = 1 each * 4 types = 4+4=8)
+const TILE_TYPES = [
+  // Bambous 1-9 (x4 each = 36)
+  ...Array.from({length:9},(_,i)=>`🀐${['1','2','3','4','5','6','7','8','9'][i]}`).map((_,i)=>({face:['🎋₁','🎋₂','🎋₃','🎋₄','🎋₅','🎋₆','🎋₇','🎋₈','🎋₉'][i],group:'bam'+i})),
+  // Cercles 1-9 (x4 = 36)
+  ...Array.from({length:9},(_,i)=>({face:['①','②','③','④','⑤','⑥','⑦','⑧','⑨'][i],group:'cir'+i})),
+  // Caractères 1-9 (x4 = 36)
+  ...Array.from({length:9},(_,i)=>({face:['一','二','三','四','五','六','七','八','九'][i],group:'car'+i})),
+  // Vents (x4 = 16)
+  {face:'東',group:'ve0'},{face:'南',group:'ve1'},{face:'西',group:'ve2'},{face:'北',group:'ve3'},
+  // Dragons (x4 = 12)
+  {face:'中',group:'dr0'},{face:'發',group:'dr1'},{face:'白',group:'dr2'},
+  // Saisons (x1 each = 4, each matches any other season)
+  {face:'🌸',group:'season'},{face:'🌿',group:'season'},{face:'🍂',group:'season'},{face:'❄️',group:'season'},
+  // Fleurs (x1 each = 4)
+  {face:'🌺',group:'flower'},{face:'🌻',group:'flower'},{face:'🌹',group:'flower'},{face:'🌼',group:'flower'},
+];
+// Expand to 144 tiles
+function buildTileSet(){
+  let tiles=[];
+  const singleGroups=['season','flower'];
+  TILE_TYPES.forEach(t=>{
+    let count = singleGroups.includes(t.group)?1:4;
+    for(let i=0;i<count;i++) tiles.push({face:t.face,group:t.group});
+  });
+  return tiles;
+}
+
+// PYRAMID LAYOUT — 144 tiles on 5 layers
+// Each tile position: {col, row, layer} (layer 0=bottom, 4=top)
+// Tile dimensions on screen: W=38px, H=46px, offset per layer: 2px right/up
+// Standard turtle layout (simplified pyramid)
+function buildLayout(){
+  const positions=[];
+  // Layer 0: 8x6 grid (base) — let's use a turtle shell layout
+  const layers=[
+    // [layer, [col, row] pairs] col/row in half-units (so we can place half-offsets)
+    // Layer 0 — large base
+    {z:0, cells: generateGrid(0,0,16,8)},
+    // Layer 1
+    {z:1, cells: generateGrid(1,1,14,6)},
+    // Layer 2
+    {z:2, cells: generateGrid(2,2,12,4)},
+    // Layer 3
+    {z:3, cells: generateGrid(3,3,10,2)},
+    // Layer 4 (top single)
+    {z:4, cells: [{c:7,r:3}]},
+    // Extra sides
+    {z:0, cells:[{c:-2,r:3},{c:-2,r:4},{c:18,r:3},{c:18,r:4}]},
+  ];
+  layers.forEach(({z,cells})=>{
+    cells.forEach(({c,r})=>{
+      positions.push({c,r,z});
+    });
+  });
+  return positions;
+}
+
+function generateGrid(startC,startR,cols,rows){
+  let cells=[];
+  for(let r=startR;r<startR+rows;r++){
+    for(let c=startC;c<startC+cols;c+=2){ // step 2 = tile width in half-units
+      cells.push({c,r});
+    }
+  }
+  return cells;
+}
+
+const TW=36,TH=44,ZOFF_X=4,ZOFF_Y=-4,BOARD_COLS=20,BOARD_ROWS=10;
+
+let tiles=[], selected=null, gameOver=false;
+
+function initGame(){
+  gameOver=false; selected=null;
+  document.getElementById('win-screen').style.display='none';
+  setMsg('');
+  // Build and shuffle tiles
+  let tileTypes=buildTileSet();
+  shuffle(tileTypes);
+  let layout=buildLayout();
+  // Trim to 144 (layout might have slightly different count)
+  while(tileTypes.length<layout.length) tileTypes.push(...buildTileSet());
+  tiles=layout.map((pos,i)=>({
+    ...pos, ...tileTypes[i%tileTypes.length], id:i, removed:false, el:null
+  }));
+  updateFreeStatus();
+  renderBoard();
+  updateHUD();
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+
+function updateFreeStatus(){
+  tiles.forEach(t=>{ if(!t.removed) t.free=isFree(t); });
+}
+
+function isFree(t){
+  if(t.removed) return false;
+  // Check if blocked from above
+  let aboveBlocked=tiles.some(other=>
+    !other.removed && other.id!==t.id && other.z===t.z+1 &&
+    Math.abs(other.c-t.c)<2 && Math.abs(other.r-t.r)<2
+  );
+  if(aboveBlocked) return false;
+  // Check if at least one side (left or right) is free
+  let leftBlocked=tiles.some(other=>
+    !other.removed && other.id!==t.id && other.z===t.z &&
+    other.c===t.c-2 && Math.abs(other.r-t.r)<2
+  );
+  let rightBlocked=tiles.some(other=>
+    !other.removed && other.id!==t.id && other.z===t.z &&
+    other.c===t.c+2 && Math.abs(other.r-t.r)<2
+  );
+  return !leftBlocked||!rightBlocked;
+}
+
+function tilesMatch(a,b){
+  if(a.id===b.id) return false;
+  if(['season','flower'].includes(a.group)&&a.group===b.group) return true;
+  return a.group===b.group&&a.face===b.face;
+}
+
+function renderBoard(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  const boardW=BOARD_COLS*TW/2+120;
+  const boardH=BOARD_ROWS*TH/2+100;
+  board.style.height=boardH+'px';
+  board.style.position='relative';
+
+  // Sort by z so higher layers render on top
+  let sorted=[...tiles].sort((a,b)=>a.z-b.z||(a.r-b.r)||(a.c-b.c));
+  sorted.forEach(t=>{
+    let el=document.createElement('div');
+    el.className='tile'+(t.removed?' matched':'')+(t.free&&!t.removed?' free':(!t.removed?' blocked':''));
+    let x=t.c*(TW/2)+t.z*ZOFF_X+10;
+    let y=t.r*(TH/2)+t.z*ZOFF_Y+20;
+    el.style.left=x+'px';
+    el.style.top=y+'px';
+    el.style.zIndex=t.z*100+t.r;
+    el.textContent=t.face;
+    el.dataset.id=t.id;
+    el.addEventListener('click',()=>clickTile(t.id));
+    el.addEventListener('touchend',e=>{e.preventDefault();clickTile(t.id);});
+    board.appendChild(el);
+    t.el=el;
+  });
+}
+
+function clickTile(id){
+  if(gameOver) return;
+  let t=tiles.find(x=>x.id===id);
+  if(!t||t.removed||!t.free) return;
+  if(selected===null){
+    selected=t;
+    t.el.classList.add('selected');
+    setMsg('Sélectionnez une deuxième tuile identique.');
+  } else if(selected.id===t.id){
+    selected.el.classList.remove('selected');
+    selected=null; setMsg('');
+  } else if(tilesMatch(selected,t)){
+    // Match!
+    selected.removed=true; t.removed=true;
+    selected.el.classList.remove('selected','free');
+    selected.el.classList.add('matched');
+    t.el.classList.add('matched');
+    selected=null;
+    updateFreeStatus();
+    // Update all tile classes
+    tiles.forEach(ti=>{
+      if(!ti.el||ti.removed) return;
+      ti.el.className='tile'+(ti.free?' free':' blocked');
+    });
+    updateHUD();
+    checkGameState();
+  } else {
+    selected.el.classList.remove('selected');
+    selected=t; t.el.classList.add('selected');
+    setMsg('Tuiles différentes — recommencez.');
+  }
+}
+
+function updateHUD(){
+  let remaining=tiles.filter(t=>!t.removed).length;
+  document.getElementById('tiles-left').textContent=`Tuiles: ${remaining}`;
+}
+
+function checkGameState(){
+  let remaining=tiles.filter(t=>!t.removed);
+  if(remaining.length===0){
+    document.getElementById('win-text').textContent='Bravo ! Vous avez gagné ! 🀄';
+    document.getElementById('win-screen').style.display='block';
+    gameOver=true; return;
+  }
+  let freeTiles=remaining.filter(t=>t.free);
+  let hasPair=freeTiles.some(a=>freeTiles.some(b=>b.id!==a.id&&tilesMatch(a,b)));
+  if(!hasPair){
+    setMsg('Plus aucune paire disponible — partie bloquée !');
+    document.getElementById('win-text').textContent='Partie bloquée... Réessayez !';
+    document.getElementById('win-screen').style.display='block';
+    gameOver=true;
+  }
+}
+
+function showHint(){
+  // Clear previous hints
+  tiles.forEach(t=>{if(t.el)t.el.classList.remove('hint');});
+  let freeTiles=tiles.filter(t=>!t.removed&&t.free);
+  for(let i=0;i<freeTiles.length;i++){
+    for(let j=i+1;j<freeTiles.length;j++){
+      if(tilesMatch(freeTiles[i],freeTiles[j])){
+        freeTiles[i].el.classList.add('hint');
+        freeTiles[j].el.classList.add('hint');
+        setTimeout(()=>{
+          freeTiles[i].el&&freeTiles[i].el.classList.remove('hint');
+          freeTiles[j].el&&freeTiles[j].el.classList.remove('hint');
+        },1500);
+        return;
+      }
+    }
+  }
+  setMsg('Aucune paire disponible !');
+}
+
+function setMsg(m){document.getElementById('msg').textContent=m;}
+
+initGame();
+</script>
+</body>
+</html>

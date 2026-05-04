@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Backgammon</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    user-select: none;
+  }
+  header {
+    width: 100%;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #0d1220;
+    border-bottom: 2px solid #f1c40f33;
+  }
+  header a {
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 15px;
+    padding: 6px 12px;
+    border: 1px solid #f1c40f55;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+  header a:hover { background: #f1c40f22; }
+  header h1 { font-size: 20px; letter-spacing: 2px; }
+  #gameArea {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    gap: 10px;
+    width: 100%;
+  }
+  #info {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #status {
+    font-size: 14px;
+    color: #ccc;
+    text-align: center;
+    min-height: 20px;
+  }
+  #diceArea {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .die {
+    width: 44px; height: 44px;
+    background: #fff;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    color: #0a0e1a;
+    font-weight: bold;
+    box-shadow: 2px 2px 6px #0006;
+    position: relative;
+  }
+  .die.used { opacity: 0.35; }
+  button {
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:hover:not(:disabled) { opacity: 0.85; }
+  canvas {
+    border-radius: 10px;
+    touch-action: none;
+    cursor: pointer;
+    max-width: 100%;
+  }
+  #legend {
+    display: flex; gap: 20px; font-size: 13px; flex-wrap: wrap; justify-content: center;
+  }
+  .leg { display: flex; align-items: center; gap: 6px; }
+  .legDot { width: 14px; height: 14px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../jeu_societe.html">← Jeux</a>
+  <h1>Backgammon</h1>
+  <div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:4px 0;"></div>
+</header>
+<div id="gameArea">
+  <div id="info">
+    <div id="diceArea">
+      <div class="die" id="d1">-</div>
+      <div class="die" id="d2">-</div>
+    </div>
+    <button id="btnRoll">Lancer les dés</button>
+    <button id="btnNew">Nouvelle partie</button>
+  </div>
+  <div id="status">Cliquez "Lancer les dés" pour commencer</div>
+  <canvas id="board"></canvas>
+  <div id="legend">
+    <div class="leg"><div class="legDot" style="background:#f1c40f;border:2px solid #fff"></div> Vous (24→1)</div>
+    <div class="leg"><div class="legDot" style="background:#e74c3c;border:2px solid #fff"></div> Bot (1→24)</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+// ── Sizing ──────────────────────────────────────────────
+function resize() {
+  const W = Math.min(window.innerWidth - 24, 700);
+  const H = Math.round(W * 0.6);
+  canvas.width = W;
+  canvas.height = H;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+// ── Constants ───────────────────────────────────────────
+const PLAYER = 'player'; // yellow, moves 24->1
+const BOT    = 'bot';    // red,    moves 1->24
+
+// ── State ────────────────────────────────────────────────
+let board, bar, off, dice, diceUsed, turn, selected, phase, winner;
+
+function initGame() {
+  // Standard backgammon setup
+  // board[i] = {count, owner} for i in 0..23 (0=point1, 23=point24)
+  board = Array.from({length: 24}, () => ({count: 0, owner: null}));
+  bar   = {player: 0, bot: 0};
+  off   = {player: 0, bot: 0};
+
+  // Standard starting position
+  // Player moves from point 24 (index 23) to point 1 (index 0)
+  // Bot   moves from point 1  (index 0)  to point 24 (index 23)
+  set(0,  2, BOT);
+  set(5,  5, PLAYER);
+  set(7,  3, BOT);
+  set(11, 5, BOT);
+  set(12, 5, PLAYER);
+  set(16, 3, PLAYER);
+  set(18, 5, BOT);
+  set(23, 2, PLAYER);
+
+  dice     = [];
+  diceUsed = [];
+  selected = null;
+  turn     = PLAYER;
+  phase    = 'roll'; // 'roll' | 'move' | 'over'
+  winner   = null;
+  document.getElementById('btnRoll').disabled = false;
+  draw();
+  setStatus('À vous de jouer – Lancez les dés !');
+}
+
+function set(idx, count, owner) {
+  board[idx].count = count;
+  board[idx].owner = owner;
+}
+
+// ── Dice ─────────────────────────────────────────────────
+function rollDice() {
+  const a = Math.ceil(Math.random()*6);
+  const b = Math.ceil(Math.random()*6);
+  if (a === b) return [a, a, a, a];
+  return [a, b];
+}
+
+document.getElementById('btnRoll').addEventListener('click', () => {
+  if (phase !== 'roll') return;
+  dice     = rollDice();
+  diceUsed = dice.map(() => false);
+  updateDiceUI();
+  phase = 'move';
+  document.getElementById('btnRoll').disabled = true;
+  selected = null;
+
+  // Check if any move possible
+  if (!hasAnyMove(turn)) {
+    const who = turn === PLAYER ? 'Vous' : 'Le bot';
+    setStatus(`${who} : aucun coup possible. Tour passé.`);
+    endTurn();
+  } else if (turn === BOT) {
+    setTimeout(botTurn, 700);
+  } else {
+    setStatus('Cliquez une de vos pièces');
+    draw();
+  }
+});
+
+document.getElementById('btnNew').addEventListener('click', initGame);
+
+function updateDiceUI() {
+  const d1El = document.getElementById('d1');
+  const d2El = document.getElementById('d2');
+  const dieFaces = ['', '⚀','⚁','⚂','⚃','⚄','⚅'];
+  d1El.textContent = dice.length >= 1 ? dieFaces[dice[0]] : '-';
+  d2El.textContent = dice.length >= 2 ? dieFaces[dice[1]] : '-';
+  if (dice.length === 4) {
+    // doubles: show the value twice
+    d1El.textContent = dieFaces[dice[0]];
+    d2El.textContent = dieFaces[dice[0]];
+  }
+  d1El.className = 'die' + (diceUsed[0] ? ' used' : '');
+  d2El.className = 'die' + (diceUsed[diceUsed.length > 2 ? 3 : 1] ? ' used' : '');
+}
+
+// ── Geometry helpers ─────────────────────────────────────
+function pointRect(pt) { // pt 1..24, returns {x,y,w,h,top}
+  const W = canvas.width, H = canvas.height;
+  const margin = Math.round(W * 0.04);
+  const barW   = Math.round(W * 0.06);
+  const colW   = Math.round((W - 2*margin - barW) / 12);
+  const boardH = H;
+  const ptH    = Math.round(boardH * 0.42);
+  // Points 1-12: bottom, from right to left (screen)
+  // Points 13-24: top, from left to right
+  // pt 1 -> index 0 in board
+  // Layout: bottom row pts 1-12 (right to left), top row pts 13-24 (left to right)
+  // But canvas left = bar, points arranged:
+  // Bottom: 12 11 10 9 8 7 | bar | 6 5 4 3 2 1
+  // Top:    13 14 15 16 17 18 | bar | 19 20 21 22 23 24
+  let col, top;
+  if (pt >= 1 && pt <= 6) {
+    col = 6 - pt; // 0..5 from right
+    const x = W - margin - (col+1)*colW;
+    return {x, y: boardH - ptH, w: colW, h: ptH, top: false};
+  } else if (pt >= 7 && pt <= 12) {
+    col = pt - 7; // 0..5 from bar
+    const x = margin + col*colW;
+    return {x, y: boardH - ptH, w: colW, h: ptH, top: false};
+  } else if (pt >= 13 && pt <= 18) {
+    col = pt - 13; // 0..5 from left
+    const x = margin + col*colW;
+    return {x, y: 0, w: colW, h: ptH, top: true};
+  } else { // 19-24
+    col = 24 - pt; // 0..5 from right
+    const x = W - margin - (col+1)*colW;
+    return {x, y: 0, w: colW, h: ptH, top: true};
+  }
+}
+
+function piecePos(pt, idx) { // idx = stack index (0=bottom)
+  const r = pointRect(pt);
+  const radius = Math.min(r.w * 0.42, 18);
+  let cx = r.x + r.w/2;
+  let cy;
+  if (!r.top) cy = r.y + r.h - radius - idx * radius*2.05;
+  else        cy = r.y + radius + idx * radius*2.05;
+  return {cx, cy, radius};
+}
+
+// ── Drawing ───────────────────────────────────────────────
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  const margin = Math.round(W * 0.04);
+  const barW   = Math.round(W * 0.06);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Board background
+  ctx.fillStyle = '#1a2a1a';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, W, H, 8);
+  ctx.fill();
+
+  // Draw points (triangles)
+  for (let pt = 1; pt <= 24; pt++) {
+    drawPoint(pt);
+  }
+
+  // Mid bar
+  const barX = margin + Math.round((W - 2*margin - barW)/2);
+  ctx.fillStyle = '#0d1a0d';
+  ctx.fillRect(barX, 0, barW, H);
+  ctx.strokeStyle = '#f1c40f44';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, 0, barW, H);
+
+  // Draw pieces on points
+  for (let pt = 1; pt <= 24; pt++) {
+    const b = board[pt-1];
+    if (b.count > 0) {
+      for (let i = 0; i < Math.min(b.count, 5); i++) {
+        drawPiece(pt, i, b.owner, pt-1 === selected);
+      }
+      if (b.count > 5) {
+        const {cx, cy, radius} = piecePos(pt, 4);
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.round(radius*0.9)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(b.count, cx, cy);
+      }
+    }
+  }
+
+  // Bar pieces
+  drawBarPieces();
+
+  // Valid moves highlight
+  if (selected !== null && turn === PLAYER) {
+    const moves = validMoves(PLAYER, selected + 1);
+    moves.forEach(pt => {
+      const r = pointRect(pt);
+      ctx.strokeStyle = '#f1c40f';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(r.x + 2, r.y, r.w - 4, r.h);
+    });
+    // Bearing off highlight
+    if (canBearOff(PLAYER, selected + 1)) {
+      const bx = W - margin + 4;
+      const bh = H * 0.12;
+      ctx.strokeStyle = '#f1c40f';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(bx - 2, H/2 - bh/2, margin - 2, bh);
+    }
+  }
+
+  // Off board zones
+  drawOffZone();
+
+  // Point labels
+  drawLabels();
+}
+
+function drawPoint(pt) {
+  const r = pointRect(pt);
+  const mid = r.x + r.w / 2;
+  ctx.beginPath();
+  if (!r.top) {
+    ctx.moveTo(r.x + 2, r.y + r.h);
+    ctx.lineTo(mid, r.y);
+    ctx.lineTo(r.x + r.w - 2, r.y + r.h);
+  } else {
+    ctx.moveTo(r.x + 2, r.y);
+    ctx.lineTo(mid, r.y + r.h);
+    ctx.lineTo(r.x + r.w - 2, r.y);
+  }
+  ctx.closePath();
+  const colors = pt % 2 === 0 ? ['#8B2500','#6a1c00'] : ['#2a5a2a','#1e3d1e'];
+  ctx.fillStyle = colors[0];
+  ctx.fill();
+  ctx.strokeStyle = '#0a0e1a';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function drawPiece(pt, idx, owner, highlight) {
+  const {cx, cy, radius} = piecePos(pt, idx);
+  const isPlayer = owner === PLAYER;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI*2);
+  const grad = ctx.createRadialGradient(cx - radius*0.25, cy - radius*0.25, radius*0.1, cx, cy, radius);
+  if (isPlayer) {
+    grad.addColorStop(0, '#ffe066');
+    grad.addColorStop(1, '#c9a000');
+  } else {
+    grad.addColorStop(0, '#ff6b6b');
+    grad.addColorStop(1, '#9b1c1c');
+  }
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = highlight ? '#fff' : '#0a0e1a';
+  ctx.lineWidth = highlight ? 2.5 : 1.5;
+  ctx.stroke();
+}
+
+function drawBarPieces() {
+  const W = canvas.width, H = canvas.height;
+  const margin = Math.round(W * 0.04);
+  const barW   = Math.round(W * 0.06);
+  const barX   = margin + Math.round((W - 2*margin - barW)/2);
+  const cx     = barX + barW/2;
+  const radius = Math.min(barW * 0.38, 14);
+
+  for (let i = 0; i < bar.player; i++) {
+    const cy = H/2 + 4 + i * radius*2.2;
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2);
+    ctx.fillStyle = '#f1c40f'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  for (let i = 0; i < bar.bot; i++) {
+    const cy = H/2 - 4 - i * radius*2.2;
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2);
+    ctx.fillStyle = '#e74c3c'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+}
+
+function drawOffZone() {
+  const W = canvas.width, H = canvas.height;
+  const margin = Math.round(W * 0.04);
+  const radius = Math.min(margin * 0.34, 12);
+  const cx = W - margin/2;
+
+  // Player off (bottom right)
+  ctx.fillStyle = '#f1c40f44';
+  ctx.fillRect(W - margin + 2, H*0.55, margin - 4, H*0.42);
+  for (let i = 0; i < off.player; i++) {
+    const cy = H*0.96 - i * radius*2.1;
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2);
+    ctx.fillStyle = '#f1c40f'; ctx.fill();
+  }
+
+  // Bot off (top right)
+  ctx.fillStyle = '#e74c3c44';
+  ctx.fillRect(W - margin + 2, H*0.04, margin - 4, H*0.42);
+  for (let i = 0; i < off.bot; i++) {
+    const cy = H*0.04 + i * radius*2.1 + radius;
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2);
+    ctx.fillStyle = '#e74c3c'; ctx.fill();
+  }
+
+  // Labels
+  ctx.fillStyle = '#f1c40faa';
+  ctx.font = `${Math.round(radius*0.9)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(off.player, cx, H*0.5);
+  ctx.fillText(off.bot,    cx, H*0.5 - radius*3);
+}
+
+function drawLabels() {
+  const W = canvas.width, H = canvas.height;
+  const fs = Math.max(9, Math.round(W*0.018));
+  ctx.fillStyle = '#ffffff66';
+  ctx.font = `${fs}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let pt = 1; pt <= 24; pt++) {
+    const r = pointRect(pt);
+    const lx = r.x + r.w/2;
+    const ly = r.top ? r.y + r.h + fs*0.8 : r.y - fs*0.8;
+    ctx.fillText(pt, lx, ly);
+  }
+}
+
+// ── Game Logic ────────────────────────────────────────────
+function remainingDice() {
+  return dice.filter((_, i) => !diceUsed[i]);
+}
+
+function moveDist(from, to, who) {
+  if (who === PLAYER) return from - to; // 24→1
+  else               return to - from; // 1→24
+}
+
+function validMoves(who, fromPt) {
+  const moves = [];
+  const rd = [...new Set(remainingDice())];
+
+  // If on bar, must enter first
+  if (bar[who] > 0 && !isBarMove(who, fromPt)) return [];
+
+  rd.forEach(d => {
+    let toPt;
+    if (who === PLAYER) toPt = fromPt - d;
+    else               toPt = fromPt + d;
+    if (toPt >= 1 && toPt <= 24) {
+      if (canLand(who, toPt)) moves.push(toPt);
+    }
+  });
+
+  // Bearing off: all pieces in home board
+  if (who === PLAYER && allInHome(PLAYER)) {
+    rd.forEach(d => {
+      if (fromPt === d) moves.push(0); // exact bear off
+      // highest die can bear off highest piece
+      if (fromPt < d && isHighestPlayer(fromPt)) moves.push(0);
+    });
+  }
+  if (who === BOT && allInHome(BOT)) {
+    rd.forEach(d => {
+      if (fromPt + d === 25) moves.push(25); // exact bear off
+      if (fromPt + d > 25 && isHighestBot(fromPt)) moves.push(25);
+    });
+  }
+
+  return [...new Set(moves)];
+}
+
+function isBarMove(who, fromPt) {
+  if (who === PLAYER) return fromPt === 25; // virtual bar point
+  else               return fromPt === 0;
+}
+
+function canLand(who, toPt) {
+  const b = board[toPt-1];
+  if (b.count === 0) return true;
+  if (b.owner === who) return true;
+  if (b.count === 1) return true; // can hit blot
+  return false;
+}
+
+function allInHome(who) {
+  if (bar[who] > 0) return false;
+  if (who === PLAYER) {
+    for (let i = 6; i < 24; i++) if (board[i].owner === PLAYER && board[i].count > 0) return false;
+  } else {
+    for (let i = 0; i < 18; i++) if (board[i].owner === BOT && board[i].count > 0) return false;
+  }
+  return true;
+}
+
+function isHighestPlayer(pt) {
+  for (let i = pt; i <= 6; i++) {
+    if (board[i-1].owner === PLAYER && board[i-1].count > 0) return false;
+  }
+  return true;
+}
+function isHighestBot(pt) {
+  for (let i = pt; i >= 19; i--) {
+    if (board[i-1].owner === BOT && board[i-1].count > 0) return false;
+  }
+  return true;
+}
+
+function hasAnyMove(who) {
+  if (bar[who] > 0) {
+    return remainingDice().some(d => {
+      let toPt = who === PLAYER ? 25 - d : d;
+      return toPt >= 1 && toPt <= 24 && canLand(who, toPt);
+    });
+  }
+  for (let pt = 1; pt <= 24; pt++) {
+    if (board[pt-1].owner === who && board[pt-1].count > 0) {
+      if (validMoves(who, pt).length > 0) return true;
+    }
+  }
+  return false;
+}
+
+function useDie(val) {
+  for (let i = 0; i < dice.length; i++) {
+    if (!diceUsed[i] && dice[i] === val) { diceUsed[i] = true; return; }
+  }
+}
+
+function applyMove(who, fromPt, toPt) {
+  // Remove from fromPt (or bar)
+  if (fromPt === 25 || fromPt === 0) {
+    bar[who]--;
+  } else {
+    board[fromPt-1].count--;
+    if (board[fromPt-1].count === 0) board[fromPt-1].owner = null;
+  }
+
+  // Bear off
+  if (toPt === 0 || toPt === 25) {
+    off[who]++;
+    return;
+  }
+
+  const dest = board[toPt-1];
+  if (dest.count === 1 && dest.owner !== who) {
+    // Hit: send to bar
+    bar[dest.owner]++;
+    dest.count = 0; dest.owner = null;
+  }
+
+  dest.count++;
+  dest.owner = who;
+}
+
+function getDieUsed(fromPt, toPt, who) {
+  if (toPt === 0 || toPt === 25) {
+    // bearing off
+    const rem = remainingDice().slice().sort((a,b) => b-a);
+    if (who === PLAYER) {
+      for (const d of rem) { if (fromPt - d <= 0) return d; }
+    } else {
+      for (const d of rem) { if (fromPt + d >= 25) return d; }
+    }
+  }
+  if (who === PLAYER) return fromPt - toPt;
+  else               return toPt - fromPt;
+}
+
+function checkWin() {
+  if (off.player === 15) { winner = PLAYER; phase = 'over'; setStatus('Vous avez gagné ! 🎉'); return true; }
+  if (off.bot === 15)    { winner = BOT;    phase = 'over'; setStatus('Le bot a gagné ! 🤖'); return true; }
+  return false;
+}
+
+function endTurn() {
+  selected = null;
+  if (checkWin()) { draw(); return; }
+  turn = turn === PLAYER ? BOT : PLAYER;
+  phase = 'roll';
+  document.getElementById('btnRoll').disabled = (turn === BOT);
+  dice = []; diceUsed = [];
+  updateDiceUI();
+  if (turn === BOT) {
+    setTimeout(() => {
+      dice     = rollDice();
+      diceUsed = dice.map(() => false);
+      updateDiceUI();
+      phase = 'move';
+      if (!hasAnyMove(BOT)) { setStatus('Bot : aucun coup possible.'); endTurn(); return; }
+      setTimeout(botTurn, 500);
+    }, 600);
+  } else {
+    setStatus('À vous ! Lancez les dés.');
+    document.getElementById('btnRoll').disabled = false;
+  }
+  draw();
+}
+
+// ── Bot AI (greedy) ───────────────────────────────────────
+function botTurn() {
+  if (phase === 'over') return;
+
+  let moved = false;
+  // Up to 4 moves (doubles)
+  for (let iter = 0; iter < 4; iter++) {
+    if (remainingDice().length === 0) break;
+    const move = bestBotMove();
+    if (!move) break;
+    const dieVal = getDieUsed(move.from, move.to, BOT);
+    useDie(dieVal);
+    applyMove(BOT, move.from, move.to);
+    updateDiceUI();
+    draw();
+    moved = true;
+  }
+
+  if (!moved) setStatus('Bot ne peut pas jouer.');
+  setTimeout(endTurn, 400);
+}
+
+function bestBotMove() {
+  const candidates = [];
+  const pts = [];
+  if (bar.bot > 0) pts.push(0);
+  else for (let pt = 1; pt <= 24; pt++) {
+    if (board[pt-1].owner === BOT && board[pt-1].count > 0) pts.push(pt);
+  }
+  pts.forEach(fromPt => {
+    const ms = validMoves(BOT, fromPt === 0 ? 0 : fromPt);
+    ms.forEach(toPt => {
+      let score = 0;
+      if (toPt >= 1 && toPt <= 24 && board[toPt-1].owner === PLAYER && board[toPt-1].count === 1) score += 20;
+      if (toPt === 25) score += 30;
+      if (toPt >= 1 && toPt <= 24 && board[toPt-1].owner === BOT && board[toPt-1].count >= 1) score += 10;
+      if (fromPt >= 1 && board[fromPt-1] && board[fromPt-1].count === 1) score -= 5;
+      score += (toPt - fromPt) * 2;
+      candidates.push({from: fromPt === 0 ? 0 : fromPt, to: toPt, score});
+    });
+  });
+  if (candidates.length === 0) return null;
+  if (GameUtils.shouldRandomize()) return candidates[Math.floor(Math.random()*candidates.length)];
+  candidates.sort((a,b) => b.score - a.score);
+  return candidates[0];
+}
+
+// ── Bar entry for player ──────────────────────────────────
+function barEntryPoints(who) {
+  const pts = [];
+  remainingDice().forEach(d => {
+    let toPt = who === PLAYER ? 25 - d : d;
+    if (toPt >= 1 && toPt <= 24 && canLand(who, toPt)) pts.push(toPt);
+  });
+  return [...new Set(pts)];
+}
+
+// ── Click handling ────────────────────────────────────────
+function ptFromXY(x, y) {
+  for (let pt = 1; pt <= 24; pt++) {
+    const r = pointRect(pt);
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return pt;
+  }
+  return null;
+}
+
+function bearOffHit(x, y) {
+  const W = canvas.width, H = canvas.height;
+  const margin = Math.round(W * 0.04);
+  const bx = W - margin + 2;
+  const bh = H * 0.12;
+  return x >= bx && y >= H/2 - bh/2 && y <= H/2 + bh/2;
+}
+
+function handleClick(cx, cy) {
+  if (phase !== 'move' || turn !== PLAYER) return;
+
+  // Bar logic
+  if (bar.player > 0) {
+    const entries = barEntryPoints(PLAYER);
+    const pt = ptFromXY(cx, cy);
+    if (pt && entries.includes(pt)) {
+      const d = 25 - pt; // die value for player bar entry
+      useDie(d);
+      applyMove(PLAYER, 25, pt);
+      updateDiceUI();
+      selected = null;
+      if (!remainingDice().length || !hasAnyMove(PLAYER)) {
+        draw(); endTurn();
+      } else {
+        draw();
+        setStatus('Continuez à jouer');
+      }
+      return;
+    }
+    setStatus('Vous devez d\'abord sortir vos pièces de la prison !');
+    return;
+  }
+
+  const pt = ptFromXY(cx, cy);
+
+  if (selected === null) {
+    if (pt && board[pt-1].owner === PLAYER && board[pt-1].count > 0) {
+      if (validMoves(PLAYER, pt).length > 0) {
+        selected = pt - 1;
+        draw();
+        setStatus(`Point ${pt} sélectionné. Choisissez la destination.`);
+      } else {
+        setStatus('Pas de mouvement possible depuis ce point.');
+      }
+    }
+  } else {
+    const fromPt = selected + 1;
+    const moves  = validMoves(PLAYER, fromPt);
+
+    // Bear off click
+    if (bearOffHit(cx, cy) && moves.includes(0)) {
+      const dieVal = getDieUsed(fromPt, 0, PLAYER);
+      useDie(dieVal);
+      applyMove(PLAYER, fromPt, 0);
+      selected = null;
+      updateDiceUI();
+      if (!remainingDice().length || !hasAnyMove(PLAYER)) {
+        draw(); endTurn();
+      } else { draw(); setStatus('Continuez à jouer'); }
+      return;
+    }
+
+    if (pt && moves.includes(pt)) {
+      const dieVal = getDieUsed(fromPt, pt, PLAYER);
+      useDie(dieVal);
+      applyMove(PLAYER, fromPt, pt);
+      selected = null;
+      updateDiceUI();
+      if (!remainingDice().length || !hasAnyMove(PLAYER)) {
+        draw(); endTurn();
+      } else { draw(); setStatus('Continuez à jouer'); }
+    } else if (pt && board[pt-1].owner === PLAYER && board[pt-1].count > 0 && pt-1 !== selected) {
+      if (validMoves(PLAYER, pt).length > 0) {
+        selected = pt - 1;
+        draw();
+        setStatus(`Point ${pt} sélectionné.`);
+      } else {
+        selected = null; draw(); setStatus('Aucun mouvement possible depuis ce point.');
+      }
+    } else {
+      selected = null; draw(); setStatus('Sélection annulée.');
+    }
+  }
+}
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width  / rect.width;
+  const sy = canvas.height / rect.height;
+  handleClick((e.clientX - rect.left)*sx, (e.clientY - rect.top)*sy);
+});
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches[0];
+  const sx = canvas.width  / rect.width;
+  const sy = canvas.height / rect.height;
+  handleClick((t.clientX - rect.left)*sx, (t.clientY - rect.top)*sy);
+}, {passive: false});
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+// ── Init ──────────────────────────────────────────────────
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initGame());
+GameUtils.createOnlineButton(_guRow,'backgammon',{
+  onConnected:(info)=>{initGame();},
+  onMove:(data)=>{if(data.type==='move'){applyMove(BOT,data.from,data.to);updateDiceUI();draw();}}
+});
+resize();
+GameUtils.showTutorial('backgammon', initGame);
+</script>
+</body>
+</html>

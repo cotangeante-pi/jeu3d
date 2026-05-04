@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jeu 3D — Mobile</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0e1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    h1 {
+      font-size: clamp(1.4em, 6vw, 2.2em);
+      color: #f1c40f;
+      text-shadow: 0 0 20px rgba(241,196,15,0.5);
+      text-align: center;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Écrans ───────────────────────────────────────────────────── */
+    .screen { display: none; flex-direction: column; align-items: center; gap: 32px; }
+    .screen.active { display: flex; }
+
+    /* ── Boutons ──────────────────────────────────────────────────── */
+    .btns {
+      display: flex;
+      gap: clamp(14px, 5vw, 36px);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: clamp(140px, 38vw, 190px);
+      height: clamp(140px, 38vw, 190px);
+      border-radius: 20px;
+      border: 2px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      font-size: clamp(0.95em, 4vw, 1.2em);
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s, transform 0.12s;
+      text-align: center;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn .icon { font-size: clamp(2em, 9vw, 2.8em); line-height: 1; }
+
+    .btn-video { border-color: rgba(100,160,255,0.35); }
+    .btn-video:active { border-color: rgba(100,160,255,0.85); background: rgba(100,160,255,0.12); }
+
+    .btn-board { border-color: rgba(160,100,255,0.35); }
+    .btn-board:active { border-color: rgba(160,100,255,0.85); background: rgba(160,100,255,0.1); }
+
+    .btn-3d   { border-color: rgba(80,210,120,0.35); }
+    .btn-3d:active { border-color: rgba(80,210,120,0.85); background: rgba(80,210,120,0.1); }
+
+    .btn-jobs { border-color: rgba(241,196,15,0.35); }
+    .btn-jobs:active { border-color: rgba(241,196,15,0.85); background: rgba(241,196,15,0.1); }
+
+    /* ── Bouton retour ────────────────────────────────────────────── */
+    #btn-back {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 0.9em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: -16px;
+      touch-action: manipulation;
+    }
+
+    /* ── Overlay métiers ──────────────────────────────────────────── */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 100;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 56px 12px 40px;
+    }
+    #overlay.open { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+    #overlay h2 {
+      color: #f1c40f;
+      font-size: 1.4em;
+      margin-bottom: 5px;
+      text-align: center;
+    }
+    .stats-bar {
+      color: #aaa;
+      font-size: 0.85em;
+      margin-bottom: 18px;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .stats-bar span { color: #f1c40f; font-weight: bold; }
+
+    #btn-close {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 1.3em;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      cursor: pointer;
+      z-index: 102;
+      touch-action: manipulation;
+    }
+
+    /* ── Grille cartes ────────────────────────────────────────────── */
+    #job-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 11px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .job-card {
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 13px 12px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .job-card.active { border-color: #f1c40f; background: rgba(241,196,15,0.08); }
+
+    .job-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .job-icon   { font-size: 1.6em; line-height: 1; }
+    .job-title  { font-weight: bold; font-size: 0.88em; flex: 1; min-width: 0; }
+    .badge-actif {
+      background: #f1c40f;
+      color: #000;
+      font-size: 0.58em;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .job-salary { font-size: 0.75em; color: #88ccff; }
+
+    .prog-label {
+      font-size: 0.68em;
+      color: #aaa;
+      display: flex;
+      justify-content: space-between;
+    }
+    .prog-track {
+      background: rgba(255,255,255,0.1);
+      border-radius: 99px;
+      height: 5px;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #f1c40f, #e67e22);
+      transition: width 0.4s ease;
+    }
+    .prog-earned { font-size: 0.65em; color: #666; text-align: right; }
+  </style>
+</head>
+<body>
+
+  <h1>🏙 Jeu 3D &mdash; Mobile</h1>
+
+  <!-- Écran 1 : type de jeu -->
+  <div class="screen active" id="screen-1">
+    <div class="btns">
+      <button class="btn btn-video" id="btn-video">
+        <span class="icon">🎮</span>
+        Jeu Vidéo
+      </button>
+      <a class="btn btn-board" href="jeu_societe.html">
+        <span class="icon">🎲</span>
+        Jeu de Société
+      </a>
+    </div>
+  </div>
+
+  <!-- Écran 2 : options jeu vidéo -->
+  <div class="screen" id="screen-2">
+    <div class="btns">
+      <button class="btn btn-jobs" id="btn-open-jobs">
+        <span class="icon">💼</span>
+        Métiers
+      </button>
+      <a class="btn btn-3d" href="jeu.html">
+        <span class="icon">🕹️</span>
+        Jeu actuel 3D
+      </a>
+    </div>
+    <button id="btn-back">&#8592; retour</button>
+  </div>
+
+  <!-- Overlay métiers -->
+  <div id="overlay">
+    <button id="btn-close" title="Fermer">✕</button>
+    <h2>💼 Mes Métiers</h2>
+    <div class="stats-bar" id="stats-bar"></div>
+    <div id="job-grid"></div>
+  </div>
+
+  <script>
+    // ── Navigation écrans ──────────────────────────────────────────
+    document.getElementById('btn-video').addEventListener('click', () => {
+      document.getElementById('screen-1').classList.remove('active');
+      document.getElementById('screen-2').classList.add('active');
+    });
+
+    document.getElementById('btn-back').addEventListener('click', () => {
+      document.getElementById('screen-2').classList.remove('active');
+      document.getElementById('screen-1').classList.add('active');
+    });
+
+    // ── Overlay métiers ────────────────────────────────────────────
+    const LEVELS = [
+      { name: 'Novice',   min: 0    },
+      { name: 'Apprenti', min: 100  },
+      { name: 'Confirmé', min: 500  },
+      { name: 'Expert',   min: 2000 },
+      { name: 'Maître',   min: 5000 },
+    ];
+
+    const JOBS = [
+      { id:'baker',           name:'Boulanger',         icon:'🍞', salary:10 },
+      { id:'cashier',         name:'Caissier',          icon:'🏪', salary:12 },
+      { id:'worker',          name:'Ouvrier',           icon:'🔨', salary:15 },
+      { id:'farm',            name:'Fermier',           icon:'🌾', salary:18 },
+      { id:'security',        name:'Agent sécurité',    icon:'🛡️', salary:20 },
+      { id:'coach',           name:'Coach sportif',     icon:'🏃', salary:22 },
+      { id:'nurse',           name:'Infirmier',         icon:'💊', salary:25 },
+      { id:'chef',            name:'Cuisinier',         icon:'👨‍🍳', salary:28 },
+      { id:'football',        name:'Footballeur',       icon:'⚽', salary:28 },
+      { id:'athlete',         name:'Athlète',           icon:'🏅', salary:30 },
+      { id:'arena_athlete',   name:'Athlète Arène',     icon:'🏟️', salary:30 },
+      { id:'hotel',           name:'Hôtelier',          icon:'🏨', salary:32 },
+      { id:'consultant',      name:'Comptable',         icon:'📊', salary:35 },
+      { id:'circuit_vitesse', name:'Pilote',            icon:'🏎️', salary:35 },
+      { id:'doctor',          name:'Médecin',           icon:'🩺', salary:45 },
+      { id:'banker',          name:'Banquier',          icon:'🏦', salary:55 },
+    ];
+
+    function getLevel(earned) {
+      for (let i = LEVELS.length - 1; i >= 0; i--) {
+        if (earned >= LEVELS[i].min) return i;
+      }
+      return 0;
+    }
+
+    function renderJobs() {
+      let save = {};
+      let prog = {};
+      try { save = JSON.parse(localStorage.getItem('jeu3d_save') || '{}'); } catch(e) {}
+      try { prog = JSON.parse(localStorage.getItem('jeu3d_jobs_progress_mobile') || '{}'); } catch(e) {}
+
+      const money    = save.money != null ? save.money : 50;
+      const activeId = save.currentJob ? save.currentJob.id : null;
+
+      document.getElementById('stats-bar').innerHTML =
+        `Argent&nbsp;: <span>${money}$</span>` +
+        (activeId ? `<br>Actif&nbsp;: <span>${save.currentJob.name}</span>` : '');
+
+      const grid = document.getElementById('job-grid');
+      grid.innerHTML = '';
+
+      JOBS.forEach(job => {
+        const isActive = job.id === activeId;
+        const earned   = prog[job.id] ? prog[job.id].totalEarned : 0;
+        const lv       = getLevel(earned);
+        const lvName   = LEVELS[lv].name;
+        const nextLv   = LEVELS[lv + 1];
+        const pct      = nextLv
+          ? Math.min(100, ((earned - LEVELS[lv].min) / (nextLv.min - LEVELS[lv].min)) * 100)
+          : 100;
+
+        const card = document.createElement('div');
+        card.className = 'job-card' + (isActive ? ' active' : '');
+        card.innerHTML = `
+          <div class="job-header">
+            <span class="job-icon">${job.icon}</span>
+            <span class="job-title">${job.name}</span>
+            ${isActive ? '<span class="badge-actif">Actif</span>' : ''}
+          </div>
+          <div class="job-salary">+${job.salary}$/min</div>
+          <div class="prog-label">
+            <span>${lvName}</span>
+            <span>${nextLv ? nextLv.name : '★ Max'}</span>
+          </div>
+          <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+          <div class="prog-earned">${earned}$ gagnés</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    document.getElementById('btn-open-jobs').addEventListener('click', () => {
+      renderJobs();
+      document.getElementById('overlay').classList.add('open');
+    });
+    document.getElementById('btn-close').addEventListener('click', () => {
+      document.getElementById('overlay').classList.remove('open');
+    });
+    document.getElementById('overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('overlay'))
+        document.getElementById('overlay').classList.remove('open');
+    });
+  </script>
+
+</body>
+</html>

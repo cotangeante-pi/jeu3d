@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Uno</title>
+<script src="../game_utils.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px;}
+a.back{color:#f1c40f;text-decoration:none;align-self:flex-start;font-size:14px;margin-bottom:8px;padding:6px 12px;border:1px solid #f1c40f;border-radius:20px;}
+h1{color:#f1c40f;font-size:1.3rem;margin-bottom:8px;}
+#game{width:100%;max-width:480px;display:flex;flex-direction:column;gap:8px;}
+.zone-label{font-size:11px;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
+#bot-hand{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;min-height:70px;background:#0d1526;border-radius:10px;padding:8px;}
+.card-back{width:46px;height:68px;border-radius:8px;background:linear-gradient(135deg,#c0392b,#922b21);border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:20px;}
+#center-zone{display:flex;align-items:center;justify-content:center;gap:20px;padding:8px;}
+#discard-pile{width:60px;height:88px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:900;border:3px solid #fff;flex-direction:column;box-shadow:0 0 20px rgba(255,255,255,0.3);}
+#draw-pile{width:60px;height:88px;border-radius:10px;background:linear-gradient(135deg,#1a237e,#0d47a1);border:3px solid #f1c40f;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:2rem;box-shadow:0 0 15px rgba(241,196,15,0.4);}
+#draw-pile:hover{transform:scale(1.05);}
+#player-hand{display:flex;justify-content:center;flex-wrap:wrap;gap:5px;min-height:80px;background:#0d1526;border-radius:10px;padding:8px;}
+.card{width:50px;height:74px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-weight:900;border:3px solid rgba(255,255,255,0.4);transition:transform 0.15s,box-shadow 0.15s;user-select:none;flex-shrink:0;position:relative;}
+.card:hover,.card.active{transform:translateY(-8px);box-shadow:0 8px 20px rgba(255,255,255,0.5);}
+.card.disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.card .num{font-size:1.3rem;line-height:1;}
+.card .sym{font-size:0.6rem;text-align:center;}
+.card-red{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;}
+.card-blue{background:linear-gradient(135deg,#2980b9,#1a5276);color:#fff;}
+.card-green{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;}
+.card-yellow{background:linear-gradient(135deg,#f39c12,#d68910);color:#000;}
+.card-black{background:linear-gradient(135deg,#2c2c2c,#111);color:#fff;border-color:#f1c40f;}
+#info{text-align:center;font-size:0.85rem;color:#f1c40f;min-height:20px;}
+#status{text-align:center;font-size:0.8rem;color:#aaa;}
+#color-picker{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:16px;z-index:100;text-align:center;}
+#color-picker h3{color:#f1c40f;margin-bottom:10px;}
+.color-btn{width:50px;height:50px;border-radius:8px;border:none;cursor:pointer;margin:4px;font-size:1.2rem;}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99;}
+#win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:200;}
+#win-screen h2{color:#f1c40f;font-size:1.5rem;margin-bottom:12px;}
+#win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+#counts{display:flex;justify-content:space-around;font-size:0.85rem;color:#aaa;}
+#counts span{background:#0d1526;padding:4px 10px;border-radius:10px;}
+</style>
+</head>
+<body>
+<a href="../jeu_societe.html" class="back">← Jeux</a>
+<h1>🃏 UNO</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="game">
+  <div id="counts"><span id="bot-count">Bot: 7 cartes</span><span id="deck-count">Pioche: 93</span></div>
+  <div>
+    <div class="zone-label">Main du Bot</div>
+    <div id="bot-hand"></div>
+  </div>
+  <div id="center-zone">
+    <div id="draw-pile" title="Piocher">🂠</div>
+    <div id="discard-pile"></div>
+  </div>
+  <div id="info"></div>
+  <div id="status"></div>
+  <div>
+    <div class="zone-label">Votre main</div>
+    <div id="player-hand"></div>
+  </div>
+</div>
+<div id="overlay"></div>
+<div id="color-picker">
+  <h3>Choisir une couleur</h3>
+  <div>
+    <button class="color-btn" style="background:#e74c3c" onclick="chooseColor('red')">🔴</button>
+    <button class="color-btn" style="background:#2980b9" onclick="chooseColor('blue')">🔵</button>
+    <button class="color-btn" style="background:#27ae60" onclick="chooseColor('green')">🟢</button>
+    <button class="color-btn" style="background:#f39c12" onclick="chooseColor('yellow')">🟡</button>
+  </div>
+</div>
+<div id="win-screen">
+  <h2 id="win-text"></h2>
+  <button onclick="initGame()">Rejouer</button>
+</div>
+<script>
+const COLORS=['red','blue','green','yellow'];
+const SPECIALS=['+2','S','R'];
+let deck=[],playerHand=[],botHand=[],discard=[],currentColor='',currentValue='',botTurn=false,pendingWild=false,gameOver=false;
+
+function makeCard(color,value){return{color,value,id:Math.random()};}
+function buildDeck(){
+  let d=[];
+  COLORS.forEach(c=>{
+    d.push(makeCard(c,'0'));
+    for(let i=1;i<=9;i++){d.push(makeCard(c,String(i)));d.push(makeCard(c,String(i)));}
+    SPECIALS.forEach(s=>{d.push(makeCard(c,s));d.push(makeCard(c,s));});
+  });
+  for(let i=0;i<4;i++){d.push(makeCard('black','W'));d.push(makeCard('black','W4'));}
+  return d;
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function draw(n=1){
+  let drawn=[];
+  for(let i=0;i<n;i++){
+    if(deck.length===0){
+      let top=discard.pop();
+      deck=shuffle(discard);
+      discard=[top];
+    }
+    if(deck.length>0)drawn.push(deck.pop());
+  }
+  return drawn;
+}
+
+function canPlay(card){
+  if(card.color==='black')return true;
+  return card.color===currentColor||card.value===currentValue;
+}
+
+function initGame(){
+  document.getElementById('win-screen').style.display='none';
+  deck=shuffle(buildDeck());
+  playerHand=draw(7);
+  botHand=draw(7);
+  discard=[];
+  gameOver=false;botTurn=false;
+  let first;
+  do{first=draw(1)[0];}while(first.color==='black');
+  discard.push(first);
+  currentColor=first.color;
+  currentValue=first.value;
+  render();
+  setInfo("Votre tour !");
+}
+
+function render(){
+  // Bot hand
+  let bh=document.getElementById('bot-hand');
+  bh.innerHTML='';
+  botHand.forEach(()=>{let d=document.createElement('div');d.className='card-back';d.textContent='🂠';bh.appendChild(d);});
+  document.getElementById('bot-count').textContent=`Bot: ${botHand.length} carte${botHand.length>1?'s':''}`;
+  document.getElementById('deck-count').textContent=`Pioche: ${deck.length}`;
+  // Discard
+  let dp=document.getElementById('discard-pile');
+  let top=discard[discard.length-1];
+  dp.className='';dp.id='discard-pile';
+  dp.className=`card card-${top.color}`;
+  dp.style.width='60px';dp.style.height='88px';
+  dp.innerHTML=`<span class="num">${fmtVal(top.value)}</span>`;
+  if(top.color==='black'&&currentColor!=='black'){
+    dp.style.boxShadow=`0 0 20px var(--cc)`;
+    let marker=document.createElement('div');
+    marker.style.cssText=`position:absolute;bottom:4px;right:4px;width:12px;height:12px;border-radius:50%;background:${colorHex(currentColor)};`;
+    dp.appendChild(marker);
+  }
+  // Player hand
+  let ph=document.getElementById('player-hand');
+  ph.innerHTML='';
+  playerHand.forEach((card,i)=>{
+    let d=document.createElement('div');
+    d.className=`card card-${card.color}`;
+    if(!canPlay(card)||botTurn||gameOver)d.classList.add('disabled');
+    d.innerHTML=`<span class="num">${fmtVal(card.value)}</span>`;
+    d.addEventListener('click',()=>playCard(i));
+    d.addEventListener('touchend',e=>{e.preventDefault();playCard(i);});
+    ph.appendChild(d);
+  });
+}
+
+function fmtVal(v){return v==='W'?'🎨':v==='W4'?'+4':v==='S'?'🚫':v==='R'?'↺':v==='+'?'+2':v;}
+function colorHex(c){return c==='red'?'#e74c3c':c==='blue'?'#2980b9':c==='green'?'#27ae60':'#f39c12';}
+
+function setInfo(msg){document.getElementById('info').textContent=msg;}
+function setStatus(msg){document.getElementById('status').textContent=msg;}
+
+function playCard(i){
+  if(botTurn||gameOver)return;
+  let card=playerHand[i];
+  if(!canPlay(card)){setInfo("Carte non valide !");return;}
+  playerHand.splice(i,1);
+  discard.push(card);
+  currentValue=card.value;
+  if(card.color!=='black')currentColor=card.color;
+  if(playerHand.length===0){endGame('Vous avez gagné ! 🎉');return;}
+  if(card.color==='black'){
+    pendingWild=true;
+    document.getElementById('overlay').style.display='block';
+    document.getElementById('color-picker').style.display='block';
+    render();
+    return;
+  }
+  applyEffect(card,'player');
+}
+
+function chooseColor(c){
+  currentColor=c;
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('color-picker').style.display='none';
+  let lastCard=discard[discard.length-1];
+  if(lastCard.value==='W4'){
+    let d=draw(4);botHand.push(...d);
+    setInfo("Bot pioche 4 cartes !");
+  }
+  render();
+  if(!gameOver){setTimeout(botPlay,900);}
+}
+
+function applyEffect(card,who){
+  let other=who==='player'?'bot':'player';
+  if(card.value==='+2'){
+    if(other==='player'){let d=draw(2);playerHand.push(...d);setInfo("Vous piochez 2 cartes !");render();}
+    else{let d=draw(2);botHand.push(...d);setInfo("Bot pioche 2 cartes !");}
+    // skip other's turn already handled by not calling their play
+    if(who==='player'){render();setTimeout(botPlay,900);}
+    return;
+  }
+  if(card.value==='S'){
+    if(who==='player'){setInfo("Bot passe son tour !");render();setTimeout(botPlay,900);}
+    else{setInfo("Vous passez votre tour !");render();}
+    return;
+  }
+  if(card.value==='R'){
+    // With 2 players, reverse = skip
+    if(who==='player'){setInfo("Sens inverse — Bot passe !");render();setTimeout(botPlay,900);}
+    else{setInfo("Sens inverse — vous passez !");render();}
+    return;
+  }
+  // Normal card
+  if(who==='player'){render();setTimeout(botPlay,900);}
+  else{render();setInfo("Votre tour !");}
+}
+
+function botPlay(){
+  if(gameOver)return;
+  botTurn=true;
+  render();
+  let playable=botHand.map((c,i)=>({c,i})).filter(({c})=>canPlay(c));
+  if(playable.length===0){
+    let d=draw(1);botHand.push(...d);
+    setInfo(`Bot pioche une carte.`);
+    // check again
+    let newCard=botHand[botHand.length-1];
+    if(canPlay(newCard)){
+      setTimeout(()=>{
+        botHand.pop();
+        discard.push(newCard);
+        currentValue=newCard.value;
+        if(newCard.color!=='black')currentColor=newCard.color;
+        else currentColor=COLORS[Math.floor(Math.random()*4)];
+        if(botHand.length===0){endGame("Le bot a gagné !");return;}
+        botTurn=false;
+        render();
+        setInfo("Votre tour !");
+      },600);
+      return;
+    }
+    botTurn=false;render();setInfo("Votre tour !");return;
+  }
+  // Prefer specials (scaled by level)
+  let chosen;
+  if(GameUtils.shouldRandomize()){
+    chosen=playable[Math.floor(Math.random()*playable.length)];
+  } else {
+    chosen=playable.find(({c})=>c.color==='black')||playable.find(({c})=>c.value==='+2')||playable.find(({c})=>c.value==='S')||playable[0];
+  }
+  botHand.splice(chosen.i,1);
+  discard.push(chosen.c);
+  currentValue=chosen.c.value;
+  if(chosen.c.color!=='black')currentColor=chosen.c.color;
+  else currentColor=COLORS[Math.floor(Math.random()*4)];
+  if(botHand.length===0){endGame("Le bot a gagné !");return;}
+  // Bot W4
+  if(chosen.c.value==='W4'){
+    let d=draw(4);playerHand.push(...d);
+    setInfo("Vous piochez 4 cartes ! (Joker+4 bot)");
+    botTurn=false;render();return;
+  }
+  botTurn=false;
+  applyEffect(chosen.c,'bot');
+}
+
+function endGame(msg){
+  gameOver=true;
+  document.getElementById('win-text').textContent=msg;
+  document.getElementById('win-screen').style.display='block';
+  render();
+}
+
+// Draw pile click
+document.getElementById('draw-pile').addEventListener('click',()=>{
+  if(botTurn||gameOver)return;
+  let d=draw(1);
+  if(d.length===0){setInfo("Pioche vide !");return;}
+  playerHand.push(...d);
+  setInfo("Vous avez pioché une carte.");
+  render();
+  // check if playable
+  let newCard=playerHand[playerHand.length-1];
+  if(!canPlay(newCard)){setTimeout(botPlay,900);}
+});
+document.getElementById('draw-pile').addEventListener('touchend',e=>{e.preventDefault();document.getElementById('draw-pile').click();});
+
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initGame());
+GameUtils.createOnlineButton(_guRow,'uno',{
+  onConnected:(info)=>{initGame();},
+  onMove:()=>{}
+});
+GameUtils.showTutorial('uno', initGame);
+</script>
+</body>
+</html>

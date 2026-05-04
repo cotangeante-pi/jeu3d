@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Petits Chevaux</title>
+<script src="../game_utils.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px;}
+a.back{color:#f1c40f;text-decoration:none;align-self:flex-start;font-size:14px;margin-bottom:8px;padding:6px 12px;border:1px solid #f1c40f;border-radius:20px;}
+h1{color:#f1c40f;font-size:1.3rem;margin-bottom:8px;}
+#ui{display:flex;align-items:center;gap:14px;margin-bottom:8px;}
+#dice-display{width:56px;height:56px;border-radius:10px;background:#1a2035;border:2px solid #f1c40f;display:flex;align-items:center;justify-content:center;font-size:2rem;transition:transform 0.1s;}
+#roll-btn{background:#f1c40f;color:#000;border:none;padding:10px 18px;border-radius:20px;font-size:0.95rem;font-weight:bold;cursor:pointer;user-select:none;}
+#roll-btn:disabled{opacity:0.4;cursor:not-allowed;}
+#info{font-size:0.82rem;color:#f1c40f;text-align:center;max-width:220px;line-height:1.3;}
+canvas{border-radius:10px;touch-action:manipulation;display:block;}
+#win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:100;}
+#win-screen h2{color:#f1c40f;margin-bottom:12px;}
+#win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+</style>
+</head>
+<body>
+<a href="../jeu_societe.html" class="back">← Jeux</a>
+<h1>🐴 Petits Chevaux</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="ui">
+  <div id="dice-display">🎲</div>
+  <button id="roll-btn" onclick="rollDice()">Lancer</button>
+  <div id="info">Votre tour</div>
+</div>
+<canvas id="c"></canvas>
+<div id="win-screen">
+  <h2 id="win-text"></h2>
+  <button onclick="startGame()">Rejouer</button>
+</div>
+<script>
+// =============================================
+// BOARD DEFINITION — 40-cell ring path
+// 15×15 grid (indices 0-14)
+// Yellow start = path[0], Red start = path[20]
+// =============================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const SZ = Math.min(window.innerWidth - 20, 420);
+canvas.width = SZ; canvas.height = SZ;
+const U = SZ / 15;
+
+// Build 40-cell clockwise ring
+// Top row: r=1, c=2..11 (10 cells, left→right)
+// Right col: c=12, r=2..11 (10 cells, top→bot)
+// Bottom row: r=12, c=11..2 (10 cells, right→left)
+// Left col: c=2, r=11..2 (10 cells, bot→top)
+const PATH = [];
+for(let c=2;c<=11;c++) PATH.push({r:1,c});   // 0-9
+for(let r=2;r<=11;r++) PATH.push({r,c:12});   // 10-19
+for(let c=11;c>=2;c--) PATH.push({r:12,c});   // 20-29
+for(let r=11;r>=2;r--) PATH.push({r,c:2});    // 30-39
+// Total: 40 cells
+
+// Home stretches (5 cells toward center for each player)
+// Yellow home: starts going inward from path[39] → center col c=7
+const Y_HOME = [{r:11,c:7},{r:10,c:7},{r:9,c:7},{r:8,c:7},{r:7,c:7}];
+// Red home: starts going inward from path[19] → center row r=7
+const R_HOME = [{r:7,c:11},{r:7,c:10},{r:7,c:9},{r:7,c:8},{r:7,c:7}];
+
+// Stable positions
+const STABLE_Y = [{r:3,c:3},{r:3,c:4},{r:4,c:3},{r:4,c:4}];
+const STABLE_R = [{r:9,c:9},{r:9,c:10},{r:10,c:9},{r:10,c:10}];
+
+// Yellow enters path at index 0, travels to 39, then enters Y_HOME
+// Red enters path at index 20, travels 20 steps to index 39 (wrapped), then R_HOME
+// Path position stored as 0-39 (relative to player start)
+// For yellow: pathIdx = pos
+// For red: pathIdx = (pos + 20) % 40
+
+// Game state
+let state, currentTurn, diceVal, diceRolled, gameOver;
+
+function startGame(){
+  state = {
+    Y: Array.from({length:4},()=>({pos:-1, homeStep:0, done:false})),
+    R: Array.from({length:4},()=>({pos:-1, homeStep:0, done:false}))
+  };
+  currentTurn = 'Y'; diceVal = 0; diceRolled = false; gameOver = false;
+  document.getElementById('win-screen').style.display = 'none';
+  document.getElementById('roll-btn').disabled = false;
+  setInfo('Votre tour — Lancez !');
+  render();
+}
+
+function setInfo(t){ document.getElementById('info').textContent = t; }
+
+function rollDice(){
+  if(gameOver || diceRolled) return;
+  diceVal = Math.floor(Math.random()*6)+1;
+  const faces = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+  let d = document.getElementById('dice-display');
+  d.textContent = faces[diceVal];
+  d.style.transform = 'scale(1.2)';
+  setTimeout(()=>d.style.transform='scale(1)',200);
+  diceRolled = true;
+  if(currentTurn === 'Y'){
+    // Check if any move is possible
+    if(!hasValidMove('Y')){
+      setInfo(`Dé: ${diceVal} — Aucun mouvement possible, passez.`);
+      diceRolled = false;
+      setTimeout(endTurn, 900);
+    } else {
+      setInfo(`Dé: ${diceVal} — Cliquez une pièce jaune.`);
+      render();
+    }
+  } else {
+    setTimeout(botTurn, 700);
+  }
+}
+
+function hasValidMove(col){
+  let ps = state[col];
+  return ps.some(p=>{
+    if(p.done) return false;
+    if(p.pos === -1) return diceVal === 6;
+    return canAdvance(p, diceVal);
+  });
+}
+
+function canAdvance(p, steps){
+  if(p.done) return false;
+  let newPos = p.pos + steps;
+  if(newPos > 44) return false; // home has 5 steps (pos 40-44 = homeStep 1-5)
+  return true;
+}
+
+function movePiece(col, i){
+  if(gameOver || currentTurn !== col || !diceRolled) return;
+  let p = state[col][i];
+  if(p.done){ setInfo('Pièce déjà arrivée !'); return; }
+
+  if(p.pos === -1){
+    if(diceVal !== 6){ setInfo('Il faut un 6 pour sortir !'); return; }
+    p.pos = 0;
+    setInfo('Pièce sortie de l\'écurie !');
+  } else {
+    let newPos = p.pos + diceVal;
+    if(newPos > 44){ setInfo('Trop loin — choisissez une autre pièce.'); return; }
+    p.pos = newPos;
+    if(p.pos >= 40){
+      p.homeStep = p.pos - 39;
+      if(p.pos === 44){ p.done = true; setInfo(`Pièce ${i+1} est arrivée ! 🏁`); }
+    } else {
+      // Check capture (not on safe zones)
+      checkCapture(col, i);
+    }
+  }
+  render();
+  if(checkWin()) return;
+  diceRolled = false;
+  // Relancer si 6
+  if(diceVal === 6 && currentTurn === col){
+    if(col === 'Y') setInfo('6 obtenu — relancez !');
+    else setTimeout(()=>{ document.getElementById('roll-btn').disabled=true; rollDice(); }, 600);
+    return;
+  }
+  endTurn();
+}
+
+function getAbsCell(col, p){
+  if(p.pos === -1){
+    let stable = col==='Y'?STABLE_Y:STABLE_R;
+    return null; // handled separately
+  }
+  if(p.pos >= 40){
+    let hs = col==='Y'?Y_HOME:R_HOME;
+    let hi = p.homeStep - 1;
+    return hs[Math.min(hi, hs.length-1)];
+  }
+  let pathIdx = col==='Y' ? p.pos : (p.pos + 20)%40;
+  return PATH[pathIdx];
+}
+
+function checkCapture(col, i){
+  let p = state[col][i];
+  let cell = getAbsCell(col, p);
+  if(!cell) return;
+  let other = col==='Y'?'R':'Y';
+  // Safe cells: first 2 absolute path positions for each player
+  let safeStart = col==='Y'?[PATH[0],PATH[1]]:[PATH[20],PATH[21]];
+  let onSafe = safeStart.some(s=>s.r===cell.r&&s.c===cell.c);
+  if(onSafe) return;
+  state[other].forEach((op,j)=>{
+    if(op.pos<0||op.done||op.pos>=40) return;
+    let oc = getAbsCell(other, op);
+    if(oc && oc.r===cell.r && oc.c===cell.c){
+      op.pos = -1; op.homeStep = 0;
+      setInfo(`Capture ! Pièce ${other} ${j+1} renvoie à l'écurie !`);
+    }
+  });
+}
+
+function checkWin(){
+  for(let col of ['Y','R']){
+    if(state[col].every(p=>p.done)){
+      gameOver = true;
+      document.getElementById('win-text').textContent = col==='Y'?'Vous avez gagné ! 🎉':'Le bot a gagné !';
+      document.getElementById('win-screen').style.display='block';
+      return true;
+    }
+  }
+  return false;
+}
+
+function endTurn(){
+  currentTurn = currentTurn==='Y'?'R':'Y';
+  if(currentTurn==='Y'){
+    document.getElementById('roll-btn').disabled=false;
+    setInfo('Votre tour — Lancez !');
+  } else {
+    document.getElementById('roll-btn').disabled=true;
+    setTimeout(rollDice, 500);
+  }
+}
+
+function botTurn(){
+  let ps = state.R;
+  if(diceVal===6){
+    let inStable = ps.findIndex(p=>p.pos===-1);
+    if(inStable>=0){ movePiece('R',inStable); return; }
+  }
+  let active = ps.map((p,i)=>({p,i})).filter(({p})=>p.pos>=0&&!p.done&&canAdvance(p,diceVal));
+  if(!active.length){
+    setInfo('Bot passe (aucun mouvement).');
+    diceRolled=false; endTurn(); return;
+  }
+  if(GameUtils.shouldRandomize()){
+    movePiece('R', active[Math.floor(Math.random()*active.length)].i);
+    return;
+  }
+  active.sort((a,b)=>b.p.pos-a.p.pos);
+  movePiece('R', active[0].i);
+}
+
+// ---- RENDERING ----
+function render(){
+  ctx.clearRect(0,0,SZ,SZ);
+  ctx.fillStyle='#0a0e1a'; ctx.fillRect(0,0,SZ,SZ);
+  drawBoard();
+  drawPieces();
+}
+
+function cc(r,c){ return {x:c*U+U/2, y:r*U+U/2}; }
+
+function drawBoard(){
+  // Draw path cells
+  PATH.forEach(({r,c},i)=>{
+    let bg = '#1a2035';
+    if(i===0||i===1) bg='rgba(241,196,15,0.2)'; // yellow safe
+    if(i===20||i===21) bg='rgba(231,76,60,0.2)'; // red safe
+    ctx.fillStyle=bg; ctx.strokeStyle='#2a3555'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.rect(c*U+0.5,r*U+0.5,U-1,U-1); ctx.fill(); ctx.stroke();
+  });
+  // Home stretches
+  Y_HOME.forEach(({r,c},i)=>{
+    let alpha=0.1+(i/Y_HOME.length)*0.3;
+    ctx.fillStyle=`rgba(241,196,15,${alpha})`; ctx.strokeStyle='#f1c40f'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.rect(c*U+0.5,r*U+0.5,U-1,U-1); ctx.fill(); ctx.stroke();
+  });
+  R_HOME.forEach(({r,c},i)=>{
+    let alpha=0.1+(i/R_HOME.length)*0.3;
+    ctx.fillStyle=`rgba(231,76,60,${alpha})`; ctx.strokeStyle='#e74c3c'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.rect(c*U+0.5,r*U+0.5,U-1,U-1); ctx.fill(); ctx.stroke();
+  });
+  // Center cell
+  let cc7=cc(7,7); ctx.fillStyle='#f1c40f'; ctx.globalAlpha=0.3;
+  ctx.beginPath(); ctx.arc(cc7.x,cc7.y,U*0.4,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+  // Stable zones
+  drawStable(STABLE_Y,'#f1c40f');
+  drawStable(STABLE_R,'#e74c3c');
+  // Turn indicator
+  ctx.fillStyle=currentTurn==='Y'?'#f1c40f':'#e74c3c';
+  ctx.font=`bold ${U*0.5}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(currentTurn==='Y'?'▶':'◀',7*U+U/2,13*U+U/2);
+}
+
+function drawStable(cells,color){
+  let r0=cells[0].r,c0=cells[0].c;
+  ctx.fillStyle=color; ctx.globalAlpha=0.12;
+  ctx.beginPath(); ctx.roundRect((c0-0.3)*U,(r0-0.3)*U,2.6*U,2.6*U,6); ctx.fill();
+  ctx.globalAlpha=1; ctx.strokeStyle=color; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.roundRect((c0-0.3)*U,(r0-0.3)*U,2.6*U,2.6*U,6); ctx.stroke();
+}
+
+function drawPieces(){
+  ['Y','R'].forEach(col=>{
+    let stable=col==='Y'?STABLE_Y:STABLE_R;
+    let color=col==='Y'?'#f1c40f':'#e74c3c';
+    let txColor=col==='Y'?'#000':'#fff';
+    state[col].forEach((p,i)=>{
+      let pos;
+      if(p.pos===-1){ pos=stable[i]; }
+      else if(p.pos>=40){
+        let hs=col==='Y'?Y_HOME:R_HOME;
+        pos=hs[Math.min(p.homeStep-1,hs.length-1)];
+      } else {
+        let pi=col==='Y'?p.pos:(p.pos+20)%40;
+        pos=PATH[pi];
+      }
+      if(!pos) return;
+      let{x,y}=cc(pos.r,pos.c);
+      // Offset for multiple pieces on same cell
+      let others=state[col].filter((pp,ii)=>ii<i&&getAbsCell(col,pp)&&getAbsCell(col,pp).r===pos.r&&getAbsCell(col,pp).c===pos.c);
+      let off=others.length*5;
+      x+=off; y-=off;
+      ctx.beginPath(); ctx.arc(x,y,U*0.36,0,Math.PI*2);
+      ctx.fillStyle=color; ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.fillStyle=txColor; ctx.font=`bold ${U*0.38}px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(i+1,x,y);
+      // Done star
+      if(p.done){ ctx.fillStyle='#fff'; ctx.font=`${U*0.3}px sans-serif`; ctx.fillText('★',x+U*0.3,y-U*0.3); }
+    });
+  });
+}
+
+// Click handler
+canvas.addEventListener('click', e=>{
+  if(currentTurn!=='Y'||!diceRolled||gameOver) return;
+  let rect=canvas.getBoundingClientRect();
+  let sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  let mx=(e.clientX-rect.left)*sx, my=(e.clientY-rect.top)*sy;
+  state.Y.forEach((p,i)=>{
+    if(p.done) return;
+    let pos;
+    if(p.pos===-1) pos=STABLE_Y[i];
+    else if(p.pos>=40){ let hs=Y_HOME; pos=hs[Math.min(p.homeStep-1,hs.length-1)]; }
+    else pos=PATH[p.pos];
+    if(!pos) return;
+    let{x,y}=cc(pos.r,pos.c);
+    if(Math.hypot(mx-x,my-y)<U*0.55) movePiece('Y',i);
+  });
+});
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();
+  let t=e.changedTouches[0];
+  canvas.dispatchEvent(new MouseEvent('click',{clientX:t.clientX,clientY:t.clientY,bubbles:true}));
+},{passive:false});
+
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>startGame());
+GameUtils.createOnlineButton(_guRow,'petits_chevaux',{
+  onConnected:(info)=>{startGame();},
+  onMove:()=>{}
+});
+GameUtils.showTutorial('petits_chevaux', startGame);
+</script>
+</body>
+</html>

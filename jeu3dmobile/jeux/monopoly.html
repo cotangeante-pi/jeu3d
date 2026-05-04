@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Monopoly</title>
+<script src="../game_utils.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;overflow-x:hidden;}
+a.back{color:#f1c40f;text-decoration:none;align-self:flex-start;font-size:14px;margin-bottom:6px;padding:5px 12px;border:1px solid #f1c40f;border-radius:20px;}
+h1{color:#f1c40f;font-size:1.2rem;margin-bottom:6px;}
+#main{width:100%;max-width:500px;}
+#board{display:grid;grid-template-columns:repeat(11,1fr);gap:1px;background:#0a0e1a;border:1px solid #1a2035;margin-bottom:8px;}
+.sq{background:#0d1526;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 1px;font-size:clamp(5px,1.5vw,10px);text-align:center;aspect-ratio:1;position:relative;border-radius:2px;overflow:hidden;}
+.sq .sq-name{font-size:clamp(4px,1.2vw,8px);line-height:1.1;color:#aaa;overflow:hidden;text-overflow:ellipsis;max-height:2.5em;}
+.sq .sq-price{font-size:clamp(4px,1.1vw,7px);color:#f1c40f;}
+.sq .color-bar{position:absolute;top:0;left:0;right:0;height:4px;}
+.sq.corner{background:#1a2035;font-size:clamp(6px,1.5vw,10px);color:#f1c40f;}
+.sq.chance{background:#1a1a35;color:#9b59b6;}
+.sq.tax{background:#1a2010;color:#e74c3c;}
+.sq.station{background:#1a2535;color:#3498db;}
+.sq.utility{background:#0e2020;color:#1abc9c;}
+.pawn{width:clamp(6px,2vw,12px);height:clamp(6px,2vw,12px);border-radius:50%;border:1px solid #fff;display:inline-block;margin:0 1px;}
+#hud{display:flex;flex-direction:column;gap:6px;}
+#players-panel{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.player-card{background:#0d1526;border-radius:8px;padding:8px;border:1px solid #2a3555;font-size:0.78rem;}
+.player-card.active{border-color:#f1c40f;}
+.player-card .pname{font-weight:bold;margin-bottom:2px;}
+.player-card .pmoney{color:#f1c40f;}
+.player-card .pstatus{color:#aaa;font-size:0.7rem;}
+.player-card.eliminated{opacity:0.4;border-color:#555;}
+#action-zone{background:#0d1526;border-radius:8px;padding:8px;border:1px solid #2a3555;text-align:center;}
+#dice-display{font-size:2rem;margin-bottom:6px;}
+#roll-btn{background:#f1c40f;color:#000;border:none;padding:8px 20px;border-radius:16px;font-size:0.95rem;font-weight:bold;cursor:pointer;}
+#roll-btn:disabled{opacity:0.4;cursor:not-allowed;}
+#log{background:#080c18;border-radius:8px;padding:8px;max-height:100px;overflow-y:auto;font-size:0.75rem;color:#aaa;border:1px solid #1a2035;}
+.log-line{border-bottom:1px solid #0d1526;padding:2px 0;}
+.log-line:last-child{color:#f1c40f;}
+#win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:100;width:80%;max-width:300px;}
+#win-screen h2{color:#f1c40f;margin-bottom:12px;}
+#win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+</style>
+</head>
+<body>
+<a href="../jeu_societe.html" class="back">← Jeux</a>
+<h1>🎩 Monopoly</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="main">
+  <div id="board"></div>
+  <div id="hud">
+    <div id="players-panel"></div>
+    <div id="action-zone">
+      <div id="dice-display">🎲🎲</div>
+      <button id="roll-btn" onclick="rollAndMove()">Lancer les dés</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+<div id="win-screen">
+  <h2 id="win-text"></h2>
+  <button onclick="initGame()">Rejouer</button>
+</div>
+<script>
+// ============= MONOPOLY SIMPLIFIÉ =============
+const SQUARES = [
+  {name:'Départ',type:'go'},
+  {name:'Méditerranée',type:'prop',price:60,rent:2,color:'#7b3f00'},
+  {name:'Caisse Comm.',type:'chest'},
+  {name:'Baltique',type:'prop',price:60,rent:4,color:'#7b3f00'},
+  {name:'Taxe 200$',type:'tax',cost:200},
+  {name:'Gare Nord',type:'station',price:200,rent:25},
+  {name:'Orient.',type:'prop',price:100,rent:6,color:'#87ceeb'},
+  {name:'Chance',type:'chance'},
+  {name:'Vermont',type:'prop',price:100,rent:6,color:'#87ceeb'},
+  {name:'Connect.',type:'prop',price:120,rent:8,color:'#87ceeb'},
+  {name:'Prison',type:'jail'},
+  {name:'St. Charles',type:'prop',price:140,rent:10,color:'#d35400'},
+  {name:'Électricité',type:'utility',price:150,rent:0},
+  {name:'États',type:'prop',price:140,rent:10,color:'#d35400'},
+  {name:'Virginie',type:'prop',price:160,rent:12,color:'#d35400'},
+  {name:'Gare Est',type:'station',price:200,rent:25},
+  {name:'St. James',type:'prop',price:180,rent:14,color:'#27ae60'},
+  {name:'Caisse Comm.',type:'chest'},
+  {name:'Tennessee',type:'prop',price:180,rent:14,color:'#27ae60'},
+  {name:'New York',type:'prop',price:200,rent:16,color:'#27ae60'},
+  {name:'Parc Gratuit',type:'free'},
+  {name:'Kentucky',type:'prop',price:220,rent:18,color:'#e74c3c'},
+  {name:'Chance',type:'chance'},
+  {name:'Indiana',type:'prop',price:220,rent:18,color:'#e74c3c'},
+  {name:'Illinois',type:'prop',price:240,rent:20,color:'#e74c3c'},
+  {name:'Gare Sud',type:'station',price:200,rent:25},
+  {name:'Atlantic',type:'prop',price:260,rent:22,color:'#e67e22'},
+  {name:'Ventnor',type:'prop',price:260,rent:22,color:'#e67e22'},
+  {name:'Eau',type:'utility',price:150,rent:0},
+  {name:'Marvin',type:'prop',price:280,rent:24,color:'#e67e22'},
+  {name:'Allez Prison',type:'gotojail'},
+  {name:'Pacifique',type:'prop',price:300,rent:26,color:'#9b59b6'},
+  {name:'Caroline',type:'prop',price:300,rent:26,color:'#9b59b6'},
+  {name:'Caisse Comm.',type:'chest'},
+  {name:'Pennsyl.',type:'prop',price:320,rent:28,color:'#9b59b6'},
+  {name:'Gare Ouest',type:'station',price:200,rent:25},
+  {name:'Chance',type:'chance'},
+  {name:'Park Place',type:'prop',price:350,rent:35,color:'#2c3e50'},
+  {name:'Taxe Luxe',type:'tax',cost:100},
+  {name:'Boardwalk',type:'prop',price:400,rent:50,color:'#2c3e50'},
+];
+const PAWN_COLORS=['#f1c40f','#e74c3c','#3498db','#2ecc71'];
+const PAWN_NAMES=['Vous','Bot 1','Bot 2'];
+
+let players, currentIdx, gameOver, inJailCounters;
+
+function initGame(){
+  gameOver=false;
+  players=[
+    {name:'Vous',money:1500,pos:0,jailTurns:0,eliminated:false,isBot:false},
+    {name:'Bot 1',money:1500,pos:0,jailTurns:0,eliminated:false,isBot:true},
+    {name:'Bot 2',money:1500,pos:0,jailTurns:0,eliminated:false,isBot:true},
+  ];
+  // Reset property ownership
+  SQUARES.forEach(s=>{s.owner=null;});
+  currentIdx=0;
+  document.getElementById('win-screen').style.display='none';
+  document.getElementById('roll-btn').disabled=false;
+  clearLog();
+  renderBoard();
+  renderPlayers();
+  log('Partie commencée ! 1500$ chacun.');
+}
+
+function renderBoard(){
+  const grid=document.getElementById('board');
+  grid.innerHTML='';
+  // 11x11 board layout: perimeter of 40 squares
+  // Map square index to grid position
+  // Bottom row (right to left): 0-10 → row 10, cols 10 to 0
+  // Left col (bottom to top): 11-19 → col 0, rows 9 to 1 (but only inner 9)
+  // Wait, classic monopoly: 40 squares, 11 per side (corners shared)
+  // Let's build a 11x11 grid with center = inner area
+  let cells=Array.from({length:11},()=>Array(11).fill(null));
+  // Bottom row: sq 0..10 at row=10, col=10..0
+  for(let i=0;i<=10;i++) cells[10][10-i]=i;
+  // Left col: sq 11..19 at col=0, row=9..1
+  for(let i=0;i<=8;i++) cells[9-i][0]=11+i;
+  // Top row: sq 20..30 at row=0, col=0..10
+  for(let i=0;i<=10;i++) cells[0][i]=20+i;
+  // Right col: sq 31..39 at col=10, row=1..9
+  for(let i=0;i<=8;i++) cells[1+i][10]=31+i;
+
+  for(let r=0;r<11;r++){
+    for(let c=0;c<11;c++){
+      let div=document.createElement('div');
+      let sqIdx=cells[r][c];
+      if(sqIdx===null){
+        div.className='sq';div.style.background='#0a0e1a';
+        // Center area logo
+        if(r===5&&c===5){div.style.fontSize='1.5rem';div.textContent='🎩';}
+        grid.appendChild(div);continue;
+      }
+      let sq=SQUARES[sqIdx];
+      div.className=`sq ${sq.type}`;
+      if(sq.type==='prop'||sq.type==='station'||sq.type==='utility'){
+        if(sq.color){let bar=document.createElement('div');bar.className='color-bar';bar.style.background=sq.color;div.appendChild(bar);}
+        let nm=document.createElement('div');nm.className='sq-name';nm.textContent=sq.name;div.appendChild(nm);
+        if(sq.price){let pr=document.createElement('div');pr.className='sq-price';pr.textContent='$'+sq.price;div.appendChild(pr);}
+      } else {
+        let nm=document.createElement('div');nm.className='sq-name';nm.textContent=sq.name;div.appendChild(nm);
+      }
+      // Show owner color
+      if(sq.owner!==null){
+        let ob=document.createElement('div');ob.style.cssText=`position:absolute;bottom:0;left:0;right:0;height:3px;background:${PAWN_COLORS[sq.owner]};`;div.appendChild(ob);
+      }
+      // Show pawns
+      let pawnsHere=players.filter((p,i)=>!p.eliminated&&p.pos===sqIdx);
+      if(pawnsHere.length){
+        let prow=document.createElement('div');prow.style.cssText='display:flex;flex-wrap:wrap;justify-content:center;gap:1px;';
+        pawnsHere.forEach((p,i)=>{
+          let pw=document.createElement('div');
+          pw.className='pawn';pw.style.background=PAWN_COLORS[players.indexOf(p)];
+          prow.appendChild(pw);
+        });
+        div.appendChild(prow);
+      }
+      grid.appendChild(div);
+    }
+  }
+}
+
+function renderPlayers(){
+  const panel=document.getElementById('players-panel');
+  panel.innerHTML='';
+  players.forEach((p,i)=>{
+    let card=document.createElement('div');
+    card.className='player-card'+(i===currentIdx&&!p.eliminated?' active':'')+(p.eliminated?' eliminated':'');
+    let sq=SQUARES[p.pos];
+    card.innerHTML=`<div class="pname"><span class="pawn" style="background:${PAWN_COLORS[i]}"></span> ${p.name}</div>
+    <div class="pmoney">$${p.money}</div>
+    <div class="pstatus">${sq.name}${p.jailTurns>0?' 🔒':''}</div>`;
+    panel.appendChild(card);
+  });
+}
+
+function log(msg){
+  let d=document.getElementById('log');
+  let line=document.createElement('div');line.className='log-line';line.textContent=msg;
+  d.appendChild(line);d.scrollTop=d.scrollHeight;
+  if(d.children.length>30)d.removeChild(d.firstChild);
+}
+function clearLog(){document.getElementById('log').innerHTML='';}
+
+function rollDice(){
+  let d1=Math.floor(Math.random()*6)+1, d2=Math.floor(Math.random()*6)+1;
+  return{d1,d2,total:d1+d2,doubles:d1===d2};
+}
+
+function rollAndMove(){
+  if(gameOver)return;
+  document.getElementById('roll-btn').disabled=true;
+  let p=players[currentIdx];
+  if(p.eliminated){nextTurn();return;}
+  let{d1,d2,total,doubles}=rollDice();
+  const faces=['','⚀','⚁','⚂','⚃','⚄','⚅'];
+  document.getElementById('dice-display').textContent=faces[d1]+faces[d2];
+  // Jail logic
+  if(p.jailTurns>0){
+    if(doubles){p.jailTurns=0;log(`${p.name} sort de prison avec doubles !`);}
+    else{
+      p.jailTurns++;
+      if(p.jailTurns>=3){p.money-=50;p.jailTurns=0;log(`${p.name} paye 50$ pour sortir de prison.`);}
+      else{log(`${p.name} est en prison (tour ${p.jailTurns}).`);renderPlayers();nextTurn();return;}
+    }
+  }
+  let oldPos=p.pos;
+  p.pos=(p.pos+total)%40;
+  if(p.pos<oldPos||oldPos===0)if(p.pos!==30){p.money+=200;log(`${p.name} passe par Départ, +200$`);}
+  log(`${p.name} lance ${d1}+${d2}=${total}, va sur "${SQUARES[p.pos].name}"`);
+  processSquare(currentIdx, doubles);
+}
+
+function processSquare(idx, doubles){
+  let p=players[idx];
+  let sq=SQUARES[p.pos];
+  if(sq.type==='gotojail'){
+    p.pos=10;p.jailTurns=1;log(`${p.name} va en prison !`);
+  } else if(sq.type==='tax'){
+    p.money-=sq.cost;log(`${p.name} paye taxe ${sq.cost}$`);
+  } else if(sq.type==='chance'||sq.type==='chest'){
+    let amt=[50,100,-50,-75,200][Math.floor(Math.random()*5)];
+    p.money+=amt;log(`${p.name} ${amt>0?'gagne':'perd'} ${Math.abs(amt)}$ (carte)`);
+  } else if(sq.type==='prop'||sq.type==='station'||sq.type==='utility'){
+    const shouldBuy = p.isBot ? (GameUtils.shouldRandomize() ? Math.random()<0.5 : true) : true;
+    if(sq.owner===null&&p.money>=sq.price&&shouldBuy){
+      sq.owner=idx;p.money-=sq.price;log(`${p.name} achète ${sq.name} pour $${sq.price}`);
+    } else if(sq.owner!==null&&sq.owner!==idx){
+      let rent=calcRent(sq,idx);
+      p.money-=rent;players[sq.owner].money+=rent;
+      log(`${p.name} paye loyer $${rent} à ${players[sq.owner].name}`);
+    }
+  }
+  // Elimination
+  if(p.money<=0){
+    p.eliminated=true;p.money=0;
+    log(`${p.name} est éliminé(e) !`);
+    SQUARES.forEach(s=>{if(s.owner===idx)s.owner=null;});
+  }
+  renderBoard();renderPlayers();
+  let active=players.filter(pp=>!pp.eliminated);
+  if(active.length===1){endGame(active[0].name);return;}
+  if(doubles&&!p.eliminated&&p.jailTurns===0){
+    log(`${p.name} rejoue (doubles) !`);
+    setTimeout(()=>playFor(idx),1000);
+  } else {
+    nextTurn();
+  }
+}
+
+function calcRent(sq, idx){
+  if(sq.type==='station'){
+    // Count stations owned by same owner
+    let count=SQUARES.filter(s=>s.type==='station'&&s.owner===sq.owner).length;
+    return sq.rent*count;
+  }
+  if(sq.type==='utility') return 50;
+  return sq.rent;
+}
+
+function nextTurn(){
+  currentIdx=(currentIdx+1)%players.length;
+  while(players[currentIdx].eliminated)currentIdx=(currentIdx+1)%players.length;
+  renderPlayers();
+  if(players[currentIdx].isBot){
+    setTimeout(()=>playFor(currentIdx),800);
+  } else {
+    document.getElementById('roll-btn').disabled=false;
+    log('Votre tour — Lancez !');
+  }
+}
+
+function playFor(idx){
+  if(gameOver)return;
+  currentIdx=idx;
+  let p=players[idx];
+  if(p.eliminated){nextTurn();return;}
+  let{d1,d2,total,doubles}=rollDice();
+  const faces=['','⚀','⚁','⚂','⚃','⚄','⚅'];
+  document.getElementById('dice-display').textContent=faces[d1]+faces[d2];
+  if(p.jailTurns>0){
+    if(doubles){p.jailTurns=0;}
+    else{p.jailTurns++;if(p.jailTurns>=3){p.money-=50;p.jailTurns=0;}else{log(`${p.name} reste en prison.`);renderPlayers();nextTurn();return;}}
+  }
+  let oldPos=p.pos;
+  p.pos=(p.pos+total)%40;
+  if(p.pos<oldPos)if(p.pos!==30){p.money+=200;}
+  log(`${p.name}: ${d1}+${d2}=${total} → "${SQUARES[p.pos].name}"`);
+  renderBoard();
+  setTimeout(()=>processSquare(idx,doubles),400);
+}
+
+function endGame(winner){
+  gameOver=true;
+  document.getElementById('win-text').textContent=`${winner} a gagné ! 🏆`;
+  document.getElementById('win-screen').style.display='block';
+}
+
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initGame());
+GameUtils.createOnlineButton(_guRow,'monopoly',{
+  onConnected:(info)=>{initGame();},
+  onMove:()=>{}
+});
+GameUtils.showTutorial('monopoly', initGame);
+</script>
+</body>
+</html>

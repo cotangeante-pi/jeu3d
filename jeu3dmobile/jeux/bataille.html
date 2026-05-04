@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bataille</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+    touch-action: manipulation;
+  }
+  a.back {
+    align-self: flex-start;
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    border: 1px solid #f1c40f44;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  a.back:hover { background: #f1c40f22; }
+  h1 { font-size: 1.8rem; margin-bottom: 6px; letter-spacing: 2px; }
+  #status {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    min-height: 1.5em;
+    color: #fff;
+    text-align: center;
+    max-width: 360px;
+  }
+  #arena {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+  }
+  .player-label {
+    font-size: 0.85rem;
+    text-align: center;
+    min-width: 60px;
+  }
+  .count-badge {
+    display: inline-block;
+    margin-top: 2px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #f1c40f;
+  }
+  /* Carte visuelle */
+  .card-zone {
+    width: 90px;
+    height: 130px;
+    flex-shrink: 0;
+  }
+  .card {
+    width: 90px;
+    height: 130px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: bold;
+    border: 2px solid #f1c40f88;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s;
+  }
+  .card.face-down {
+    background: repeating-linear-gradient(
+      45deg,
+      #12182e,
+      #12182e 8px,
+      #1a2240 8px,
+      #1a2240 16px
+    );
+    color: transparent;
+    border-color: #f1c40f33;
+  }
+  .card.face-up { background: #1a2640; }
+  .card.red-suit { color: #e74c3c; }
+  .card.black-suit { color: #ecf0f1; }
+  .card .rank { font-size: 1.5rem; font-weight: 900; }
+  .card .suit { font-size: 1.8rem; }
+  .card.empty { background: #12182e22; border-style: dashed; border-color: #f1c40f22; }
+
+  /* Pot de guerre */
+  #war-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 36px;
+  }
+  #war-label { font-size: 0.8rem; color: #f1c40f99; }
+  #war-cards {
+    display: flex;
+    gap: 4px;
+  }
+  .war-mini {
+    width: 28px;
+    height: 40px;
+    border-radius: 4px;
+    border: 1px solid #f1c40f33;
+    background: repeating-linear-gradient(45deg, #12182e, #12182e 4px, #1a2240 4px, #1a2240 8px);
+  }
+
+  #divider {
+    width: 80%;
+    height: 2px;
+    background: #f1c40f22;
+    border-radius: 2px;
+  }
+
+  #btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .action-btn {
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .action-btn:hover { opacity: 0.85; }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  #btn-new {
+    background: #12182e;
+    color: #f1c40f;
+    border: 1px solid #f1c40f55;
+  }
+  #btn-new:hover { background: #f1c40f22; }
+  #result-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0a0e1acc;
+    align-items: center;
+    justify-content: center;
+    z-index: 99;
+  }
+  #result-overlay.show { display: flex; }
+  #result-box {
+    background: #12182e;
+    border: 2px solid #f1c40f;
+    border-radius: 16px;
+    padding: 32px 40px;
+    text-align: center;
+  }
+  #result-box h2 { font-size: 1.8rem; margin-bottom: 12px; }
+  #result-box p { color: #fff; margin-bottom: 20px; }
+  #result-box button {
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../jeu_societe.html">← Jeux</a>
+<h1>Bataille</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;padding:3px 0 2px;"></div>
+<div id="status">Appuyez sur "Tirer" !</div>
+
+<div id="arena">
+  <!-- Bot -->
+  <div class="player-row">
+    <div class="player-label">Bot<span class="count-badge" id="bot-count">26</span></div>
+    <div class="card-zone"><div class="card face-down" id="bot-card"><span class="rank"></span><span class="suit"></span></div></div>
+    <div class="card-zone" id="bot-war-slot"></div>
+  </div>
+
+  <div id="divider"></div>
+
+  <!-- Joueur -->
+  <div class="player-row">
+    <div class="player-label">Vous<span class="count-badge" id="player-count">26</span></div>
+    <div class="card-zone"><div class="card face-down" id="player-card"><span class="rank"></span><span class="suit"></span></div></div>
+    <div class="card-zone" id="player-war-slot"></div>
+  </div>
+
+  <div id="war-zone" style="display:none">
+    <div id="war-label">⚔ GUERRE !</div>
+    <div id="war-cards"></div>
+  </div>
+</div>
+
+<div id="btn-row">
+  <button class="action-btn" id="btn-draw">Tirer</button>
+  <button class="action-btn" id="btn-new">Nouvelle partie</button>
+</div>
+
+<div id="result-overlay">
+  <div id="result-box">
+    <h2 id="result-title"></h2>
+    <p id="result-sub"></p>
+    <button onclick="newGame()">Rejouer</button>
+  </div>
+</div>
+
+<script>
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const SUITS = ['♠','♥','♦','♣'];
+const RED = ['♥','♦'];
+
+let playerDeck = [], botDeck = [], warPot = [], animating = false;
+
+const playerCardEl = document.getElementById('player-card');
+const botCardEl = document.getElementById('bot-card');
+const playerCountEl = document.getElementById('player-count');
+const botCountEl = document.getElementById('bot-count');
+const statusEl = document.getElementById('status');
+const warZone = document.getElementById('war-zone');
+const warCardsEl = document.getElementById('war-cards');
+const btnDraw = document.getElementById('btn-draw');
+
+function buildDeck() {
+  const deck = [];
+  for (const s of SUITS) for (let r = 0; r < RANKS.length; r++) deck.push({ rank: RANKS[r], suit: s, value: r });
+  return deck;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function newGame() {
+  document.getElementById('result-overlay').classList.remove('show');
+  const deck = shuffle(buildDeck());
+  playerDeck = deck.slice(0, 26);
+  botDeck = deck.slice(26);
+  warPot = [];
+  animating = false;
+  btnDraw.disabled = false;
+  resetCards();
+  updateCounts();
+  statusEl.textContent = 'Appuyez sur "Tirer" !';
+  warZone.style.display = 'none';
+  warCardsEl.innerHTML = '';
+}
+
+function updateCounts() {
+  playerCountEl.textContent = playerDeck.length;
+  botCountEl.textContent = botDeck.length;
+}
+
+function resetCards() {
+  setCard(playerCardEl, null);
+  setCard(botCardEl, null);
+  document.getElementById('player-war-slot').innerHTML = '';
+  document.getElementById('bot-war-slot').innerHTML = '';
+}
+
+function setCard(el, card) {
+  const rankEl = el.querySelector('.rank');
+  const suitEl = el.querySelector('.suit');
+  if (!card) {
+    el.className = 'card face-down';
+    rankEl.textContent = '';
+    suitEl.textContent = '';
+    return;
+  }
+  el.className = 'card face-up ' + (RED.includes(card.suit) ? 'red-suit' : 'black-suit');
+  rankEl.textContent = card.rank;
+  suitEl.textContent = card.suit;
+}
+
+function makeWarMini(n) {
+  warCardsEl.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'war-mini';
+    warCardsEl.appendChild(d);
+  }
+}
+
+function showResult(win) {
+  const overlay = document.getElementById('result-overlay');
+  const title = document.getElementById('result-title');
+  const sub = document.getElementById('result-sub');
+  if (win) {
+    title.textContent = 'Victoire !';
+    sub.textContent = 'Vous avez remporté les 52 cartes !';
+  } else {
+    title.textContent = 'Défaite !';
+    sub.textContent = 'Le bot a remporté les 52 cartes.';
+  }
+  overlay.classList.add('show');
+}
+
+function doWar() {
+  // Chaque joueur met 3 cartes cachées + 1 révélée
+  const needed = 4;
+  if (playerDeck.length < needed) {
+    // Joueur n'a pas assez de cartes : perd
+    statusEl.textContent = 'Pas assez de cartes pour la guerre !';
+    btnDraw.disabled = true;
+    setTimeout(() => showResult(false), 800);
+    return;
+  }
+  if (botDeck.length < needed) {
+    statusEl.textContent = 'Le bot n\'a pas assez de cartes !';
+    btnDraw.disabled = true;
+    setTimeout(() => showResult(true), 800);
+    return;
+  }
+
+  // Mettre 3 cartes cachées dans le pot
+  for (let i = 0; i < 3; i++) {
+    warPot.push(playerDeck.shift());
+    warPot.push(botDeck.shift());
+  }
+
+  // Afficher pot de guerre
+  warZone.style.display = 'flex';
+  makeWarMini(warPot.length / 2);
+
+  // Révéler la 4e carte
+  const pc = playerDeck.shift();
+  const bc = botDeck.shift();
+  warPot.push(pc, bc);
+
+  setCard(playerCardEl, pc);
+  setCard(botCardEl, bc);
+
+  updateCounts();
+
+  setTimeout(() => {
+    if (pc.value > bc.value) {
+      statusEl.textContent = `Vous gagnez la guerre ! (+${warPot.length} cartes)`;
+      shuffle(warPot).forEach(c => playerDeck.push(c));
+    } else if (bc.value > pc.value) {
+      statusEl.textContent = `Bot gagne la guerre ! (+${warPot.length} cartes)`;
+      shuffle(warPot).forEach(c => botDeck.push(c));
+    } else {
+      statusEl.textContent = 'Encore une guerre !';
+      updateCounts();
+      animating = false;
+      setTimeout(() => doWar(), 600);
+      return;
+    }
+    warPot = [];
+    warZone.style.display = 'none';
+    warCardsEl.innerHTML = '';
+    updateCounts();
+    checkEnd();
+    animating = false;
+  }, 900);
+}
+
+function drawCards() {
+  if (animating) return;
+  animating = true;
+  warZone.style.display = 'none';
+  warCardsEl.innerHTML = '';
+  warPot = [];
+
+  if (!playerDeck.length) { showResult(false); return; }
+  if (!botDeck.length) { showResult(true); return; }
+
+  const pc = playerDeck.shift();
+  const bc = botDeck.shift();
+  setCard(playerCardEl, pc);
+  setCard(botCardEl, bc);
+  updateCounts();
+
+  setTimeout(() => {
+    if (pc.value > bc.value) {
+      statusEl.textContent = `Vous gagnez ce pli ! (${pc.rank}${pc.suit} > ${bc.rank}${bc.suit})`;
+      playerDeck.push(pc, bc);
+    } else if (bc.value > pc.value) {
+      statusEl.textContent = `Bot gagne ce pli ! (${bc.rank}${bc.suit} > ${pc.rank}${pc.suit})`;
+      botDeck.push(bc, pc);
+    } else {
+      statusEl.textContent = `Égalité (${pc.rank}) — GUERRE !`;
+      warPot.push(pc, bc);
+      updateCounts();
+      setTimeout(() => doWar(), 700);
+      return;
+    }
+    updateCounts();
+    checkEnd();
+    animating = false;
+  }, 500);
+}
+
+function checkEnd() {
+  if (!playerDeck.length) { btnDraw.disabled = true; setTimeout(() => showResult(false), 600); }
+  else if (!botDeck.length) { btnDraw.disabled = true; setTimeout(() => showResult(true), 600); }
+}
+
+btnDraw.addEventListener('click', drawCards);
+btnDraw.addEventListener('touchend', e => { e.preventDefault(); drawCards(); }, { passive: false });
+document.getElementById('btn-new').addEventListener('click', newGame);
+document.getElementById('btn-new').addEventListener('touchend', e => { e.preventDefault(); newGame(); }, { passive: false });
+
+GameUtils.createOnlineButton(document.getElementById('gu-row'),'bataille',{
+  onConnected:(info)=>{newGame();},
+  onMove:()=>{}
+});
+GameUtils.showTutorial('bataille', newGame);
+</script>
+</body>
+</html>

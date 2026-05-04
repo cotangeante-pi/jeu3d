@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bataille Navale</title>
+<script src="../game_utils.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0e1a;
+    color: #f1c40f;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  header {
+    width: 100%;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #0d1220;
+    border-bottom: 2px solid #f1c40f33;
+    flex-shrink: 0;
+  }
+  header a {
+    color: #f1c40f;
+    text-decoration: none;
+    font-size: 15px;
+    padding: 6px 12px;
+    border: 1px solid #f1c40f55;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+  header a:hover { background: #f1c40f22; }
+  header h1 { font-size: 20px; letter-spacing: 2px; }
+  #gameArea {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    gap: 8px;
+    width: 100%;
+  }
+  #controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+  button {
+    background: #f1c40f;
+    color: #0a0e1a;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:hover:not(:disabled) { opacity: 0.85; }
+  button.secondary {
+    background: #2c3e50;
+    color: #f1c40f;
+    border: 1px solid #f1c40f55;
+  }
+  #status {
+    font-size: 14px;
+    color: #ccc;
+    text-align: center;
+    padding: 4px 8px;
+    min-height: 20px;
+  }
+  #gridsContainer {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .gridWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .gridLabel {
+    font-size: 13px;
+    font-weight: bold;
+    color: #f1c40f;
+    letter-spacing: 1px;
+  }
+  canvas { border-radius: 6px; touch-action: none; cursor: pointer; }
+  #shipSelector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+  .shipBtn {
+    background: #1a2744;
+    color: #f1c40f;
+    border: 2px solid #f1c40f44;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .shipBtn.active { border-color: #f1c40f; background: #f1c40f22; }
+  .shipBtn.placed { opacity: 0.4; pointer-events: none; }
+  #rotateBtn {
+    background: #1a2744;
+    color: #f1c40f;
+    border: 1px solid #f1c40f55;
+  }
+  #scoreRow {
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+    color: #ccc;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #scoreRow span { color: #f1c40f; font-weight: bold; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../jeu_societe.html">← Jeux</a>
+  <h1>Bataille Navale</h1>
+  <div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;"></div>
+</header>
+<div id="gameArea">
+  <div id="controls">
+    <button id="btnNew">Nouvelle partie</button>
+    <button id="btnValidate" style="display:none">Valider placement</button>
+    <button id="rotateBtn" class="secondary" style="display:none">Rotation</button>
+  </div>
+  <div id="shipSelector"></div>
+  <div id="status">Placez vos bateaux</div>
+  <div id="scoreRow">
+    Votre flotte : <span id="myScore">0</span>/17 cases coulées &nbsp;|&nbsp;
+    Ennemie : <span id="enScore">0</span>/17 cases coulées
+  </div>
+  <div id="gridsContainer">
+    <div class="gridWrapper">
+      <div class="gridLabel">Ma flotte</div>
+      <canvas id="myGrid"></canvas>
+    </div>
+    <div class="gridWrapper">
+      <div class="gridLabel">Zone ennemie</div>
+      <canvas id="enemyGrid"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS = 10, ROWS = 10;
+const SHIPS = [5, 4, 3, 3, 2]; // lengths
+const SHIP_NAMES = ['Porte-avions (5)', 'Croiseur (4)', 'Destroyer (3)', 'Sous-marin (3)', 'Torpilleur (2)'];
+const TOTAL_CELLS = SHIPS.reduce((a,b)=>a+b,0); // 17
+
+const myCanvas    = document.getElementById('myGrid');
+const enemyCanvas = document.getElementById('enemyGrid');
+const myCtx       = myCanvas.getContext('2d');
+const enemyCtx    = enemyCanvas.getContext('2d');
+
+let cellSize;
+let phase; // 'place' | 'battle' | 'over'
+let horizontal = true;
+let currentShipIdx = 0;
+let placedShips = []; // [{cells:[{r,c},...]}]
+let previewCells = null; // {cells, valid}
+
+// Grids: 10x10, each cell: null | 'ship' | 'hit' | 'miss'
+let myGrid, enemyGrid;
+let myShipMap, enemyShipMap; // 10x10 bools
+let myHuntMode, myTargets; // bot AI
+let botShips;
+
+function initGame() {
+  phase = 'place';
+  horizontal = true;
+  currentShipIdx = 0;
+  placedShips = [];
+  previewCells = null;
+
+  myGrid     = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
+  enemyGrid  = Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
+  myShipMap  = Array.from({length:ROWS}, ()=>Array(COLS).fill(false));
+  enemyShipMap = Array.from({length:ROWS}, ()=>Array(COLS).fill(false));
+
+  myHuntMode = true;
+  myTargets  = [];
+  botShips   = [];
+
+  // Bot places ships randomly
+  botPlaceShips();
+
+  document.getElementById('btnValidate').style.display = 'none';
+  document.getElementById('rotateBtn').style.display = 'inline-flex';
+  document.getElementById('btnValidate').disabled = true;
+  document.getElementById('myScore').textContent = '0';
+  document.getElementById('enScore').textContent = '0';
+
+  buildShipSelector();
+  resize();
+  setStatus('Placez vos bateaux (cliquez sur votre grille)');
+}
+
+// ── Sizing ──────────────────────────────────────────────
+function resize() {
+  const availW = window.innerWidth - 24;
+  const twoCol = availW >= 520;
+  // Each grid takes half width in two-col, or near full in single-col
+  const maxCell = twoCol ? Math.min(Math.floor((availW - 40) / 2 / COLS), 38) : Math.min(Math.floor((availW - 8) / COLS), 38);
+  cellSize = Math.max(24, maxCell);
+  const gw = cellSize * COLS, gh = cellSize * ROWS;
+  myCanvas.width    = gw; myCanvas.height    = gh;
+  enemyCanvas.width = gw; enemyCanvas.height = gh;
+  drawAll();
+}
+window.addEventListener('resize', resize);
+
+// ── Ship placement UI ─────────────────────────────────────
+function buildShipSelector() {
+  const el = document.getElementById('shipSelector');
+  el.innerHTML = '';
+  SHIPS.forEach((len, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'shipBtn' + (i === currentShipIdx ? ' active' : '') + (i < currentShipIdx ? ' placed' : '');
+    btn.textContent = SHIP_NAMES[i];
+    btn.dataset.idx = i;
+    btn.addEventListener('click', () => {
+      if (i < currentShipIdx) return;
+      currentShipIdx = i;
+      document.querySelectorAll('.shipBtn').forEach((b,j) => {
+        b.className = 'shipBtn' + (j === i ? ' active' : '') + (j < currentShipIdx ? ' placed' : '');
+      });
+    });
+    el.appendChild(btn);
+  });
+  document.getElementById('rotateBtn').style.display = 'inline-flex';
+}
+
+document.getElementById('rotateBtn').addEventListener('click', () => {
+  horizontal = !horizontal;
+  document.getElementById('rotateBtn').textContent = horizontal ? 'Rotation (→)' : 'Rotation (↓)';
+  if (previewCells) drawAll();
+});
+
+document.getElementById('btnValidate').addEventListener('click', () => {
+  if (placedShips.length < SHIPS.length) { setStatus('Placez tous les bateaux !'); return; }
+  phase = 'battle';
+  document.getElementById('btnValidate').style.display = 'none';
+  document.getElementById('rotateBtn').style.display = 'none';
+  document.getElementById('shipSelector').innerHTML = '';
+  setStatus('Cliquez sur la zone ennemie pour tirer !');
+  drawAll();
+});
+
+document.getElementById('btnNew').addEventListener('click', initGame);
+
+// ── Bot ship placement ────────────────────────────────────
+function botPlaceShips() {
+  SHIPS.forEach(len => {
+    let placed = false;
+    let tries = 0;
+    while (!placed && tries < 1000) {
+      tries++;
+      const horiz = Math.random() < 0.5;
+      const r = Math.floor(Math.random() * ROWS);
+      const c = Math.floor(Math.random() * COLS);
+      const cells = shipCells(r, c, len, horiz);
+      if (cells && !cells.some(({r,c}) => enemyShipMap[r][c])) {
+        cells.forEach(({r,c}) => enemyShipMap[r][c] = true);
+        botShips.push({cells, hits: 0});
+        placed = true;
+      }
+    }
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function shipCells(r, c, len, horiz) {
+  const cells = [];
+  for (let i = 0; i < len; i++) {
+    const nr = horiz ? r : r+i;
+    const nc = horiz ? c+i : c;
+    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return null;
+    cells.push({r:nr, c:nc});
+  }
+  return cells;
+}
+
+function canPlaceOnMyGrid(cells) {
+  if (!cells) return false;
+  for (const {r,c} of cells) {
+    if (myShipMap[r][c]) return false;
+    // Adjacent check
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++) {
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&myShipMap[nr][nc]) return false;
+    }
+  }
+  return true;
+}
+
+function getPreviewFromXY(canvas, x, y) {
+  const c = Math.floor(x / cellSize);
+  const r = Math.floor(y / cellSize);
+  if (r < 0||r>=ROWS||c<0||c>=COLS) return null;
+  const len = SHIPS[currentShipIdx];
+  const cells = shipCells(r, c, len, horizontal);
+  if (!cells) return null;
+  return {cells, valid: canPlaceOnMyGrid(cells)};
+}
+
+// ── Drawing ───────────────────────────────────────────────
+function drawGrid(ctx, grid, shipMap, showShips, extraCells) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  ctx.fillStyle = '#071a2e';
+  ctx.fillRect(0,0,W,H);
+
+  // Cells
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    const x=c*cellSize, y=r*cellSize;
+    const cell = grid[r][c];
+    let fill = '#0d2040';
+    if (showShips && shipMap[r][c] && !cell) fill = '#1a3a5c';
+    if (cell==='hit')  fill = '#c0392b';
+    if (cell==='miss') fill = '#2c3e50';
+    ctx.fillStyle = fill;
+    ctx.fillRect(x+1,y+1,cellSize-2,cellSize-2);
+
+    if (cell==='hit') {
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath(); ctx.arc(x+cellSize/2,y+cellSize/2,cellSize*0.28,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#ff8888'; ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(x+cellSize*0.3,y+cellSize*0.3); ctx.lineTo(x+cellSize*0.7,y+cellSize*0.7);
+      ctx.moveTo(x+cellSize*0.7,y+cellSize*0.3); ctx.lineTo(x+cellSize*0.3,y+cellSize*0.7);
+      ctx.stroke();
+    } else if (cell==='miss') {
+      ctx.fillStyle = '#7f8c8d';
+      ctx.beginPath(); ctx.arc(x+cellSize/2,y+cellSize/2,cellSize*0.15,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // Extra cells (preview or highlight)
+  if (extraCells) {
+    extraCells.cells.forEach(({r,c}) => {
+      const x=c*cellSize, y=r*cellSize;
+      ctx.fillStyle = extraCells.valid ? '#f1c40f44' : '#e74c3c44';
+      ctx.fillRect(x+1,y+1,cellSize-2,cellSize-2);
+      ctx.strokeStyle = extraCells.valid ? '#f1c40f' : '#e74c3c';
+      ctx.lineWidth=2;
+      ctx.strokeRect(x+2,y+2,cellSize-4,cellSize-4);
+    });
+  }
+
+  // Grid lines
+  ctx.strokeStyle='#1a3a5c';
+  ctx.lineWidth=1;
+  for (let i=0;i<=COLS;i++) { ctx.beginPath(); ctx.moveTo(i*cellSize,0); ctx.lineTo(i*cellSize,H); ctx.stroke(); }
+  for (let j=0;j<=ROWS;j++) { ctx.beginPath(); ctx.moveTo(0,j*cellSize); ctx.lineTo(W,j*cellSize); ctx.stroke(); }
+
+  // Letters/numbers
+  const fs = Math.max(9, Math.round(cellSize*0.32));
+  ctx.fillStyle='#f1c40f55';
+  ctx.font=`${fs}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for (let c=0;c<COLS;c++) ctx.fillText(String.fromCharCode(65+c), c*cellSize+cellSize/2, cellSize*0.35);
+  for (let r=0;r<ROWS;r++) ctx.fillText(r+1, cellSize*0.35, r*cellSize+cellSize/2);
+
+  // Draw ships (placed)
+  if (showShips) {
+    placedShips.forEach(ship => {
+      drawShipOnGrid(ctx, ship.cells, '#2a6a9a');
+    });
+  }
+
+  // Draw sunk bot ships on enemy grid
+  if (!showShips) {
+    botShips.forEach(ship => {
+      if (ship.hits >= ship.cells.length) {
+        drawShipOnGrid(ctx, ship.cells, '#7f2020aa');
+      }
+    });
+  }
+}
+
+function drawShipOnGrid(ctx, cells, color) {
+  if (!cells || cells.length===0) return;
+  const minR = Math.min(...cells.map(c=>c.r));
+  const maxR = Math.max(...cells.map(c=>c.r));
+  const minC = Math.min(...cells.map(c=>c.c));
+  const maxC = Math.max(...cells.map(c=>c.c));
+  const x = minC*cellSize+3, y=minR*cellSize+3;
+  const w=(maxC-minC+1)*cellSize-6, h=(maxR-minR+1)*cellSize-6;
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.roundRect(x,y,w,h,4);
+  ctx.fill();
+  ctx.strokeStyle='#4a8aba';
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+}
+
+function drawAll() {
+  drawGrid(myCtx, myGrid, myShipMap, true, phase==='place' ? previewCells : null);
+  drawGrid(enemyCtx, enemyGrid, enemyShipMap, false, null);
+}
+
+// ── My grid hover (placement preview) ────────────────────
+myCanvas.addEventListener('mousemove', e => {
+  if (phase !== 'place') return;
+  if (currentShipIdx >= SHIPS.length) return;
+  const rect = myCanvas.getBoundingClientRect();
+  const sx = myCanvas.width/rect.width, sy=myCanvas.height/rect.height;
+  previewCells = getPreviewFromXY(myCanvas, (e.clientX-rect.left)*sx, (e.clientY-rect.top)*sy);
+  drawAll();
+});
+myCanvas.addEventListener('mouseleave', () => { previewCells=null; drawAll(); });
+
+function handleMyClick(x, y) {
+  if (phase !== 'place' || currentShipIdx >= SHIPS.length) return;
+  const len = SHIPS[currentShipIdx];
+  const cells = shipCells(Math.floor(y/cellSize), Math.floor(x/cellSize), len, horizontal);
+  if (!cells || !canPlaceOnMyGrid(cells)) { setStatus('Placement invalide !'); return; }
+  cells.forEach(({r,c}) => myShipMap[r][c] = true);
+  placedShips.push({cells});
+  currentShipIdx++;
+  previewCells = null;
+
+  // Update ship selector
+  document.querySelectorAll('.shipBtn').forEach((b,j) => {
+    b.className='shipBtn'+(j===currentShipIdx?' active':'')+(j<currentShipIdx?' placed':'');
+  });
+
+  if (currentShipIdx >= SHIPS.length) {
+    setStatus('Tous les bateaux placés ! Validez pour commencer.');
+    document.getElementById('btnValidate').style.display='inline-flex';
+    document.getElementById('btnValidate').disabled=false;
+  } else {
+    setStatus(`Placez votre ${SHIP_NAMES[currentShipIdx]}`);
+  }
+  drawAll();
+}
+
+myCanvas.addEventListener('click', e => {
+  const rect=myCanvas.getBoundingClientRect();
+  const sx=myCanvas.width/rect.width, sy=myCanvas.height/rect.height;
+  handleMyClick((e.clientX-rect.left)*sx, (e.clientY-rect.top)*sy);
+});
+myCanvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const rect=myCanvas.getBoundingClientRect();
+  const t=e.touches[0];
+  const sx=myCanvas.width/rect.width, sy=myCanvas.height/rect.height;
+  handleMyClick((t.clientX-rect.left)*sx, (t.clientY-rect.top)*sy);
+},{passive:false});
+
+// ── Enemy grid click (fire) ───────────────────────────────
+function handleEnemyClick(x, y) {
+  if (phase !== 'battle') return;
+  const c = Math.floor(x/cellSize), r=Math.floor(y/cellSize);
+  if (r<0||r>=ROWS||c<0||c>=COLS) return;
+  if (enemyGrid[r][c]) return; // already shot
+
+  // Player fires
+  const hit = enemyShipMap[r][c];
+  enemyGrid[r][c] = hit ? 'hit' : 'miss';
+
+  if (hit) {
+    // Check which bot ship
+    for (const ship of botShips) {
+      if (ship.cells.some(ce=>ce.r===r&&ce.c===c)) {
+        ship.hits++;
+        if (ship.hits===ship.cells.length) setStatus('Coulé ! Tirez encore.');
+        else setStatus('Touché ! Continuez !');
+        break;
+      }
+    }
+    document.getElementById('enScore').textContent = countHits(enemyGrid);
+  } else {
+    setStatus('Raté ! Au tour du bot...');
+  }
+
+  drawAll();
+  if (checkWin()) return;
+
+  // Bot fires after delay
+  setTimeout(botFire, hit ? 300 : 600);
+}
+
+enemyCanvas.addEventListener('click', e=>{
+  const rect=enemyCanvas.getBoundingClientRect();
+  const sx=enemyCanvas.width/rect.width, sy=enemyCanvas.height/rect.height;
+  handleEnemyClick((e.clientX-rect.left)*sx,(e.clientY-rect.top)*sy);
+});
+enemyCanvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const rect=enemyCanvas.getBoundingClientRect();
+  const t=e.touches[0];
+  const sx=enemyCanvas.width/rect.width, sy=enemyCanvas.height/rect.height;
+  handleEnemyClick((t.clientX-rect.left)*sx,(t.clientY-rect.top)*sy);
+},{passive:false});
+
+// ── Bot AI ────────────────────────────────────────────────
+function botFire() {
+  if (phase !== 'battle') return;
+  let r, c, attempts=0;
+
+  const useRandom = GameUtils.shouldRandomize();
+  if (!useRandom && !myHuntMode && myTargets.length > 0) {
+    // Destroy mode: shoot around last hit
+    const t = myTargets[0];
+    const dirs = [{dr:-1,dc:0},{dr:1,dc:0},{dr:0,dc:-1},{dr:0,dc:1}];
+    let found = false;
+    for (const {dr,dc} of dirs) {
+      r=t.r+dr; c=t.c+dc;
+      if (r>=0&&r<ROWS&&c>=0&&c<COLS&&!myGrid[r][c]) { found=true; break; }
+    }
+    if (!found) { myTargets.shift(); botFire(); return; }
+  } else {
+    myHuntMode = true;
+    do {
+      r=Math.floor(Math.random()*ROWS);
+      c=Math.floor(Math.random()*COLS);
+      attempts++;
+    } while (myGrid[r][c] && attempts<200);
+    if (attempts>=200) return;
+  }
+
+  const hit = myShipMap[r][c];
+  myGrid[r][c] = hit ? 'hit' : 'miss';
+
+  if (hit) {
+    myHuntMode = false;
+    myTargets.push({r,c});
+    document.getElementById('myScore').textContent = countHits(myGrid);
+    setStatus('Le bot vous a touché !');
+  } else {
+    if (!myHuntMode && myTargets.length===0) myHuntMode=true;
+    setStatus('Le bot a raté. À vous !');
+  }
+
+  drawAll();
+  checkWin();
+}
+
+function countHits(grid) {
+  let n=0;
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (grid[r][c]==='hit') n++;
+  return n;
+}
+
+function checkWin() {
+  const enHits = countHits(enemyGrid);
+  const myHits = countHits(myGrid);
+  if (enHits >= TOTAL_CELLS) {
+    phase='over'; setStatus('🎉 Vous avez gagné ! Tous les bateaux ennemis sont coulés !');
+    drawAll(); return true;
+  }
+  if (myHits >= TOTAL_CELLS) {
+    phase='over'; setStatus('Le bot a gagné ! Votre flotte est détruite.');
+    drawAll(); return true;
+  }
+  return false;
+}
+
+function setStatus(msg) { document.getElementById('status').textContent=msg; }
+
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initGame());
+GameUtils.createOnlineButton(_guRow,'bataille_navale',{
+  onConnected:(info)=>{initGame();},
+  onMove:(data)=>{
+    if(data.type==='shot'){
+      const r=data.r,c=data.c;
+      const hit=myShipMap[r][c];
+      myGrid[r][c]=hit?'hit':'miss';
+      if(hit){for(const ship of botShips){if(ship.cells.some(ce=>ce.r===r&&ce.c===c)){ship.hits++;break;}}}
+      document.getElementById('myScore').textContent=countHits(myGrid);
+      drawAll();checkWin();
+    }
+  }
+});
+GameUtils.showTutorial('bataille_navale', initGame);
+</script>
+</body>
+</html>

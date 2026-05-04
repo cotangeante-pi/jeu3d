@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Scrabble</title>
+<script src="../game_utils.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;}
+a.back{color:#f1c40f;text-decoration:none;align-self:flex-start;font-size:14px;margin-bottom:6px;padding:5px 12px;border:1px solid #f1c40f;border-radius:20px;}
+h1{color:#f1c40f;font-size:1.2rem;margin-bottom:4px;}
+#scores{display:flex;gap:16px;font-size:0.85rem;margin-bottom:6px;}
+.score-box{background:#0d1526;padding:5px 12px;border-radius:10px;border:1px solid #2a3555;}
+.score-box.active{border-color:#f1c40f;color:#f1c40f;}
+#board-wrap{overflow:auto;max-width:100%;margin-bottom:6px;}
+#board{display:grid;grid-template-columns:repeat(15,1fr);gap:1px;background:#0a0e1a;border:1px solid #1a2035;width:min(calc(100vw - 16px),480px);}
+.cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:clamp(6px,2vw,13px);cursor:pointer;font-weight:bold;border-radius:2px;position:relative;transition:background 0.1s;}
+.cell.empty{background:#0d1526;}
+.cell.tw{background:#7b1c1c;color:#f1c40f;}
+.cell.dw{background:#8b3a3a;color:#f1c40f;}
+.cell.tl{background:#1a3a6b;color:#87ceeb;}
+.cell.dl{background:#1a3a8b;color:#87ceeb;}
+.cell.star{background:#2a1a4a;color:#f1c40f;}
+.cell.placed{background:#2c3d1a;color:#c8e06b;border:1px solid #6ab04c;}
+.cell.fixed{background:#1e2d12;color:#a8d85c;}
+.cell.selected{outline:2px solid #f1c40f;}
+.cell.preview{background:#2c4a1a;color:#f1c40f;}
+#hand{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;min-height:52px;}
+.tile{width:40px;height:48px;background:linear-gradient(135deg,#2e3d50,#1e2d40);border:2px solid #4a6080;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;font-weight:bold;color:#fff;position:relative;user-select:none;}
+.tile .val{position:absolute;bottom:3px;right:4px;font-size:0.5rem;color:#aaa;}
+.tile.selected{border-color:#f1c40f;background:linear-gradient(135deg,#3d4e24,#2d3e14);}
+.tile.blank{color:#f1c40f;}
+#controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:6px;}
+button.ctrl{padding:8px 14px;border-radius:16px;font-size:0.85rem;cursor:pointer;border:none;font-weight:bold;}
+#validate-btn{background:#27ae60;color:#fff;}
+#pass-btn{background:#e74c3c;color:#fff;}
+#recall-btn{background:#2980b9;color:#fff;}
+#direction-btn{background:#8e44ad;color:#fff;}
+#msg{font-size:0.8rem;color:#f1c40f;text-align:center;min-height:16px;}
+#win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:100;}
+#win-screen h2{color:#f1c40f;margin-bottom:12px;}
+#win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+</style>
+</head>
+<body>
+<a href="../jeu_societe.html" class="back">← Jeux</a>
+<h1>📝 Scrabble</h1>
+<div id="gu-row" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:3px 0 2px;"></div>
+<div id="scores">
+  <div class="score-box active" id="score-p">Vous: 0</div>
+  <div class="score-box" id="score-b">Bot: 0</div>
+  <div class="score-box" id="pioche-count">Pioche: 86</div>
+</div>
+<div id="board-wrap"><div id="board"></div></div>
+<div id="hand"></div>
+<div id="controls">
+  <button class="ctrl" id="direction-btn" onclick="toggleDir()">→ Horizontal</button>
+  <button class="ctrl" id="validate-btn" onclick="validate()">✓ Valider</button>
+  <button class="ctrl" id="recall-btn" onclick="recall()">↩ Reprendre</button>
+  <button class="ctrl" id="pass-btn" onclick="passTurn()">⏭ Passer</button>
+</div>
+<div id="msg"></div>
+<div id="win-screen">
+  <h2 id="win-text"></h2>
+  <button onclick="initGame()">Rejouer</button>
+</div>
+<script>
+// ============ SCRABBLE ============
+const N=15;
+const LETTER_VALUES={A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:10,L:1,M:2,N:1,O:1,P:3,Q:8,R:1,S:1,T:1,U:1,V:4,W:10,X:10,Y:10,Z:10,_:0};
+const LETTER_DIST={A:9,B:2,C:2,D:3,E:15,F:2,G:2,H:2,I:8,J:1,K:1,L:5,M:3,N:6,O:6,P:2,Q:1,R:6,S:6,T:6,U:6,V:2,W:1,X:1,Y:1,Z:1,_:2};
+
+// Board multipliers: TW=triple word, DW=double word, TL=triple letter, DL=double letter
+const BOARD_SPEC=[
+  'TW.....TW.....TW',
+  '.DW...DL.DL...DW.',
+  '..DW...TL.TL...DW',
+  '...DL...DW...DL.',
+  '....DW.....DW...',
+  '.DL...TL.TL...DL.',
+  '......DL.DL......',
+  'TW..DL...TW..DL.TW',
+  '......DL.DL......',
+  '.DL...TL.TL...DL.',
+  '....DW.....DW...',
+  '...DL...DW...DL.',
+  '..DW...TL.TL...DW',
+  '.DW...DL.DL...DW.',
+  'TW.....TW.....TW',
+];
+
+function parseBoardSpec(){
+  // Returns 15x15 array of bonus type
+  let b=[];
+  for(let r=0;r<15;r++){
+    b.push([]);
+    let row=(BOARD_SPEC[r]||'').replace(/\./g,' ');
+    for(let c=0;c<15;c++){
+      let ch=row[c]||' ';
+      if(ch==='T'&&row[c+1]==='W'){b[r].push('tw');}
+      else if(ch==='D'&&row[c+1]==='W'){b[r].push('dw');}
+      else if(ch==='T'&&row[c+1]==='L'){b[r].push('tl');}
+      else if(ch==='D'&&row[c+1]==='L'){b[r].push('dl');}
+      else{b[r].push(null);}
+    }
+  }
+  b[7][7]='star'; return b;
+}
+// Hardcode proper scrabble bonus positions
+function buildBonus(){
+  let b=Array.from({length:15},()=>Array(15).fill(null));
+  const tw=[[0,0],[0,7],[0,14],[7,0],[7,14],[14,0],[14,7],[14,14]];
+  const dw=[[1,1],[2,2],[3,3],[4,4],[10,10],[11,11],[12,12],[13,13],[1,13],[2,12],[3,11],[4,10],[10,4],[11,3],[12,2],[13,1]];
+  const tl=[[1,5],[1,9],[5,1],[5,5],[5,9],[5,13],[9,1],[9,5],[9,9],[9,13],[13,5],[13,9]];
+  const dl=[[0,3],[0,11],[2,6],[2,8],[3,0],[3,7],[3,14],[6,2],[6,6],[6,8],[6,12],[7,3],[7,11],[8,2],[8,6],[8,8],[8,12],[11,0],[11,7],[11,14],[12,6],[12,8],[14,3],[14,11]];
+  tw.forEach(([r,c])=>b[r][c]='tw');
+  dw.forEach(([r,c])=>b[r][c]='dw');
+  tl.forEach(([r,c])=>b[r][c]='tl');
+  dl.forEach(([r,c])=>b[r][c]='dl');
+  b[7][7]='star';
+  return b;
+}
+
+let board,bonus,playerHand,botHand,bagTiles,pScore,bScore,playerTurn,placed,selTile,direction,gameOver,firstMove;
+
+function initGame(){
+  bonus=buildBonus();
+  board=Array.from({length:15},()=>Array(15).fill(null));
+  bagTiles=buildBag();
+  playerHand=drawTiles(7);
+  botHand=drawTiles(7);
+  pScore=0;bScore=0;playerTurn=true;gameOver=false;
+  placed=[];selTile=null;direction='H';firstMove=true;
+  document.getElementById('win-screen').style.display='none';
+  setMsg('');
+  renderAll();
+}
+
+function buildBag(){
+  let bag=[];
+  Object.entries(LETTER_DIST).forEach(([l,n])=>{for(let i=0;i<n;i++)bag.push(l);});
+  shuffle(bag); return bag;
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+function drawTiles(n){let drawn=[];for(let i=0;i<n;i++){if(bagTiles.length)drawn.push(bagTiles.pop());}return drawn;}
+function letterVal(l){return LETTER_VALUES[l]||0;}
+
+function renderAll(){
+  renderBoard();
+  renderHand();
+  document.getElementById('score-p').textContent=`Vous: ${pScore}`;
+  document.getElementById('score-b').textContent=`Bot: ${bScore}`;
+  document.getElementById('pioche-count').textContent=`Pioche: ${bagTiles.length}`;
+  document.getElementById('direction-btn').textContent=direction==='H'?'→ Horizontal':'↓ Vertical';
+}
+
+function renderBoard(){
+  const grid=document.getElementById('board');
+  grid.innerHTML='';
+  for(let r=0;r<15;r++){
+    for(let c=0;c<15;c++){
+      let div=document.createElement('div');
+      let placedHere=placed.find(p=>p.r===r&&p.c===c);
+      let fixed=board[r][c];
+      div.className='cell';
+      if(fixed){div.className+=' fixed';div.textContent=fixed==='_'?'★':fixed;}
+      else if(placedHere){div.className+=' placed';div.textContent=placedHere.letter==='_'?'★':placedHere.letter;}
+      else{
+        let bn=bonus[r][c];
+        div.className+=' '+(bn||'empty');
+        if(bn==='tw')div.textContent='TW';
+        else if(bn==='dw')div.textContent='DW';
+        else if(bn==='tl')div.textContent='TL';
+        else if(bn==='dl')div.textContent='DL';
+        else if(bn==='star')div.textContent='★';
+      }
+      div.dataset.r=r;div.dataset.c=c;
+      div.addEventListener('click',()=>cellClick(r,c));
+      div.addEventListener('touchend',e=>{e.preventDefault();cellClick(r,c);});
+      grid.appendChild(div);
+    }
+  }
+}
+
+function renderHand(){
+  const h=document.getElementById('hand');
+  h.innerHTML='';
+  playerHand.forEach((l,i)=>{
+    let div=document.createElement('div');
+    div.className='tile'+(selTile===i?' selected':'')+(l==='_'?' blank':'');
+    div.innerHTML=`${l==='_'?'*':l}<span class="val">${letterVal(l)}</span>`;
+    div.addEventListener('click',()=>selectTile(i));
+    div.addEventListener('touchend',e=>{e.preventDefault();selectTile(i);});
+    h.appendChild(div);
+  });
+}
+
+function selectTile(i){selTile=i;renderHand();}
+function toggleDir(){direction=direction==='H'?'V':'H';renderAll();}
+
+function cellClick(r,c){
+  if(!playerTurn||gameOver) return;
+  if(board[r][c]){setMsg('Case déjà occupée !');return;}
+  let existingIdx=placed.findIndex(p=>p.r===r&&p.c===c);
+  if(existingIdx>=0){
+    // Remove placed tile back to hand
+    let p=placed.splice(existingIdx,1)[0];
+    playerHand.splice(p.handIdx,0,p.letter);
+    // Re-index
+    placed.forEach(pp=>{if(pp.handIdx>=p.handIdx)pp.handIdx++;});
+    selTile=null;renderAll();return;
+  }
+  if(selTile===null){setMsg('Sélectionnez une tuile dans votre main.');return;}
+  let letter=playerHand[selTile];
+  placed.push({r,c,letter,handIdx:selTile});
+  playerHand.splice(selTile,1);
+  // Re-index placed tiles
+  placed.forEach(p=>{if(p.handIdx>selTile)p.handIdx--;});
+  selTile=null;renderAll();
+  setMsg(`Tuile '${letter}' posée.`);
+}
+
+function recall(){
+  placed.forEach(p=>playerHand.push(p.letter));
+  placed=[];selTile=null;renderAll();setMsg('Tuiles récupérées.');
+}
+
+function getWord(r,c,dir){
+  let letters=[];
+  if(dir==='H'){
+    let startC=c;
+    while(startC>0&&(board[r][startC-1]||placed.find(p=>p.r===r&&p.c===startC-1)))startC--;
+    let cc=startC;
+    while(cc<15){
+      let fixed=board[r][cc];
+      let pl=placed.find(p=>p.r===r&&p.c===cc);
+      if(fixed)letters.push({l:fixed,r,c:cc,fixed:true});
+      else if(pl)letters.push({l:pl.letter,r,c:cc,fixed:false});
+      else break;
+      cc++;
+    }
+  } else {
+    let startR=r;
+    while(startR>0&&(board[startR-1][c]||placed.find(p=>p.r===startR-1&&p.c===c)))startR--;
+    let rr=startR;
+    while(rr<15){
+      let fixed=board[rr][c];
+      let pl=placed.find(p=>p.r===rr&&p.c===c);
+      if(fixed)letters.push({l:fixed,r:rr,c,fixed:true});
+      else if(pl)letters.push({l:pl.letter,r:rr,c,fixed:false});
+      else break;
+      rr++;
+    }
+  }
+  return letters;
+}
+
+function calcWordScore(letters){
+  let base=0,mult=1;
+  letters.forEach(({l,r,c,fixed})=>{
+    let lv=letterVal(l);
+    if(!fixed){
+      let bn=bonus[r][c];
+      if(bn==='dl')lv*=2;
+      else if(bn==='tl')lv*=3;
+      else if(bn==='dw'||bn==='star')mult*=2;
+      else if(bn==='tw')mult*=3;
+    }
+    base+=lv;
+  });
+  return base*mult;
+}
+
+function validate(){
+  if(!playerTurn||gameOver) return;
+  if(placed.length===0){setMsg('Posez au moins une tuile !');return;}
+  // Check inline
+  let rows=placed.map(p=>p.r),cols=placed.map(p=>p.c);
+  let allSameRow=rows.every(r=>r===rows[0]);
+  let allSameCol=cols.every(c=>c===cols[0]);
+  if(!allSameRow&&!allSameCol){setMsg('Toutes les tuiles doivent être sur la même ligne ou colonne !');return;}
+  let dir=allSameRow?'H':'V';
+  if(placed.length===1)dir=direction;
+  // First move must cover center
+  if(firstMove){
+    let coversCenter=placed.some(p=>p.r===7&&p.c===7)||board[7][7];
+    if(!coversCenter){setMsg('Le premier mot doit passer par la case centrale (★) !');return;}
+  } else {
+    // Must touch existing tiles
+    let touches=placed.some(p=>{
+      return [[p.r-1,p.c],[p.r+1,p.c],[p.r,p.c-1],[p.r,p.c+1]].some(([nr,nc])=>
+        nr>=0&&nr<15&&nc>=0&&nc<15&&board[nr][nc]
+      );
+    });
+    if(!touches){setMsg('Le mot doit être connecté aux mots existants !');return;}
+  }
+  // Calculate score
+  let mainWord=getWord(placed[0].r,placed[0].c,dir);
+  let score=calcWordScore(mainWord);
+  // Cross-words
+  placed.forEach(p=>{
+    let cross=getWord(p.r,p.c,dir==='H'?'V':'H');
+    if(cross.length>1)score+=calcWordScore(cross);
+  });
+  // Bingo bonus
+  if(placed.length===7)score+=50;
+  // Commit
+  placed.forEach(p=>board[p.r][p.c]=p.letter);
+  placed=[];firstMove=false;pScore+=score;
+  // Refill
+  let drawn=drawTiles(7-playerHand.length);
+  playerHand.push(...drawn);
+  setMsg(`Mot joué ! +${score} pts`);
+  renderAll();
+  if(playerHand.length===0&&bagTiles.length===0){endGame();return;}
+  // Bot turn
+  playerTurn=false;
+  document.getElementById('score-p').classList.remove('active');
+  document.getElementById('score-b').classList.add('active');
+  setTimeout(botPlayTurn,1200);
+}
+
+function passTurn(){
+  if(!playerTurn||gameOver)return;
+  recall();
+  setMsg('Vous passez votre tour.');
+  playerTurn=false;
+  document.getElementById('score-p').classList.remove('active');
+  document.getElementById('score-b').classList.add('active');
+  setTimeout(botPlayTurn,800);
+}
+
+function botPlayTurn(){
+  if(gameOver)return;
+  // Bot tries to play a word using its tiles on an existing word
+  let played=botPlaySimple();
+  if(!played){bScore+=0;setMsg('Bot passe son tour.');}
+  let drawn=drawTiles(7-botHand.length);
+  botHand.push(...drawn);
+  playerTurn=true;
+  document.getElementById('score-b').classList.remove('active');
+  document.getElementById('score-p').classList.add('active');
+  renderAll();
+  setMsg(played?`Bot joue +${played} pts`:'Bot passe.');
+  if(botHand.length===0&&bagTiles.length===0){endGame();}
+}
+
+function botPlaySimple(){
+  if(firstMove){
+    // At high levels, try to use more tiles from hand
+    const wordLen = GameUtils.getLevel() >= 7 ? Math.min(botHand.length, 5)
+                  : GameUtils.getLevel() >= 4 ? Math.min(botHand.length, 3) : 2;
+    let word=botHand.slice(0,Math.max(2,wordLen)).join('');
+    if(word.length>=2){
+      let r=7,c=7;
+      for(let i=0;i<word.length;i++){
+        if(c+i<15&&!board[r][c+i]){board[r][c+i]=word[i];}
+      }
+      let score=word.split('').reduce((s,l)=>s+letterVal(l),0);
+      word.split('').forEach(l=>botHand.splice(botHand.indexOf(l),1));
+      firstMove=false;bScore+=score;return score;
+    }
+    return 0;
+  }
+  if(GameUtils.shouldRandomize()){
+    // Low level: just pass sometimes
+    if(Math.random()<0.4) return 0;
+  }
+  for(let r=0;r<15;r++){
+    for(let c=0;c<14;c++){
+      if(board[r][c]&&!board[r][c+1]&&r>0&&r<14){
+        let l=botHand[0];
+        if(l){board[r][c+1]=l;botHand.splice(0,1);bScore+=letterVal(l);return letterVal(l);}
+      }
+    }
+  }
+  return 0;
+}
+
+function endGame(){
+  gameOver=true;
+  let winner=pScore>bScore?'Vous gagnez !':'Le bot gagne !';
+  document.getElementById('win-text').textContent=`${winner} (${pScore} - ${bScore})`;
+  document.getElementById('win-screen').style.display='block';
+}
+
+function setMsg(m){document.getElementById('msg').textContent=m;}
+
+const _guRow=document.getElementById('gu-row');
+GameUtils.createLevelSelector(_guRow,()=>initGame());
+GameUtils.createOnlineButton(_guRow,'scrabble',{
+  onConnected:(info)=>{initGame();},
+  onMove:()=>{}
+});
+GameUtils.showTutorial('scrabble', initGame);
+</script>
+</body>
+</html>

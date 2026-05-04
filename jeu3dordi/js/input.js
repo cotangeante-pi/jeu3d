@@ -1,0 +1,89 @@
+const Input = {
+  init() {
+    const canvas = document.getElementById('game-canvas');
+
+    // Pointer Lock — clic sur le canvas pour capturer la souris
+    canvas.addEventListener('click', () => {
+      if (!State.paused && !State.gameOver) {
+        canvas.requestPointerLock();
+        Poki.start(); // Premier input joueur → signale à Poki que la partie est active
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      State.pointerLocked = (document.pointerLockElement === canvas);
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!State.pointerLocked) return;
+      State.mouseDX += e.movementX;
+      State.mouseDY += e.movementY;
+    });
+
+    // Clavier
+    document.addEventListener('keydown', e => {
+      State.keys[e.code] = true;
+      if (e.code === 'KeyE')   Interactions.interact();
+      if (e.code === 'Escape') UI.togglePause();
+
+      if (e.code === 'KeyT') {
+        if (State.inWorkMode) {
+          Jobs.exitWork();
+        } else if (State.inJobZone && State.currentJob) {
+          Jobs.enterWork();
+        }
+      }
+
+      // F = entrer/sortir voiture, ou enfourcher/descendre transport léger
+      if (e.code === 'KeyF') {
+        if (State.inCar) {
+          Cars.exitCar();
+        } else if (State.nearCar && State.badges.includes(State.nearCar.badgeId)) {
+          Cars.enterCar(State.nearCar);
+        } else if (State.inLightVehicle) {
+          LightVehicles.dismount();
+        } else {
+          LightVehicles.tryMount();
+        }
+      }
+      if (e.code === 'KeyZ') {
+        const el = document.getElementById('coords-display');
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      }
+      if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+
+      // Sélection de slot hotbar (Digit1–Digit8)
+      if (e.code.startsWith('Digit')) {
+        const n = parseInt(e.code[5]) - 1;
+        if (n >= 0 && n < 8) {
+          State.selectedSlot = n;
+          HUD.update();
+        }
+      }
+    });
+
+    document.addEventListener('keyup', e => {
+      State.keys[e.code] = false;
+    });
+
+    // Clics souris
+    document.addEventListener('mousedown', e => {
+      if (!State.pointerLocked) return;
+      if (e.button === 0) Interactions.punch();
+      if (e.button === 2) {
+        if (State.nearPickup) Interactions.pickup();
+        else Interactions.eat();
+      }
+    });
+
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Bouton boost — maintenir enfoncé comme Shift
+    const btnBoost = document.getElementById('btn-boost');
+    if (btnBoost) {
+      btnBoost.addEventListener('mousedown', () => { State.keys['ShiftLeft'] = true;  btnBoost.classList.add('active'); });
+      btnBoost.addEventListener('mouseup',   () => { State.keys['ShiftLeft'] = false; btnBoost.classList.remove('active'); });
+      btnBoost.addEventListener('mouseleave',() => { State.keys['ShiftLeft'] = false; btnBoost.classList.remove('active'); });
+    }
+  }
+};

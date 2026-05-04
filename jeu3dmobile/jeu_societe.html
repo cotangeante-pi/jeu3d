@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeux de Société</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 22px 16px 50px;
+      gap: 20px;
+    }
+    header {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .btn-back {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #aaa;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.88em;
+      text-decoration: none;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+    h1 { font-size: 1.5em; color: #f1c40f; }
+    p.sub { font-size: 0.82em; color: #555; margin-left: auto; }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 14px;
+      width: 100%;
+      max-width: 760px;
+    }
+    .game-card {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      padding: 22px 12px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.18s, transform 0.12s;
+      user-select: none;
+    }
+    .game-card:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.22);
+      transform: translateY(-2px);
+    }
+    .game-card.available {
+      border-color: rgba(241,196,15,0.28);
+      background: rgba(241,196,15,0.04);
+    }
+    .game-card.available:hover {
+      border-color: rgba(241,196,15,0.65);
+      background: rgba(241,196,15,0.1);
+    }
+    .icon { font-size: 2.4em; line-height: 1; }
+    .name {
+      font-size: 0.88em;
+      font-weight: bold;
+      text-align: center;
+      color: #ddd;
+    }
+    .game-card.available .name { color: #f1c40f; }
+    .tag {
+      font-size: 0.68em;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.07);
+      color: #666;
+    }
+    .game-card.available .tag {
+      background: rgba(241,196,15,0.14);
+      color: #c9a200;
+    }
+    .players { font-size: 0.72em; color: #444; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="btn-back" href="index.html">← Ville</a>
+    <h1>🎲 Jeux de Société</h1>
+    <p class="sub">Affronte une IA</p>
+    <a class="btn-online" href="https://cotangeante-pi.github.io/jeu3d/jeu3dordi/jeu_societe.html" target="_blank" style="background:rgba(52,152,219,0.1);border:1px solid rgba(52,152,219,0.45);color:#5dade2;padding:7px 14px;border-radius:8px;font-size:0.85em;font-weight:bold;text-decoration:none;white-space:nowrap;">🌐 En ligne</a>
+  </header>
+
+  <div class="games-grid">
+    <a class="game-card available" href="jeux/p4.html">
+      <span class="icon">🔴</span><span class="name">Puissance 4</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/morpion.html">
+      <span class="icon">⭕</span><span class="name">Morpion</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/othello.html">
+      <span class="icon">🔵</span><span class="name">Othello</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/echecs.html">
+      <span class="icon">♟️</span><span class="name">Échecs</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/dames.html">
+      <span class="icon">🟫</span><span class="name">Jeu de Dames</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/backgammon.html">
+      <span class="icon">🎲</span><span class="name">Backgammon</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/bataille_navale.html">
+      <span class="icon">🎯</span><span class="name">Bataille Navale</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/memoire.html">
+      <span class="icon">🎴</span><span class="name">Mémoire</span>
+      <span class="tag">Disponible</span><span class="players">1 joueur</span>
+    </a>
+    <a class="game-card available" href="jeux/bataille.html">
+      <span class="icon">🃏</span><span class="name">Bataille</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/yams.html">
+      <span class="icon">🎰</span><span class="name">Yam's</span>
+      <span class="tag">Disponible</span><span class="players">1–4 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/uno.html">
+      <span class="icon">🃏</span><span class="name">Uno</span>
+      <span class="tag">Disponible</span><span class="players">2–4 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/petits_chevaux.html">
+      <span class="icon">🎠</span><span class="name">Petits Chevaux</span>
+      <span class="tag">Disponible</span><span class="players">2–4 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/monopoly.html">
+      <span class="icon">🏦</span><span class="name">Monopoly</span>
+      <span class="tag">Disponible</span><span class="players">2–4 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/mahjong.html">
+      <span class="icon">🀄</span><span class="name">Mahjong</span>
+      <span class="tag">Disponible</span><span class="players">1 joueur</span>
+    </a>
+    <a class="game-card available" href="jeux/scrabble.html">
+      <span class="icon">🧩</span><span class="name">Scrabble</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/billard.html">
+      <span class="icon">🎱</span><span class="name">Billard</span>
+      <span class="tag">Disponible</span><span class="players">2 joueurs</span>
+    </a>
+    <a class="game-card available" href="jeux/2048.html">
+      <span class="icon">🟨</span><span class="name">2048</span>
+      <span class="tag">Disponible</span><span class="players">1 joueur</span>
+    </a>
+  </div>
+</body>
+</html>
