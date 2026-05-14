@@ -245,17 +245,19 @@ window.addEventListener('resize',resize);
 function draw(){
   if(!board) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  const flip=myColor===BLACK;
   for(let r=0;r<8;r++){
     for(let c=0;c<8;c++){
+      const px=(flip?7-c:c)*CELL, py=(flip?7-r:r)*CELL;
       // Case
       const light=(r+c)%2===0;
       ctx.fillStyle=light?'#f0d9b5':'#b58863';
-      ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+      ctx.fillRect(px,py,CELL,CELL);
 
       // Highlight sélection
       if(selected && selected.r===r && selected.c===c){
         ctx.fillStyle='rgba(241,196,15,0.55)';
-        ctx.fillRect(c*CELL,r*CELL,CELL,CELL);
+        ctx.fillRect(px,py,CELL,CELL);
       }
 
       // Coups légaux
@@ -266,12 +268,12 @@ function draw(){
           // Capture : coins colorés
           ctx.strokeStyle='rgba(40,200,80,0.7)';
           ctx.lineWidth=3;
-          ctx.strokeRect(c*CELL+2,r*CELL+2,CELL-4,CELL-4);
+          ctx.strokeRect(px+2,py+2,CELL-4,CELL-4);
         } else {
           // Déplacement : petit cercle
           ctx.fillStyle='rgba(40,200,80,0.55)';
           ctx.beginPath();
-          ctx.arc(c*CELL+CELL/2,r*CELL+CELL/2,CELL*0.18,0,Math.PI*2);
+          ctx.arc(px+CELL/2,py+CELL/2,CELL*0.18,0,Math.PI*2);
           ctx.fill();
         }
       }
@@ -279,7 +281,7 @@ function draw(){
       // Pièce
       const piece=board[r][c];
       if(piece){
-        drawPiece(ctx,piece,c*CELL,r*CELL,CELL);
+        drawPiece(ctx,piece,px,py,CELL);
       }
     }
   }
@@ -287,8 +289,8 @@ function draw(){
   ctx.font=`${Math.max(9,CELL*0.18)}px Arial`;
   ctx.fillStyle='#8b6914';
   for(let i=0;i<8;i++){
-    ctx.fillText(String.fromCharCode(65+i),(i+0.02)*CELL+2,canvas.height-2);
-    ctx.fillText(8-i,2,i*CELL+12);
+    ctx.fillText(flip?String.fromCharCode(72-i):String.fromCharCode(65+i),(i+0.02)*CELL+2,canvas.height-2);
+    ctx.fillText(flip?i+1:8-i,2,i*CELL+12);
   }
 }
 
@@ -638,6 +640,8 @@ function checkEndgame(){
 
 // ===================== INTERACTIONS =====================
 function cellFromXY(x,y){
+  const flip=myColor===BLACK;
+  if(flip) return {r:7-Math.floor(y/CELL),c:7-Math.floor(x/CELL)};
   return {r:Math.floor(y/CELL),c:Math.floor(x/CELL)};
 }
 
