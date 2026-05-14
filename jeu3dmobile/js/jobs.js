@@ -54,6 +54,7 @@ const Jobs = {
     if (id === 'athlete')          { Athletisme.enter();                 return; }
     if (id === 'arena_athlete')    { MondeTelepporte.enterAthletics();   return; }
     if (id === 'circuit_vitesse')  { CircuitVitesse.enter();             return; }
+    if (typeof MondeTravail !== 'undefined') { MondeTravail.enter(id); return; }
     WorkOverlay.enter(id);
   },
 
@@ -65,6 +66,7 @@ const Jobs = {
     if (id === 'athlete')          { Athletisme.exit();          return; }
     if (id === 'arena_athlete')    { MondeTelepporte.exit();     return; }
     if (id === 'circuit_vitesse')  { CircuitVitesse.exit();      return; }
+    if (typeof MondeTravail !== 'undefined') { MondeTravail.exit(); return; }
     WorkOverlay.exit();
   },
 

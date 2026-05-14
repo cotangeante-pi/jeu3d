@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Othello</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -182,18 +182,52 @@ function evalBoard(b) {
   return score;
 }
 
-function botChoose() {
-  if (onlineMode) return null;
-  const moves = validMoves(board, 2);
-  if (!moves.length) return null;
-  if (GameUtils.shouldRandomize()) return moves[Math.floor(Math.random() * moves.length)];
-  let best = -Infinity, bestMove = null;
-  for (const [r, c] of moves) {
-    const copy = board.map(row => [...row]);
-    applyMove(copy, r, c, 2);
-    const val = evalBoard(copy);
-    if (val > best) { best = val; bestMove = [r, c]; }
+const _h32O=(n)=>{n=n|0;n^=n>>>16;n=Math.imul(n,0x85ebca6b)|0;n^=n>>>13;n=Math.imul(n,0xc2b2ae35)|0;return(n^n>>>16)>>>0;};
+const _ZO=Array.from({length:N},(_,r)=>Array.from({length:N},(_,c)=>[0,_h32O(r*503+c*97+1),_h32O(r*503+c*97+2)]));
+const _ZOT=_h32O(0xdeadbeef);
+const _TNO=1<<20,_TMO=_TNO-1;
+const _tKO=new Uint32Array(_TNO),_tSO=new Int32Array(_TNO),_tDO=new Uint8Array(_TNO),_tFO=new Uint8Array(_TNO);
+let _hO=0;
+function _OinitHash(b){_hO=0;for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(b[r][c])_hO^=_ZO[r][c][b[r][c]];}
+function _Oapply(b,r,c,player){const opp=3-player;const flips=applyMove(b,r,c,player);_hO^=_ZO[r][c][player];for(const[fr,fc]of flips){_hO^=_ZO[fr][fc][opp];_hO^=_ZO[fr][fc][player];}return flips;}
+function _Oundo(b,r,c,player,flips){const opp=3-player;_hO^=_ZO[r][c][player];b[r][c]=0;for(const[fr,fc]of flips){_hO^=_ZO[fr][fc][player];_hO^=_ZO[fr][fc][opp];b[fr][fc]=opp;}}
+function _Omm(b,depth,alpha,beta,maximizing){
+  const hk=(_hO^(maximizing?_ZOT:0))>>>0,idx=hk&_TMO;
+  if(_tKO[idx]===hk&&_tDO[idx]>=depth){const f=_tFO[idx],s=_tSO[idx];if(f===1)return s;if(f===2&&s>alpha)alpha=s;else if(f===3&&s<beta)beta=s;if(alpha>=beta)return s;}
+  const botM=validMoves(b,2),playerM=validMoves(b,1);
+  if(!botM.length&&!playerM.length){const{y,bl}=countPieces(b);return bl>y?99999:bl<y?-99999:0;}
+  if(depth===0)return evalBoard(b);
+  const oa=alpha,ob=beta;
+  let best;
+  if(maximizing){
+    if(!botM.length){best=_Omm(b,depth-1,alpha,beta,false);}
+    else{
+      best=-Infinity;
+      botM.sort(([r1,c1],[r2,c2])=>WEIGHTS[r2][c2]-WEIGHTS[r1][c1]);
+      for(const[r,c]of botM){const fl=_Oapply(b,r,c,2);const v=_Omm(b,depth-1,alpha,beta,false);_Oundo(b,r,c,2,fl);if(v>best)best=v;if(best>alpha)alpha=best;if(alpha>=beta)break;}
+    }
+  }else{
+    if(!playerM.length){best=_Omm(b,depth-1,alpha,beta,true);}
+    else{
+      best=Infinity;
+      playerM.sort(([r1,c1],[r2,c2])=>WEIGHTS[r2][c2]-WEIGHTS[r1][c1]);
+      for(const[r,c]of playerM){const fl=_Oapply(b,r,c,1);const v=_Omm(b,depth-1,alpha,beta,true);_Oundo(b,r,c,1,fl);if(v<best)best=v;if(best<beta)beta=best;if(alpha>=beta)break;}
+    }
   }
+  const fl2=best<=oa?3:best>=ob?2:1;
+  _tKO[idx]=hk;_tSO[idx]=best;_tDO[idx]=depth;_tFO[idx]=fl2;
+  return best;
+}
+function botChoose(){
+  if(onlineMode)return null;
+  const moves=validMoves(board,2);
+  if(!moves.length)return null;
+  if(GameUtils.shouldRandomize())return moves[Math.floor(Math.random()*moves.length)];
+  _tKO.fill(0);_OinitHash(board);
+  const depth=Math.max(1,Math.min(N*N-4,GameUtils.getDepth()));
+  let best=-Infinity,bestMove=null;
+  moves.sort(([r1,c1],[r2,c2])=>WEIGHTS[r2][c2]-WEIGHTS[r1][c1]);
+  for(const[r,c]of moves){const fl=_Oapply(board,r,c,2);const v=_Omm(board,depth-1,-Infinity,Infinity,false);_Oundo(board,r,c,2,fl);if(v>best){best=v;bestMove=[r,c];}}
   return bestMove;
 }
 
@@ -215,8 +249,9 @@ function draw() {
   }
 
   // Coups valides (si tour joueur)
-  if (playerTurn && !gameOver) {
-    const vm = validMoves(board, 1);
+  const _showHints=onlineMode?(myColor===1?playerTurn:!playerTurn):playerTurn;
+  if (_showHints && !gameOver) {
+    const vm = validMoves(board, myColor);
     for (const [r, c] of vm) {
       ctx.fillStyle = 'rgba(241, 196, 15, 0.25)';
       ctx.beginPath();
@@ -245,23 +280,23 @@ function draw() {
 }
 
 function handleClick(px, py) {
-  if (!playerTurn || gameOver) return;
+  if (gameOver) return; const _myTurn=onlineMode?(myColor===1?playerTurn:!playerTurn):playerTurn; if(!_myTurn) return;
   const c = Math.floor(px / cellSize), r = Math.floor(py / cellSize);
   if (!inBounds(r, c)) return;
-  const flips = getFlips(board, r, c, 1);
+  const flips = getFlips(board, r, c, myColor);
   if (!flips.length) return;
-  applyMove(board, r, c, 1);
+  applyMove(board, r, c, myColor);
   if (onlineMode) GameUtils.sendMove({type:'move', r, c});
   updateScores();
-  playerTurn = false;
+  playerTurn = myColor===1?false:true;
   draw();
 
   // Vérif fin
-  const botMoves = validMoves(board, 2);
-  const playerMoves = validMoves(board, 1);
+  const oppColor=3-myColor; const botMoves = validMoves(board, oppColor);
+  const playerMoves = validMoves(board, myColor);
 
   if (!botMoves && !playerMoves) { endGame(); return; }
-  if (!botMoves) { statusEl.textContent = 'Bot passe son tour !'; playerTurn = true; draw(); return; }
+  if (!botMoves) { statusEl.textContent = onlineMode?'Adversaire passe son tour !':'Bot passe son tour !'; playerTurn = myColor===1?true:false; draw(); return; }
 
   if (onlineMode) { statusEl.textContent = 'Adversaire réfléchit…'; return; }
   statusEl.textContent = 'Bot réfléchit...';
@@ -274,7 +309,7 @@ function handleClick(px, py) {
     const pm = validMoves(board, 1);
     const bm = validMoves(board, 2);
     if (!pm && !bm) { endGame(); return; }
-    if (!pm) { statusEl.textContent = 'Vous passez votre tour !'; playerTurn = false; setTimeout(() => { playerTurn = true; statusEl.textContent = 'À vous !'; draw(); }, 1200); }
+    if (!pm) { statusEl.textContent = 'Vous passez votre tour !'; playerTurn = myColor===1?false:true; setTimeout(() => { playerTurn = true; statusEl.textContent = 'À vous !'; draw(); }, 1200); }
     else { statusEl.textContent = 'À vous de jouer !'; }
     draw();
   }, 400);
@@ -283,9 +318,10 @@ function handleClick(px, py) {
 function endGame() {
   gameOver = true;
   const { y, bl } = countPieces(board);
-  if (y > bl) statusEl.textContent = `Vous gagnez ! (${y} vs ${bl})`;
-  else if (bl > y) statusEl.textContent = `Bot gagne ! (${bl} vs ${y})`;
-  else statusEl.textContent = `Égalité ! (${y} vs ${bl})`;
+  const myCount=myColor===1?y:bl, oppCount=myColor===1?bl:y;
+  if(myCount>oppCount) statusEl.textContent=`Vous gagnez ! (${myCount} vs ${oppCount})`;
+  else if(oppCount>myCount) statusEl.textContent=`${onlineMode?'Adversaire':'Bot'} gagne ! (${oppCount} vs ${myCount})`;
+  else statusEl.textContent=`Égalité ! (${y} vs ${bl})`;
   draw();
 }
 
@@ -300,14 +336,14 @@ canvas.addEventListener('touchend', e => {
   handleClick(t.clientX - r.left, t.clientY - r.top);
 }, { passive: false });
 
-let onlineMode=false, onlineIsHost=false;
+let onlineMode=false, onlineIsHost=false; let myColor=1;
 document.getElementById('btn-new').addEventListener('click', newGame);
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>newGame());
 GameUtils.createOnlineButton(_guRow,'othello',{
-  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;newGame();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myColor=info.isHost?1:2;newGame();},
   onMove:(data)=>{
-    if(data.type==='move'){applyMove(board,data.r,data.c,2);updateScores();playerTurn=true;statusEl.textContent='À vous de jouer !';draw();}
+    if(data.type==='move'){applyMove(board,data.r,data.c,3-myColor);updateScores();playerTurn=myColor===1?true:false;statusEl.textContent='À vous de jouer !';draw();}
   }
 });
 

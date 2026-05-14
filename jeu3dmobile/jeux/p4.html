@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Puissance 4</title>
-  <script src="../game_utils.js"></script>
+  <script src="game_utils.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0a0e1a; color: #fff; font-family: Arial, sans-serif; min-height: 100vh;
@@ -60,7 +60,7 @@
   const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
   const SCORE_KEY='jeu3d_p4';
   let board,gameOver,thinking,hoverCol,winCells;
-  let onlineMode=false,onlineIsHost=false;
+  let onlineMode=false,onlineIsHost=false; let myPiece=PLAYER; let myTurn=true;
   let scores={wins:0,draws:0,losses:0};
   const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
   const DPR=window.devicePixelRatio||1;
@@ -75,34 +75,60 @@
   function checkWinner(b){for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const v=b[r][c];if(!v)continue;let ok=true;for(let i=1;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS||b[nr][nc]!==v){ok=false;break;}}if(ok)return v;}return 0;}
   function getWinCells(b){for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const v=b[r][c];if(!v)continue;const cells=[[r,c]];let ok=true;for(let i=1;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS||b[nr][nc]!==v){ok=false;break;}cells.push([nr,nc]);}if(ok)return cells;}return null;}
   function isFull(b){return b[0].every(c=>c!==EMPTY);}
-  function scoreW(w,who){const opp=who===BOT?PLAYER:BOT,mine=w.filter(x=>x===who).length,theirs=w.filter(x=>x===opp).length;if(theirs>0)return 0;if(mine===4)return 1000;if(mine===3)return 5;if(mine===2)return 2;return 0;}
-  function evaluate(b){let s=0;for(let r=0;r<ROWS;r++){if(b[r][3]===BOT)s+=3;else if(b[r][3]===PLAYER)s-=3;}for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const w=[];for(let i=0;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS)break;w.push(b[nr][nc]);}if(w.length===4)s+=scoreW(w,BOT)-scoreW(w,PLAYER);}return s;}
-  function minimax(b,depth,alpha,beta,maxing){const w=checkWinner(b);if(w===BOT)return 100000+depth;if(w===PLAYER)return -100000-depth;const cols=validCols(b);if(!cols.length||depth===0)return evaluate(b);cols.sort((a,b)=>Math.abs(a-3)-Math.abs(b-3));if(maxing){let best=-Infinity;for(const c of cols){const val=minimax(dropIn(b,c,BOT),depth-1,alpha,beta,false);if(val>best)best=val;if(best>alpha)alpha=best;if(alpha>=beta)break;}return best;}else{let best=Infinity;for(const c of cols){const val=minimax(dropIn(b,c,PLAYER),depth-1,alpha,beta,true);if(val<best)best=val;if(best<beta)beta=best;if(alpha>=beta)break;}return best;}}
+  const _h32=(n)=>{n=n|0;n^=n>>>16;n=Math.imul(n,0x85ebca6b)|0;n^=n>>>13;n=Math.imul(n,0xc2b2ae35)|0;return(n^n>>>16)>>>0;};
+  const _Z4=Array.from({length:ROWS},(_,r)=>Array.from({length:COLS},(_,c)=>[0,_h32(r*701+c*101+1),_h32(r*701+c*101+2)]));
+  const _ZT4=_h32(0x1337cafe);
+  const _TN4=1<<20,_TM4=_TN4-1;
+  const _tK4=new Uint32Array(_TN4),_tS4=new Int32Array(_TN4),_tD4=new Uint8Array(_TN4),_tF4=new Uint8Array(_TN4);
+  const _sb4=Array.from({length:ROWS},()=>new Int8Array(COLS));
+  const _ch4=new Int8Array(COLS);
+  let _h4=0;
+  function _4init(b){_h4=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){_sb4[r][c]=b[r][c];if(b[r][c])_h4^=_Z4[r][c][b[r][c]];}for(let c=0;c<COLS;c++){_ch4[c]=-1;for(let r=ROWS-1;r>=0;r--)if(_sb4[r][c]===EMPTY){_ch4[c]=r;break;}}}
+  function _4drop(c,who){const r=_ch4[c];_sb4[r][c]=who;_ch4[c]--;_h4^=_Z4[r][c][who];return r;}
+  function _4undo(c,r){const who=_sb4[r][c];_h4^=_Z4[r][c][who];_sb4[r][c]=EMPTY;_ch4[c]=r;}
+  function _4win(r,c){const v=_sb4[r][c];for(const[dr,dc]of DIRS){let n=1;for(let i=1;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS||_sb4[nr][nc]!==v)break;n++;}for(let i=1;i<4;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS||_sb4[nr][nc]!==v)break;n++;}if(n>=4)return true;}return false;}
+  function _4eval(){let s=0;for(let r=0;r<ROWS;r++){if(_sb4[r][3]===BOT)s+=3;else if(_sb4[r][3]===PLAYER)s-=3;}for(const[dr,dc]of DIRS)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const w=[];for(let i=0;i<4;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=ROWS||nc<0||nc>=COLS)break;w.push(_sb4[nr][nc]);}if(w.length===4){const mine=w.filter(x=>x===BOT).length,them=w.filter(x=>x===PLAYER).length;if(!them)s+=mine===3?5:mine===2?2:0;if(!mine)s-=them===3?5:them===2?2:0;}}return s;}
+  function _4mm(lr,lc,depth,alpha,beta,maxing){
+    if(lr>=0&&_4win(lr,lc))return maxing?-1e5-depth:1e5+depth;
+    const hk=(_h4^(maxing?_ZT4:0))>>>0,idx=hk&_TM4;
+    if(_tK4[idx]===hk&&_tD4[idx]>=depth){const f=_tF4[idx],s=_tS4[idx];if(f===1)return s;if(f===2&&s>alpha)alpha=s;else if(f===3&&s<beta)beta=s;if(alpha>=beta)return s;}
+    const cols=[];for(let c=0;c<COLS;c++)if(_ch4[c]>=0)cols.push(c);
+    if(!cols.length)return 0;if(depth===0)return _4eval();
+    cols.sort((a,b)=>Math.abs(a-3)-Math.abs(b-3));
+    const oa=alpha,ob=beta,who=maxing?BOT:PLAYER;
+    let best=maxing?-Infinity:Infinity;
+    for(const c of cols){const r=_4drop(c,who);const v=_4mm(r,c,depth-1,alpha,beta,!maxing);_4undo(c,r);if(maxing){if(v>best)best=v;if(best>alpha)alpha=best;}else{if(v<best)best=v;if(best<beta)beta=best;}if(alpha>=beta)break;}
+    const fl=best<=oa?3:best>=ob?2:1;
+    _tK4[idx]=hk;_tS4[idx]=best;_tD4[idx]=depth;_tF4[idx]=fl;
+    return best;
+  }
   function getBotCol(){
     if(onlineMode)return -1;
-    const cols=validCols(board);cols.sort((a,b)=>Math.abs(a-3)-Math.abs(b-3));
-    if(GameUtils.shouldRandomize())return cols[Math.floor(Math.random()*cols.length)];
-    const d=Math.max(1,GameUtils.getDepth());
+    if(GameUtils.shouldRandomize()){const cols=[];for(let c=0;c<COLS;c++)if(board[0][c]===EMPTY)cols.push(c);return cols[Math.floor(Math.random()*cols.length)];}
+    _4init(board);_tK4.fill(0);
+    const d=Math.min(ROWS*COLS,Math.max(1,GameUtils.getDepth()));
+    const cols=[];for(let c=0;c<COLS;c++)if(_ch4[c]>=0)cols.push(c);
+    cols.sort((a,b)=>Math.abs(a-3)-Math.abs(b-3));
     let bv=-Infinity,bc=cols[0];
-    for(const c of cols){const val=minimax(dropIn(board,c,BOT),d-1,-Infinity,Infinity,false);if(val>bv){bv=val;bc=c;}}
+    for(const c of cols){const r=_4drop(c,BOT);const v=_4mm(r,c,d-1,-Infinity,Infinity,false);_4undo(c,r);if(v>bv){bv=v;bc=c;}}
     return bc;
   }
   function draw(){ctx.clearRect(0,0,COLS*CELL,ROWS*CELL+PH);ctx.fillStyle='#070b14';ctx.fillRect(0,0,COLS*CELL,PH);ctx.fillStyle='#163080';ctx.fillRect(0,PH,COLS*CELL,ROWS*CELL);const ws=winCells?new Set(winCells.map(([r,c])=>`${r},${c}`)):null;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const cx=c*CELL+CELL/2,cy=PH+r*CELL+CELL/2,v=board[r][c],win=ws&&ws.has(`${r},${c}`);if(win){ctx.shadowColor=v===PLAYER?'#ffe000':'#ff5050';ctx.shadowBlur=22;}ctx.beginPath();ctx.arc(cx,cy,win?R*1.13:R,0,Math.PI*2);ctx.fillStyle=v===PLAYER?'#f1c40f':v===BOT?'#e74c3c':'#0a0e1a';ctx.fill();ctx.shadowBlur=0;}if(!gameOver&&!thinking&&hoverCol>=0&&hoverCol<COLS&&board[0][hoverCol]===EMPTY){ctx.beginPath();ctx.arc(hoverCol*CELL+CELL/2,PH/2,R*0.82,0,Math.PI*2);ctx.fillStyle='rgba(241,196,15,0.5)';ctx.fill();}}
   const statusEl=document.getElementById('status');
   function setStatus(t){statusEl.textContent=t;}
-  function endGame(winner){gameOver=true;winCells=getWinCells(board);draw();if(winner===PLAYER){scores.wins++;setStatus('Tu as gagné ! 🎉');}else if(winner===BOT){scores.losses++;setStatus('Le bot a gagné. 😬');}else{scores.draws++;setStatus('Match nul !');}saveScores();updateScoreUI();}
+  function endGame(winner){gameOver=true;winCells=getWinCells(board);draw();const myP=onlineMode?myPiece:PLAYER;if(winner===myP){scores.wins++;setStatus('Tu as gagné ! 🎉');}else if(winner!==0){scores.losses++;setStatus(onlineMode?'Adversaire gagne. 😬':'Le bot a gagné. 😬');}else{scores.draws++;setStatus('Match nul !');}saveScores();updateScoreUI();}
   function playerPlay(col){
-    if(gameOver||thinking)return;
+    if(gameOver||thinking||(onlineMode&&!myTurn))return;
     if(col<0||col>=COLS||board[0][col]!==EMPTY)return;
-    board=dropIn(board,col,PLAYER);
-    if(onlineMode)GameUtils.sendMove({type:'col',col});
+    board=dropIn(board,col,onlineMode?myPiece:PLAYER);
+    if(onlineMode){GameUtils.sendMove({type:'col',col});myTurn=false;}
     draw();
     const w=checkWinner(board);if(w){endGame(w);return;}if(isFull(board)){endGame(0);return;}
     if(onlineMode){setStatus('Adversaire réfléchit…');return;}
     thinking=true;setStatus('Le bot réfléchit…');
     setTimeout(()=>{const bc=getBotCol();board=dropIn(board,bc,BOT);thinking=false;draw();const w2=checkWinner(board);if(w2){endGame(w2);return;}if(isFull(board)){endGame(0);return;}setStatus('À toi de jouer ! 🟡');},350);
   }
-  function newGame(){board=Array.from({length:ROWS},()=>Array(COLS).fill(EMPTY));gameOver=false;thinking=false;hoverCol=-1;winCells=null;setStatus('À toi de jouer ! 🟡');draw();}
+  function newGame(){board=Array.from({length:ROWS},()=>Array(COLS).fill(EMPTY));gameOver=false;thinking=false;hoverCol=-1;winCells=null;if(onlineMode)myTurn=onlineIsHost;setStatus(onlineMode&&!myTurn?"Tour de l'adversaire…":'À toi de jouer ! 🟡');draw();}
   function loadScores(){try{const s=JSON.parse(localStorage.getItem(SCORE_KEY)||'{}');Object.assign(scores,s);}catch(e){}scores.wins=scores.wins||0;scores.draws=scores.draws||0;scores.losses=scores.losses||0;}
   function saveScores(){localStorage.setItem(SCORE_KEY,JSON.stringify(scores));}
   function resetScores(){scores={wins:0,draws:0,losses:0};saveScores();updateScoreUI();}
@@ -116,10 +142,10 @@
   const _guRow=document.getElementById('gu-row');
   GameUtils.createLevelSelector(_guRow,()=>newGame());
   GameUtils.createOnlineButton(_guRow,'p4',{
-    onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;newGame();},
+    onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myPiece=info.isHost?PLAYER:BOT;myTurn=info.isHost;newGame();},
     onMove:(data)=>{
       if(data.type==='col'){
-        board=dropIn(board,data.col,PLAYER);draw();
+        board=dropIn(board,data.col,onlineIsHost?BOT:PLAYER);myTurn=true;draw();
         const w=checkWinner(board);if(w){endGame(w);return;}if(isFull(board)){endGame(0);return;}
         setStatus('À toi de jouer ! 🟡');
       }

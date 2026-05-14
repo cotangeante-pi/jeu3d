@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Morpion</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -112,7 +112,7 @@ const snEl = document.getElementById('sn');
 const sdEl = document.getElementById('sd');
 let scores = { w: 0, n: 0, d: 0 };
 let board, current, gameOver;
-let onlineMode=false, onlineIsHost=false;
+let onlineMode=false, onlineIsHost=false; let myMark='X';
 
 function resize() {
   const size = Math.min(window.innerWidth - 32, 340);
@@ -226,20 +226,20 @@ function getBestMove(maxDepth) {
 
 function endGame(result) {
   gameOver = true;
-  if (result.winner === 'X') { statusEl.textContent = 'Vous gagnez !'; scores.w++; swEl.textContent = scores.w; }
-  else if (result.winner === 'O') { statusEl.textContent = 'Le bot gagne !'; scores.d++; sdEl.textContent = scores.d; }
+  if (result.winner === myMark) { statusEl.textContent = 'Vous gagnez !'; scores.w++; swEl.textContent = scores.w; }
+  else if (result.winner !== 'draw') { statusEl.textContent = onlineMode?'Adversaire gagne !':'Le bot gagne !'; scores.d++; sdEl.textContent = scores.d; }
   else { statusEl.textContent = 'Égalité !'; scores.n++; snEl.textContent = scores.n; }
 }
 
 function handleClick(x, y) {
-  if (gameOver || current !== 'X') return;
+  if (gameOver || current !== myMark) return;
   const cell = canvas.width / 3;
   const col = Math.floor(x / cell), row = Math.floor(y / cell);
   const idx = row * 3 + col;
   if (board[idx]) return;
-  board[idx] = 'X';
+  board[idx] = myMark;
   if (onlineMode) GameUtils.sendMove({type:'move',idx});
-  current = 'O';
+  current = myMark==='X'?'O':'X';
   draw();
   const result = getWinner(board);
   if (result) { endGame(result); draw(); return; }
@@ -263,10 +263,10 @@ document.getElementById('btn-new').addEventListener('click', newGame);
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>newGame());
 GameUtils.createOnlineButton(_guRow,'morpion',{
-  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;newGame();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myMark=info.isHost?'X':'O';newGame();},
   onMove:(data)=>{
     if(data.type==='move'){
-      board[data.idx]='O'; current='X';draw();
+      board[data.idx]=myMark==='X'?'O':'X'; current=myMark;draw();
       const r=getWinner(board); if(r){endGame(r);draw();return;}
       statusEl.textContent='À vous de jouer !';
     }

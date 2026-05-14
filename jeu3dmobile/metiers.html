@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Métiers — Mode Exploration</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0e1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 14px 50px;
+      gap: 18px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    header {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-back {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #aaa;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.88em;
+      text-decoration: none;
+      white-space: nowrap;
+      touch-action: manipulation;
+    }
+    .btn-back:active { color: #fff; border-color: rgba(255,255,255,0.5); }
+    h1 { font-size: 1.4em; color: #f1c40f; }
+    .hint { font-size: 0.72em; color: #444; margin-left: auto; white-space: nowrap; }
+
+    /* ── Grille métiers ─────────────────────────────────────────────────── */
+    .jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 720px;
+    }
+    .job-card {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(241,196,15,0.25);
+      border-radius: 14px;
+      padding: 20px 10px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      transition: background 0.1s, border-color 0.1s, transform 0.1s;
+    }
+    .job-card:active { background: rgba(241,196,15,0.12); border-color: rgba(241,196,15,0.7); transform: scale(0.96); }
+    .job-icon   { font-size: 2.2em; line-height: 1; }
+    .job-name   { font-size: 0.82em; font-weight: bold; text-align: center; color: #f1c40f; }
+    .job-salary { font-size: 0.68em; color: #88ccff; }
+
+    /* ── Notification (même style que jeu.html) ─────────────────────────── */
+    #job-notify {
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px;
+      padding: 8px 22px;
+      font-size: 1em;
+      font-weight: bold;
+      pointer-events: none;
+      white-space: nowrap;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+      z-index: 9999;
+    }
+
+    /* ── Canvas 3D ──────────────────────────────────────────────────────── */
+    #game-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      z-index: 10;
+    }
+
+    /* ── Boulangerie (copié de css/style.css) ───────────────────────────── */
+    #bakery-overlay {
+      position:fixed; inset:0;
+      background:linear-gradient(135deg,#2b1000 0%,#5a2a0a 50%,#2b1000 100%);
+      display:none; align-items:center; justify-content:center; z-index:90;
+    }
+    #bk-box {
+      background:rgba(255,230,180,0.08); border:1.5px solid rgba(255,190,80,0.4);
+      border-radius:16px; padding:28px 20px;
+      width:min(420px, calc(100vw - 28px)); text-align:center; color:#fff5e0;
+    }
+    #bk-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    #bk-header h2 { font-size:1.25em; margin:0; }
+    #bk-exit-btn {
+      background:rgba(200,60,60,0.35); border:1px solid rgba(255,100,100,0.5);
+      color:#ffaaaa; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:0.88em; touch-action:manipulation;
+    }
+    #bk-exit-btn:active { background:rgba(200,60,60,0.7); }
+    #bk-workspace { background:rgba(0,0,0,0.35); border-radius:12px; padding:20px; margin:14px 0; }
+    #bk-icon  { font-size:52px; margin-bottom:10px; }
+    #bk-label { font-size:1.05em; font-weight:bold; margin-bottom:14px; color:#ffe0a0; min-height:26px; }
+    #bk-track { background:rgba(0,0,0,0.5); border-radius:8px; height:18px; overflow:hidden; margin:10px 0 14px; }
+    #bk-fill  { height:100%; background:linear-gradient(90deg,#c67c00,#ffd700); border-radius:8px; width:0%; transition:width 0.1s linear; }
+    #bk-action-btn {
+      background:linear-gradient(135deg,#b86800,#e09020); border:none; color:#fff;
+      font-size:1.1em; font-weight:bold; padding:16px 32px; border-radius:10px;
+      cursor:pointer; min-width:170px; touch-action:manipulation;
+    }
+    #bk-action-btn:active { transform:scale(0.96); }
+    #bk-dots  { display:flex; justify-content:center; gap:10px; margin-top:14px; }
+    .bk-dot   { width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.25); }
+    .bk-dot.active { background:#ffd700; border-color:#ffd700; }
+    .bk-dot.done   { background:#66ee66; border-color:#66ee66; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a class="btn-back" href="index.html">← Retour</a>
+    <h1>💼 Métiers</h1>
+    <span class="hint">T pour quitter</span>
+  </header>
+
+  <div class="jobs-grid" id="jobs-grid"></div>
+
+  <!-- Éléments DOM requis par les mini-jeux (identiques à jeu.html) -->
+  <div id="job-notify" style="display:none"></div>
+
+  <div id="bakery-overlay">
+    <div id="bk-box">
+      <div id="bk-header">
+        <h2>🏪 La Boulangerie</h2>
+        <button id="bk-exit-btn">Partir</button>
+      </div>
+      <div id="bk-workspace">
+        <div id="bk-icon">🌾</div>
+        <div id="bk-label">Prendre la farine</div>
+        <div id="bk-track"><div id="bk-fill"></div></div>
+        <button id="bk-action-btn">Faire ça !</button>
+      </div>
+      <div id="bk-dots">
+        <div class="bk-dot active"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+        <div class="bk-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ── Vrais fichiers du jeu ──────────────────────────────────────────── -->
+  <script src="js/config.js"></script>
+
+  <script>
+    /* Stubs pour Sound, HUD, Save (appelés par jobs.js — inutiles ici) */
+    const Sound = { coin() {}, click() {}, jump() {}, hit() {} };
+    const HUD   = { update() {}, showInteract() {}, hideInteract() {} };
+    const Save  = { write() {}, read() { return {}; } };
+  </script>
+
+  <script src="js/state.js"></script>
+  <script src="js/jobs.js"></script>
+  <script src="js/three.min.js"></script>
+
+  <!-- Mini-jeux (code identique au jeu 3D) -->
+  <script src="js/bakery.js"></script>
+  <script src="js/work_overlay.js"></script>
+  <script src="js/athletics.js"></script>
+  <script src="js/athletisme.js"></script>
+  <script src="js/monde_teleporte.js"></script>
+  <script src="js/circuit_vitesse.js"></script>
+  <script src="js/monde_travail.js"></script>
+
+  <script>
+    // ── Renderer 3D (lazy init pour Circuit de Vitesse) ───────────────────
+    function initRenderer() {
+      if (State.renderer) return;
+      const canvas = document.getElementById('game-canvas');
+      canvas.style.display = 'block';
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      State.renderer = renderer;
+      window.addEventListener('resize', () => {
+        State.renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function hideCanvas() {
+      document.getElementById('game-canvas').style.display = 'none';
+    }
+
+    // ── Clavier ────────────────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      State.keys[e.code] = true;
+      if (e.code === 'KeyT' && (State.inWorkMode || State.inPortalGame)) {
+        Jobs.exitWork();
+        if (!State.inWorkMode) hideCanvas();
+      }
+    });
+    document.addEventListener('keyup', e => { State.keys[e.code] = false; });
+
+    // ── Boucle principale ──────────────────────────────────────────────────
+    let _lastT = 0;
+    function loop(t) {
+      const delta = Math.min((t - _lastT) / 1000, 0.1);
+      _lastT = t;
+
+      Bakery.tick(delta);
+      WorkOverlay.tick(delta);
+      Athletics.tick(delta);
+      Athletisme.tick(delta);
+      MondeTelepporte.tick(delta);
+      CircuitVitesse.tick(delta);
+      MondeTravail.tick(delta);
+
+      if (State.renderer) {
+        if      (CircuitVitesse._active) State.renderer.render(CircuitVitesse._scene, CircuitVitesse._camera);
+        else if (MondeTravail._active)   State.renderer.render(MondeTravail._scene,   MondeTravail._camera);
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    // ── Liste des métiers ──────────────────────────────────────────────────
+    const JOB_LIST = [
+      { id: 'baker',           name: 'Boulanger',          icon: '🍞',  salary: 10 },
+      { id: 'cashier',         name: 'Caissier',           icon: '🛒',  salary: 12 },
+      { id: 'worker',          name: 'Ouvrier',            icon: '🔨',  salary: 15 },
+      { id: 'farm',            name: 'Fermier',            icon: '🌾',  salary: 18 },
+      { id: 'security',        name: 'Agent de sécurité',  icon: '🛡️',  salary: 20 },
+      { id: 'coach',           name: 'Coach sportif',      icon: '🚴',  salary: 22 },
+      { id: 'nurse',           name: 'Infirmier',          icon: '💉',  salary: 25 },
+      { id: 'chef',            name: 'Cuisinier',          icon: '👨‍🍳', salary: 28 },
+      { id: 'football',        name: 'Footballeur',        icon: '⚽',  salary: 28 },
+      { id: 'athlete',         name: 'Athlète',            icon: '🏃',  salary: 30 },
+      { id: 'arena_athlete',   name: 'Athlète Arène',      icon: '🏟️',  salary: 30 },
+      { id: 'hotel',           name: "Gest. d'hôtel",      icon: '🏨',  salary: 32 },
+      { id: 'consultant',      name: 'Comptable',          icon: '📊',  salary: 35 },
+      { id: 'circuit_vitesse', name: 'Pilote de course',   icon: '🏎️',  salary: 35 },
+      { id: 'doctor',          name: 'Médecin',            icon: '🩺',  salary: 45 },
+      { id: 'banker',          name: 'Banquier',           icon: '🏦',  salary: 55 },
+    ];
+
+    // ── Lancer un métier ────────────────────────────────────────────────────
+    const _MT_JOBS = new Set(['farm','cashier','worker','chef','security','nurse','doctor','hotel','football','consultant','banker']);
+
+    function launchJob(job) {
+      if (State.inWorkMode || State.inPortalGame) return;
+      Jobs.hire(job);
+      if (job.id === 'circuit_vitesse' || _MT_JOBS.has(job.id)) initRenderer();
+      Jobs.enterWork();
+    }
+
+    // ── Construire la grille ────────────────────────────────────────────────
+    const grid = document.getElementById('jobs-grid');
+    JOB_LIST.forEach(job => {
+      const card = document.createElement('div');
+      card.className = 'job-card';
+      card.innerHTML = `
+        <span class="job-icon">${job.icon}</span>
+        <span class="job-name">${job.name}</span>
+        <span class="job-salary">+${job.salary}$ / min</span>
+      `;
+      card.addEventListener('click',      () => launchJob(job));
+      card.addEventListener('touchstart', e  => { e.preventDefault(); launchJob(job); }, { passive: false });
+      grid.appendChild(card);
+    });
+
+    document.getElementById('bk-exit-btn').addEventListener('click',      () => Jobs.exitWork());
+    document.getElementById('bk-exit-btn').addEventListener('touchstart', e  => { e.preventDefault(); Jobs.exitWork(); }, { passive: false });
+
+    requestAnimationFrame(loop);
+  </script>
+
+</body>
+</html>

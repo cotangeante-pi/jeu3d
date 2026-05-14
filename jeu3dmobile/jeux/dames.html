@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Jeu de Dames</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -380,11 +380,21 @@ function getAllColorMoves(brd,color){
   return capMoves.length>0?capMoves:simMoves;
 }
 
+const _h32D=(n)=>{n=n|0;n^=n>>>16;n=Math.imul(n,0x85ebca6b)|0;n^=n>>>13;n=Math.imul(n,0xc2b2ae35)|0;return(n^n>>>16)>>>0;};
+const _ZD=new Uint32Array(256);for(let i=0;i<256;i++)_ZD[i]=_h32D(i*1664525+1013904223);
+const _ZDT=_h32D(0xabcd1234);
+const _TND=1<<20,_TMD=_TND-1;
+const _tKD=new Uint32Array(_TND),_tSD=new Int32Array(_TND),_tDD=new Uint8Array(_TND),_tFD=new Uint8Array(_TND);
+function _dmHash(brd,mx){let h=mx?_ZDT:0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=brd[r][c];if(p)h^=_ZD[(r*8+c)*4+(p.color>0?0:2)+(p.type-1)];}return h>>>0;}
+
 function minimaxDames(brd,depth,alpha,beta,maximizing){
+  const oa=alpha,ob=beta;
+  const hk=_dmHash(brd,maximizing),idx=hk&_TMD;
+  if(_tKD[idx]===hk&&_tDD[idx]>=depth){const f=_tFD[idx],s=_tSD[idx];if(f===1)return s;if(f===2&&s>alpha)alpha=s;else if(f===3&&s<beta)beta=s;if(alpha>=beta)return s;}
   if(depth===0) return evaluate(brd);
   const color=maximizing?BOT:PLAYER;
   const moves=getAllColorMoves(brd,color);
-  if(moves.length===0) return maximizing?-99999:99999;
+  if(moves.length===0){const s=maximizing?-99999:99999;_tKD[idx]=hk;_tSD[idx]=s;_tDD[idx]=depth;_tFD[idx]=1;return s;}
 
   if(maximizing){
     let best=-Infinity;
@@ -392,12 +402,10 @@ function minimaxDames(brd,depth,alpha,beta,maximizing){
       const nb=mv.isCapture
         ?applyCapture(brd,mv.fromR,mv.fromC,mv.cap)
         :applySimpleMove(brd,mv.fromR,mv.fromC,mv.move);
-      // Multicapture : si prise et encore des prises possibles, continuer
       let score;
       if(mv.isCapture){
         const furtherCaps=getCaptures(nb,mv.cap.r,mv.cap.c,null,null);
         if(furtherCaps.length>0&&depth>0){
-          // Simuler le tour continue
           score=minimaxDamesCapture(nb,depth,alpha,beta,maximizing,mv.cap.r,mv.cap.c);
         } else {
           score=minimaxDames(nb,depth-1,alpha,beta,false);
@@ -409,6 +417,7 @@ function minimaxDames(brd,depth,alpha,beta,maximizing){
       alpha=Math.max(alpha,score);
       if(beta<=alpha) break;
     }
+    const fl=best<=oa?3:best>=ob?2:1;_tKD[idx]=hk;_tSD[idx]=best;_tDD[idx]=depth;_tFD[idx]=fl;
     return best;
   } else {
     let best=Infinity;
@@ -431,6 +440,7 @@ function minimaxDames(brd,depth,alpha,beta,maximizing){
       beta=Math.min(beta,score);
       if(beta<=alpha) break;
     }
+    const fl=best<=oa?3:best>=ob?2:1;_tKD[idx]=hk;_tSD[idx]=best;_tDD[idx]=depth;_tFD[idx]=fl;
     return best;
   }
 }
@@ -478,7 +488,8 @@ function botTurn(){
   if(GameUtils.shouldRandomize()){
     bestMv=allMoves[Math.floor(Math.random()*allMoves.length)];
   } else {
-    const depth=Math.max(1,GameUtils.getDepth());
+    _tKD.fill(0);
+    const depth=Math.min(14,Math.max(1,GameUtils.getDepth()));
     for(const mv of allMoves){
       const nb=mv.isCapture
         ?applyCapture(board,mv.fromR,mv.fromC,mv.cap)
@@ -542,12 +553,12 @@ function checkWin(){
   if(gameOver) return;
   const {men:pm,kings:pk}=countPieces(board,PLAYER);
   const {men:bm,kings:bk}=countPieces(board,BOT);
-  if(pm+pk===0){gameOver=true;updateStatus('Le bot gagne !',true);return;}
-  if(bm+bk===0){gameOver=true;updateStatus('Vous gagnez !',true);return;}
-  const playerMoves=getAllColorMoves(board,PLAYER);
-  if(playerMoves.length===0){gameOver=true;updateStatus('Vous êtes bloqué ! Le bot gagne.',true);return;}
-  if(turn===PLAYER){
-    const hasCapt=hasMandatoryCapture(board,PLAYER);
+  if(pm+pk===0){gameOver=true;updateStatus(myColor===BOT?'Vous gagnez !':onlineMode?'Adversaire gagne !':'Le bot gagne !',true);return;}
+  if(bm+bk===0){gameOver=true;updateStatus(myColor===PLAYER?'Vous gagnez !':onlineMode?'Adversaire gagne !':'Le bot gagne !',true);return;}
+  const playerMoves=getAllColorMoves(board,myColor);
+  if(playerMoves.length===0){gameOver=true;updateStatus(myColor===PLAYER?'Vous êtes bloqué !':'Adversaire bloqué !',true);return;}
+  if(turn===myColor){
+    const hasCapt=hasMandatoryCapture(board,myColor);
     if(hasCapt) updateStatus('Prise obligatoire !','warn');
     else updateStatus('À vous de jouer !');
   } else {
@@ -563,7 +574,7 @@ function cellFromXY(x,y){
 }
 
 function handleClick(x,y){
-  if(gameOver||turn!==PLAYER) return;
+  if(gameOver||turn!==myColor) return;
   const {r,c}=cellFromXY(x,y);
   if(r<0||r>=8||c<0||c>=8) return;
   if((r+c)%2===0) return; // case claire, non jouable
@@ -590,14 +601,14 @@ function handleClick(x,y){
       }
     }
     // Si clic ailleurs, annuler sélection
-    if(board[r][c]&&board[r][c].color===PLAYER){
+    if(board[r][c]&&board[r][c].color===myColor){
       // Changer de pièce seulement si pas dans une chaîne
       // En chaîne, on doit finir
     }
     return;
   }
 
-  const mandatory=hasMandatoryCapture(board,PLAYER);
+  const mandatory=hasMandatoryCapture(board,myColor);
 
   if(selected){
     // Essayer de jouer vers cette case
@@ -622,7 +633,7 @@ function handleClick(x,y){
         }
       }
       // Clic sur une autre pièce qui peut capturer
-      if(board[r][c]&&board[r][c].color===PLAYER&&getCaptures(board,r,c,null,null).length>0){
+      if(board[r][c]&&board[r][c].color===myColor&&getCaptures(board,r,c,null,null).length>0){
         selected={r,c};
         highlights=getCaptures(board,r,c,null,null).map(c=>({r:c.r,c:c.c}));
         draw();
@@ -639,7 +650,7 @@ function handleClick(x,y){
       }
     }
     // Clic sur autre pièce joueur
-    if(board[r][c]&&board[r][c].color===PLAYER){
+    if(board[r][c]&&board[r][c].color===myColor){
       selectPiece(r,c,mandatory);
       return;
     }
@@ -649,7 +660,7 @@ function handleClick(x,y){
   }
 
   // Sélectionner une pièce
-  if(board[r][c]&&board[r][c].color===PLAYER){
+  if(board[r][c]&&board[r][c].color===myColor){
     selectPiece(r,c,mandatory);
   }
 }
@@ -700,11 +711,11 @@ function updateScore(){
 }
 
 // ===================== DÉMARRAGE =====================
-let onlineMode=false, onlineIsHost=false;
+let onlineMode=false, onlineIsHost=false; let myColor=PLAYER;
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>initBoard());
 GameUtils.createOnlineButton(_guRow,'dames',{
-  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;initBoard();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myColor=info.isHost?PLAYER:BOT;initBoard();},
   onMove:(data)=>{
     if(data.type==='capture'){board=applyCapture(board,data.fromR,data.fromC,data.cap);updateScore();draw();}
     else if(data.type==='move'){board=applySimpleMove(board,data.fromR,data.fromC,data.move);draw();}

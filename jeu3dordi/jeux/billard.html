@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Billard 8-Ball</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;overflow:hidden;}
@@ -71,6 +71,7 @@ const BALL_COLORS={
 
 let balls=[], cueBall, dragging=false, dragStart={x:0,y:0}, dragCur={x:0,y:0};
 let currentPlayer=0; // 0=human,1=bot
+let onlineMode=false, onlineIsHost=false; let myPlayer=0;
 let playerType={0:'solid',1:'stripe'}; // assigned after break
 let typeAssigned=false;
 let pocketed={solid:0,stripe:0};
@@ -107,8 +108,8 @@ function initGame(){
 function setMsg(m){document.getElementById('msg').textContent=m;}
 function updateHUD(){
   document.getElementById('p1hud').textContent=`🟡 Vous (${playerType[0]||'?'}): ${pocketed.solid}`;
-  document.getElementById('p2hud').textContent=`🔴 Bot (${playerType[1]||'?'}): ${pocketed.stripe}`;
-  let tn=currentPlayer===0?'Votre tour':'Tour du bot';
+  document.getElementById('p2hud').textContent=`🔴 ${onlineMode?'Adv.':'Bot'} (${playerType[1]||'?'}): ${pocketed.stripe}`;
+  let tn=currentPlayer===myPlayer?'Votre tour':(onlineMode?"Tour de l'adversaire":'Tour du bot');
   document.getElementById('turnhud').textContent=tn;
   document.getElementById('p1hud').className='hud-box'+(currentPlayer===0?' active':'');
   document.getElementById('p2hud').className='hud-box'+(currentPlayer===1?' active':'');
@@ -172,9 +173,9 @@ function onBallPocketed(b){
     let myType=playerType[currentPlayer];
     let myCount=myType==='solid'?pocketed.solid:pocketed.stripe;
     if(myCount>=7){ // all mine pocketed
-      setTimeout(()=>endGame(currentPlayer===0?'Vous gagnez ! 🎱':'Le bot gagne !'),600);
+      setTimeout(()=>endGame(currentPlayer===myPlayer?'Vous gagnez ! 🎱':(onlineMode?'Adversaire gagne !':'Le bot gagne !')),600);
     } else {
-      setTimeout(()=>endGame(currentPlayer===0?'Foul ! Bot gagne.':'Vous gagnez !'),600);
+      setTimeout(()=>endGame(currentPlayer===myPlayer?'Foul ! Adversaire gagne.':'Vous gagnez !'),600);
     }
     eightPocketed=true; return;
   }
@@ -199,7 +200,7 @@ function respawnCue(){
 function switchTurn(){
   currentPlayer=1-currentPlayer;
   updateHUD();
-  if(currentPlayer===1&&!gameOver){
+  if(!onlineMode&&currentPlayer===1&&!gameOver){
     setTimeout(botShoot,800);
   }
 }
@@ -306,6 +307,7 @@ function startPhysics(){
 
 function shoot(power,angle){
   if(cueBall.pocketed)return;
+  if(onlineMode&&currentPlayer===myPlayer) GameUtils.sendMove({type:'shot',power,angle});
   let maxForce=20;
   cueBall.vx=Math.cos(angle)*power*maxForce;
   cueBall.vy=Math.sin(angle)*power*maxForce;
@@ -321,7 +323,7 @@ function getPos(e){
 }
 
 canvas.addEventListener('mousedown',e=>{
-  if(currentPlayer!==0||animating||gameOver||cueBall.pocketed)return;
+  if(currentPlayer!==myPlayer||animating||gameOver||cueBall.pocketed)return;
   let p=getPos(e); dragStart={...p}; dragCur={...p}; dragging=true;
 });
 canvas.addEventListener('mousemove',e=>{
@@ -346,7 +348,7 @@ canvas.addEventListener('mouseup',e=>{
 // Touch events
 canvas.addEventListener('touchstart',e=>{
   e.preventDefault();
-  if(currentPlayer!==0||animating||gameOver||cueBall.pocketed)return;
+  if(currentPlayer!==myPlayer||animating||gameOver||cueBall.pocketed)return;
   let p=getPos(e); dragStart={...p}; dragCur={...p}; dragging=true;
 },{passive:false});
 canvas.addEventListener('touchmove',e=>{
@@ -412,8 +414,8 @@ function endGame(msg){
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>initGame());
 GameUtils.createOnlineButton(_guRow,'billard',{
-  onConnected:(info)=>{initGame();},
-  onMove:()=>{}
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myPlayer=info.isHost?0:1;initGame();},
+  onMove:(data)=>{if(data.type==='shot')shoot(data.power,data.angle);}
 });
 GameUtils.showTutorial('billard', initGame);
 </script>

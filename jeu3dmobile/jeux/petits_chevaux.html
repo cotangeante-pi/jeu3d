@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Petits Chevaux</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px;}
@@ -83,6 +83,7 @@ function startGame(){
     Y: Array.from({length:4},()=>({pos:-1, homeStep:0, done:false})),
     R: Array.from({length:4},()=>({pos:-1, homeStep:0, done:false}))
   };
+let onlineMode=false, onlineIsHost=false; let myTurn='Y';
   currentTurn = 'Y'; diceVal = 0; diceRolled = false; gameOver = false;
   document.getElementById('win-screen').style.display = 'none';
   document.getElementById('roll-btn').disabled = false;
@@ -202,7 +203,7 @@ function checkWin(){
   for(let col of ['Y','R']){
     if(state[col].every(p=>p.done)){
       gameOver = true;
-      document.getElementById('win-text').textContent = col==='Y'?'Vous avez gagné ! 🎉':'Le bot a gagné !';
+      document.getElementById('win-text').textContent = col===myTurn?'Vous avez gagné ! 🎉':(onlineMode?'Adversaire gagne !':'Le bot a gagné !');
       document.getElementById('win-screen').style.display='block';
       return true;
     }
@@ -325,7 +326,7 @@ function drawPieces(){
 
 // Click handler
 canvas.addEventListener('click', e=>{
-  if(currentTurn!=='Y'||!diceRolled||gameOver) return;
+  if((onlineMode?currentTurn!==myTurn:currentTurn!=='Y')||!diceRolled||gameOver) return;
   let rect=canvas.getBoundingClientRect();
   let sx=canvas.width/rect.width, sy=canvas.height/rect.height;
   let mx=(e.clientX-rect.left)*sx, my=(e.clientY-rect.top)*sy;
@@ -349,7 +350,7 @@ canvas.addEventListener('touchend',e=>{
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>startGame());
 GameUtils.createOnlineButton(_guRow,'petits_chevaux',{
-  onConnected:(info)=>{startGame();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myTurn=info.isHost?'Y':'R';startGame();},
   onMove:()=>{}
 });
 GameUtils.showTutorial('petits_chevaux', startGame);

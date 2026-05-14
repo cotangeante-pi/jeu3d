@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Scrabble</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:8px;}
@@ -123,6 +123,7 @@ function buildBonus(){
 }
 
 let board,bonus,playerHand,botHand,bagTiles,pScore,bScore,playerTurn,placed,selTile,direction,gameOver,firstMove;
+let onlineMode=false, onlineIsHost=false;
 
 function initGame(){
   bonus=buildBonus();
@@ -200,7 +201,7 @@ function selectTile(i){selTile=i;renderHand();}
 function toggleDir(){direction=direction==='H'?'V':'H';renderAll();}
 
 function cellClick(r,c){
-  if(!playerTurn||gameOver) return;
+  if(gameOver||(onlineMode ? (onlineIsHost?!playerTurn:playerTurn) : !playerTurn)) return;
   if(board[r][c]){setMsg('Case déjà occupée !');return;}
   let existingIdx=placed.findIndex(p=>p.r===r&&p.c===c);
   if(existingIdx>=0){
@@ -273,7 +274,7 @@ function calcWordScore(letters){
 }
 
 function validate(){
-  if(!playerTurn||gameOver) return;
+  if(gameOver||(onlineMode ? (onlineIsHost?!playerTurn:playerTurn) : !playerTurn)) return;
   if(placed.length===0){setMsg('Posez au moins une tuile !');return;}
   // Check inline
   let rows=placed.map(p=>p.r),cols=placed.map(p=>p.c);
@@ -322,7 +323,7 @@ function validate(){
 }
 
 function passTurn(){
-  if(!playerTurn||gameOver)return;
+  if(gameOver||(onlineMode ? (onlineIsHost?!playerTurn:playerTurn) : !playerTurn))return;
   recall();
   setMsg('Vous passez votre tour.');
   playerTurn=false;
@@ -390,7 +391,7 @@ function setMsg(m){document.getElementById('msg').textContent=m;}
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>initGame());
 GameUtils.createOnlineButton(_guRow,'scrabble',{
-  onConnected:(info)=>{initGame();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;initGame();},
   onMove:()=>{}
 });
 GameUtils.showTutorial('scrabble', initGame);

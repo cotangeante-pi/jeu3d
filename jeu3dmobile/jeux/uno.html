@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Uno</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background:#0a0e1a;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px;}
@@ -81,6 +81,7 @@ h1{color:#f1c40f;font-size:1.3rem;margin-bottom:8px;}
 const COLORS=['red','blue','green','yellow'];
 const SPECIALS=['+2','S','R'];
 let deck=[],playerHand=[],botHand=[],discard=[],currentColor='',currentValue='',botTurn=false,pendingWild=false,gameOver=false;
+let onlineMode=false, onlineIsHost=false;
 
 function makeCard(color,value){return{color,value,id:Math.random()};}
 function buildDeck(){
@@ -169,7 +170,7 @@ function setInfo(msg){document.getElementById('info').textContent=msg;}
 function setStatus(msg){document.getElementById('status').textContent=msg;}
 
 function playCard(i){
-  if(botTurn||gameOver)return;
+  if(onlineMode ? (!onlineIsHost?!botTurn:botTurn) : botTurn||gameOver)return;
   let card=playerHand[i];
   if(!canPlay(card)){setInfo("Carte non valide !");return;}
   playerHand.splice(i,1);
@@ -283,7 +284,7 @@ function endGame(msg){
 
 // Draw pile click
 document.getElementById('draw-pile').addEventListener('click',()=>{
-  if(botTurn||gameOver)return;
+  if(onlineMode ? (!onlineIsHost?!botTurn:botTurn) : botTurn||gameOver)return;
   let d=draw(1);
   if(d.length===0){setInfo("Pioche vide !");return;}
   playerHand.push(...d);
@@ -298,7 +299,7 @@ document.getElementById('draw-pile').addEventListener('touchend',e=>{e.preventDe
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>initGame());
 GameUtils.createOnlineButton(_guRow,'uno',{
-  onConnected:(info)=>{initGame();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;initGame();},
   onMove:()=>{}
 });
 GameUtils.showTutorial('uno', initGame);

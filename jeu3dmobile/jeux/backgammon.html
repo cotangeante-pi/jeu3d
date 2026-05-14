@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Backgammon</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -143,6 +143,7 @@ window.addEventListener('resize', resize);
 // ── Constants ───────────────────────────────────────────
 const PLAYER = 'player'; // yellow, moves 24->1
 const BOT    = 'bot';    // red,    moves 1->24
+let onlineMode=false, onlineIsHost=false; let myRole=PLAYER;
 
 // ── State ────────────────────────────────────────────────
 let board, bar, off, dice, diceUsed, turn, selected, phase, winner;
@@ -172,9 +173,9 @@ function initGame() {
   turn     = PLAYER;
   phase    = 'roll'; // 'roll' | 'move' | 'over'
   winner   = null;
-  document.getElementById('btnRoll').disabled = false;
+  document.getElementById('btnRoll').disabled = (onlineMode ? myRole!==PLAYER : false);
   draw();
-  setStatus('À vous de jouer – Lancez les dés !');
+  setStatus(onlineMode&&myRole!==PLAYER?"Tour de l'adversaire…":'À vous de jouer – Lancez les dés !');
 }
 
 function set(idx, count, owner) {
@@ -201,11 +202,11 @@ document.getElementById('btnRoll').addEventListener('click', () => {
 
   // Check if any move possible
   if (!hasAnyMove(turn)) {
-    const who = turn === PLAYER ? 'Vous' : 'Le bot';
+    const who = turn === myRole ? 'Vous' : (onlineMode?'Adversaire':'Le bot');
     setStatus(`${who} : aucun coup possible. Tour passé.`);
     endTurn();
-  } else if (turn === BOT) {
-    setTimeout(botTurn, 700);
+  } else if (onlineMode ? turn!==myRole : turn === BOT) {
+    if(!onlineMode) setTimeout(botTurn, 700);
   } else {
     setStatus('Cliquez une de vos pièces');
     draw();
@@ -602,21 +603,22 @@ function getDieUsed(fromPt, toPt, who) {
 }
 
 function checkWin() {
-  if (off.player === 15) { winner = PLAYER; phase = 'over'; setStatus('Vous avez gagné ! 🎉'); return true; }
-  if (off.bot === 15)    { winner = BOT;    phase = 'over'; setStatus('Le bot a gagné ! 🤖'); return true; }
+  if (off.player === 15) { winner = PLAYER; phase = 'over'; setStatus(myRole===PLAYER?'Vous avez gagné ! 🎉':'Adversaire a gagné !'); return true; }
+  if (off.bot === 15)    { winner = BOT;    phase = 'over'; setStatus(myRole===BOT?'Vous avez gagné ! 🎉':onlineMode?'Adversaire a gagné !':'Le bot a gagné ! 🤖'); return true; }
   return false;
 }
 
 function endTurn() {
   selected = null;
   if (checkWin()) { draw(); return; }
+  if (onlineMode) GameUtils.sendMove({type:'endturn'});
   turn = turn === PLAYER ? BOT : PLAYER;
   phase = 'roll';
-  document.getElementById('btnRoll').disabled = (turn === BOT);
+  document.getElementById('btnRoll').disabled = (onlineMode ? turn!==myRole : turn === BOT);
   dice = []; diceUsed = [];
   updateDiceUI();
-  if (turn === BOT) {
-    setTimeout(() => {
+  if (onlineMode ? turn!==myRole : turn === BOT) {
+    if(!onlineMode) setTimeout(() => {
       dice     = rollDice();
       diceUsed = dice.map(() => false);
       updateDiceUI();
@@ -624,6 +626,7 @@ function endTurn() {
       if (!hasAnyMove(BOT)) { setStatus('Bot : aucun coup possible.'); endTurn(); return; }
       setTimeout(botTurn, 500);
     }, 600);
+    else setStatus("Tour de l'adversaire…");
   } else {
     setStatus('À vous ! Lancez les dés.');
     document.getElementById('btnRoll').disabled = false;
@@ -706,19 +709,20 @@ function bearOffHit(x, y) {
 }
 
 function handleClick(cx, cy) {
-  if (phase !== 'move' || turn !== PLAYER) return;
+  if (phase !== 'move' || turn !== myRole) return;
 
   // Bar logic
-  if (bar.player > 0) {
-    const entries = barEntryPoints(PLAYER);
+  if (bar[myRole] > 0) {
+    const entries = barEntryPoints(myRole);
     const pt = ptFromXY(cx, cy);
     if (pt && entries.includes(pt)) {
-      const d = 25 - pt; // die value for player bar entry
+      const barFrom=myRole===PLAYER?25:0; const d=myRole===PLAYER?25-pt:pt;
       useDie(d);
-      applyMove(PLAYER, 25, pt);
+      applyMove(myRole, barFrom, pt);
+      if(onlineMode) GameUtils.sendMove({type:'move',from:barFrom,to:pt});
       updateDiceUI();
       selected = null;
-      if (!remainingDice().length || !hasAnyMove(PLAYER)) {
+      if (!remainingDice().length || !hasAnyMove(myRole)) {
         draw(); endTurn();
       } else {
         draw();
@@ -733,8 +737,8 @@ function handleClick(cx, cy) {
   const pt = ptFromXY(cx, cy);
 
   if (selected === null) {
-    if (pt && board[pt-1].owner === PLAYER && board[pt-1].count > 0) {
-      if (validMoves(PLAYER, pt).length > 0) {
+    if (pt && board[pt-1].owner === myRole && board[pt-1].count > 0) {
+      if (validMoves(myRole, pt).length > 0) {
         selected = pt - 1;
         draw();
         setStatus(`Point ${pt} sélectionné. Choisissez la destination.`);
@@ -744,32 +748,34 @@ function handleClick(cx, cy) {
     }
   } else {
     const fromPt = selected + 1;
-    const moves  = validMoves(PLAYER, fromPt);
+    const moves  = validMoves(myRole, fromPt);
 
     // Bear off click
     if (bearOffHit(cx, cy) && moves.includes(0)) {
-      const dieVal = getDieUsed(fromPt, 0, PLAYER);
+      const dieVal = getDieUsed(fromPt, 0, myRole);
       useDie(dieVal);
-      applyMove(PLAYER, fromPt, 0);
+      applyMove(myRole, fromPt, 0);
+      if(onlineMode) GameUtils.sendMove({type:'move',from:fromPt,to:0});
       selected = null;
       updateDiceUI();
-      if (!remainingDice().length || !hasAnyMove(PLAYER)) {
+      if (!remainingDice().length || !hasAnyMove(myRole)) {
         draw(); endTurn();
       } else { draw(); setStatus('Continuez à jouer'); }
       return;
     }
 
     if (pt && moves.includes(pt)) {
-      const dieVal = getDieUsed(fromPt, pt, PLAYER);
+      const dieVal = getDieUsed(fromPt, pt, myRole);
       useDie(dieVal);
-      applyMove(PLAYER, fromPt, pt);
+      applyMove(myRole, fromPt, pt);
+      if(onlineMode) GameUtils.sendMove({type:'move',from:fromPt,to:pt});
       selected = null;
       updateDiceUI();
-      if (!remainingDice().length || !hasAnyMove(PLAYER)) {
+      if (!remainingDice().length || !hasAnyMove(myRole)) {
         draw(); endTurn();
       } else { draw(); setStatus('Continuez à jouer'); }
-    } else if (pt && board[pt-1].owner === PLAYER && board[pt-1].count > 0 && pt-1 !== selected) {
-      if (validMoves(PLAYER, pt).length > 0) {
+    } else if (pt && board[pt-1].owner === myRole && board[pt-1].count > 0 && pt-1 !== selected) {
+      if (validMoves(myRole, pt).length > 0) {
         selected = pt - 1;
         draw();
         setStatus(`Point ${pt} sélectionné.`);
@@ -805,8 +811,11 @@ function setStatus(msg) {
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>initGame());
 GameUtils.createOnlineButton(_guRow,'backgammon',{
-  onConnected:(info)=>{initGame();},
-  onMove:(data)=>{if(data.type==='move'){applyMove(BOT,data.from,data.to);updateDiceUI();draw();}}
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myRole=info.isHost?PLAYER:BOT;initGame();},
+  onMove:(data)=>{
+    if(data.type==='move'){applyMove(myRole===PLAYER?BOT:PLAYER,data.from,data.to);updateDiceUI();draw();}
+    else if(data.type==='endturn'){turn=myRole;phase='roll';dice=[];diceUsed=[];updateDiceUI();document.getElementById('btnRoll').disabled=false;setStatus('À vous ! Lancez les dés.');draw();}
+  }
 });
 resize();
 GameUtils.showTutorial('backgammon', initGame);

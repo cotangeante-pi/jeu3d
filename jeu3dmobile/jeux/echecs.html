@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Échecs</title>
-<script src="../game_utils.js"></script>
+<script src="game_utils.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -499,35 +499,40 @@ function getAllMoves(brd,color){
   return moves;
 }
 
+const _h32C=(n)=>{n=n|0;n^=n>>>16;n=Math.imul(n,0x85ebca6b)|0;n^=n>>>13;n=Math.imul(n,0xc2b2ae35)|0;return(n^n>>>16)>>>0;};
+const _ZC=new Uint32Array(768);for(let i=0;i<768;i++)_ZC[i]=_h32C(i*1664525+1013904223);
+const _ZCT=_h32C(0xf00dcafe);
+const _TNC=1<<20,_TMC=_TNC-1;
+const _tKC=new Uint32Array(_TNC),_tSC=new Int32Array(_TNC),_tDC=new Uint8Array(_TNC),_tFC=new Uint8Array(_TNC);
+function _chHash(brd,mx){let h=mx?_ZCT:0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=brd[r][c];if(p)h^=_ZC[(r*8+c)*12+(p.type-1)*2+(p.color>0?0:1)];}return h>>>0;}
+
 function minimax(brd,depth,alpha,beta,maximizing,ep,cast){
+  const oa=alpha,ob=beta;
+  const hk=_chHash(brd,maximizing),idx=hk&_TMC;
+  if(_tKC[idx]===hk&&_tDC[idx]>=depth){const f=_tFC[idx],s=_tSC[idx];if(f===1)return s;if(f===2&&s>alpha)alpha=s;else if(f===3&&s<beta)beta=s;if(alpha>=beta)return s;}
   if(depth===0) return evaluate(brd);
-  const color=maximizing?BLACK:WHITE; // IA = noirs (maximizing)
+  const color=maximizing?BLACK:WHITE;
   const moves=getAllMoves(brd,color);
   if(moves.length===0){
     if(isInCheck(brd,color)) return maximizing?-99999:99999;
-    return 0; // Pat
+    return 0;
   }
-  if(maximizing){
-    let best=-Infinity;
-    for(const {fromR,fromC,move} of moves){
-      const nb=applyMove(brd,fromR,fromC,move,ep,cast);
-      const score=minimax(nb,depth-1,alpha,beta,false,null,cast);
-      best=Math.max(best,score);
-      alpha=Math.max(alpha,score);
-      if(beta<=alpha) break;
-    }
-    return best;
-  } else {
-    let best=Infinity;
-    for(const {fromR,fromC,move} of moves){
-      const nb=applyMove(brd,fromR,fromC,move,ep,cast);
-      const score=minimax(nb,depth-1,alpha,beta,true,null,cast);
-      best=Math.min(best,score);
-      beta=Math.min(beta,score);
-      if(beta<=alpha) break;
-    }
-    return best;
+  moves.sort((a,b)=>{
+    const va=brd[a.move.r]&&brd[a.move.r][a.move.c]?PIECE_VALUE[brd[a.move.r][a.move.c].type]||0:0;
+    const vb=brd[b.move.r]&&brd[b.move.r][b.move.c]?PIECE_VALUE[brd[b.move.r][b.move.c].type]||0:0;
+    return vb-va;
+  });
+  let best=maximizing?-Infinity:Infinity;
+  for(const {fromR,fromC,move} of moves){
+    const nb=applyMove(brd,fromR,fromC,move,ep,cast);
+    const score=minimax(nb,depth-1,alpha,beta,!maximizing,null,cast);
+    if(maximizing){if(score>best)best=score;alpha=Math.max(alpha,score);}
+    else{if(score<best)best=score;beta=Math.min(beta,score);}
+    if(beta<=alpha) break;
   }
+  const fl=best<=oa?3:best>=ob?2:1;
+  _tKC[idx]=hk;_tSC[idx]=best;_tDC[idx]=depth;_tFC[idx]=fl;
+  return best;
 }
 
 function botMove(){
@@ -538,8 +543,14 @@ function botMove(){
   if(GameUtils.shouldRandomize()){
     bestMove=moves[Math.floor(Math.random()*moves.length)];
   } else {
+    _tKC.fill(0);
     let bestScore=-Infinity;
-    const depth=Math.max(1,GameUtils.getDepth());
+    const depth=Math.min(8,Math.max(1,GameUtils.getDepth()));
+    moves.sort((a,b)=>{
+      const va=board[a.move.r]&&board[a.move.r][a.move.c]?PIECE_VALUE[board[a.move.r][a.move.c].type]||0:0;
+      const vb=board[b.move.r]&&board[b.move.r][b.move.c]?PIECE_VALUE[board[b.move.r][b.move.c].type]||0:0;
+      return vb-va;
+    });
     for(const mv of moves){
       const nb=applyMove(board,mv.fromR,mv.fromC,mv.move,enPassant,castling);
       const score=minimax(nb,depth-1,-Infinity,Infinity,false,null,castling);
@@ -551,7 +562,7 @@ function botMove(){
 
 // ===================== APPLIQUER UN COUP =====================
 function doMove(fromR,fromC,move,remote=false){
-  if(onlineMode&&!remote&&turn===WHITE){
+  if(onlineMode&&!remote&&turn===myColor){
     GameUtils.sendMove({type:'move',fromR,fromC,move});
   }
   const p=board[fromR][fromC];
@@ -596,9 +607,9 @@ function checkEndgame(){
   if(inCheck){
     updateStatus('Échec !',true);
   } else {
-    updateStatus(turn===WHITE?'À vous de jouer !':'Bot réfléchit...');
+    updateStatus(turn===myColor?'À vous de jouer !':onlineMode?'Adversaire réfléchit…':'Bot réfléchit...');
   }
-  if(turn===BLACK&&!gameOver){
+  if(turn!==myColor&&!gameOver){
     if(onlineMode){updateStatus('Adversaire réfléchit…');return;}
     thinkingTimeout=setTimeout(botMove,350);
   }
@@ -610,7 +621,7 @@ function cellFromXY(x,y){
 }
 
 function handleClick(x,y){
-  if(gameOver||turn!==WHITE) return;
+  if(gameOver||turn!==myColor) return;
   const {r,c}=cellFromXY(x,y);
   if(!rc(r,c)) return;
 
@@ -624,7 +635,7 @@ function handleClick(x,y){
   }
   // Sélectionner pièce blanche
   const p=board[r][c];
-  if(p&&p.color===WHITE){
+  if(p&&p.color===myColor){
     selected={r,c};
     legalMoves=getLegalMoves(board,r,c);
   } else {
@@ -655,15 +666,15 @@ function updateStatus(msg,isCheck=false){
   el.textContent=msg;
   el.className=isCheck?'check':'';
   const tw=document.getElementById('turn-text');
-  tw.textContent=turn===WHITE?'Blancs (vous)':'Noirs (bot)';
+  tw.textContent=turn===myColor?(myColor===WHITE?'Blancs':'Noirs')+' (vous)':(myColor===WHITE?'Noirs':'Blancs')+(onlineMode?' (adv.)':' (bot)');
 }
 
 // ===================== DÉMARRAGE =====================
-let onlineMode=false, onlineIsHost=false;
+let onlineMode=false, onlineIsHost=false; let myColor=WHITE;
 const _guRow=document.getElementById('gu-row');
 GameUtils.createLevelSelector(_guRow,()=>initBoard());
 GameUtils.createOnlineButton(_guRow,'echecs',{
-  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;initBoard();},
+  onConnected:(info)=>{onlineMode=true;onlineIsHost=info.isHost;myColor=info.isHost?WHITE:BLACK;initBoard();},
   onMove:(data)=>{if(data.type==='move')doMove(data.fromR,data.fromC,data.move,true);}
 });
 resize();
