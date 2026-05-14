@@ -509,14 +509,63 @@ const _TNC=1<<20,_TMC=_TNC-1;
 const _tKC=new Uint32Array(_TNC),_tSC=new Int32Array(_TNC),_tDC=new Uint8Array(_TNC),_tFC=new Uint8Array(_TNC);
 function _chHash(brd,mx){let h=mx?_ZCT:0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){const p=brd[r][c];if(p)h^=_ZC[(r*8+c)*12+(p.type-1)*2+(p.color>0?0:1)];}return h>>>0;}
 
+// Retourne les captures légales triées par valeur de la victime (MVV)
+function getAllCaptures(brd,color){
+  const caps=[];
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=brd[r][c];
+    if(p&&p.color===color){
+      for(const m of getLegalMoves(brd,r,c)){
+        const t=brd[m.r]?.[m.c];
+        if((t&&t.color!==color)||m.special==='enpassant')
+          caps.push({fromR:r,fromC:c,move:m});
+      }
+    }
+  }
+  caps.sort((a,b)=>{
+    const va=brd[a.move.r]?.[a.move.c]?PIECE_VALUE[brd[a.move.r][a.move.c].type]:0;
+    const vb=brd[b.move.r]?.[b.move.c]?PIECE_VALUE[brd[b.move.r][b.move.c].type]:0;
+    return vb-va;
+  });
+  return caps;
+}
+
+// Recherche de quiescence : continue les captures à la frontière de profondeur
+function quiesce(brd,alpha,beta,maximizing){
+  if(_aborted) return evaluate(brd);
+  if(++_nodeCount%4096===0&&performance.now()>_deadline){_aborted=true;return evaluate(brd);}
+  const stand=evaluate(brd);
+  if(maximizing){
+    if(stand>=beta) return beta;
+    if(stand>alpha) alpha=stand;
+    for(const {fromR,fromC,move} of getAllCaptures(brd,WHITE)){
+      if(_aborted) break;
+      const score=quiesce(applyMove(brd,fromR,fromC,move,null,null),alpha,beta,false);
+      if(score>=beta) return beta;
+      if(score>alpha) alpha=score;
+    }
+    return alpha;
+  } else {
+    if(stand<=alpha) return alpha;
+    if(stand<beta) beta=stand;
+    for(const {fromR,fromC,move} of getAllCaptures(brd,BLACK)){
+      if(_aborted) break;
+      const score=quiesce(applyMove(brd,fromR,fromC,move,null,null),alpha,beta,true);
+      if(score<=alpha) return alpha;
+      if(score<beta) beta=score;
+    }
+    return beta;
+  }
+}
+
 function minimax(brd,depth,alpha,beta,maximizing,ep,cast){
   if(_aborted) return 0;
   if(++_nodeCount%4096===0&&performance.now()>_deadline){_aborted=true;return 0;}
   const oa=alpha,ob=beta;
   const hk=_chHash(brd,maximizing),idx=hk&_TMC;
   if(_tKC[idx]===hk&&_tDC[idx]>=depth){const f=_tFC[idx],s=_tSC[idx];if(f===1)return s;if(f===2&&s>alpha)alpha=s;else if(f===3&&s<beta)beta=s;if(alpha>=beta)return s;}
-  if(depth===0) return evaluate(brd);
-  const color=maximizing?BLACK:WHITE;
+  if(depth===0) return quiesce(brd,alpha,beta,maximizing);
+  const color=maximizing?WHITE:BLACK;
   const moves=getAllMoves(brd,color);
   if(moves.length===0){
     if(isInCheck(brd,color)) return maximizing?-99999:99999;
@@ -566,18 +615,18 @@ function botMove(){
   for(let depth=1;depth<=20;depth++){
     if(performance.now()>_deadline) break;
     _aborted=false;
-    let iterBest=null,iterScore=-Infinity;
+    let iterBest=null,iterScore=+Infinity;
     for(const mv of moves){
       if(_aborted) break;
       const nb=applyMove(board,mv.fromR,mv.fromC,mv.move,enPassant,castling);
-      const score=minimax(nb,depth-1,-Infinity,Infinity,false,null,castling);
-      if(!_aborted&&score>iterScore){iterScore=score;iterBest=mv;}
+      const score=minimax(nb,depth-1,-Infinity,Infinity,true,null,castling);
+      if(!_aborted&&score<iterScore){iterScore=score;iterBest=mv;}
     }
     if(!_aborted&&iterBest){
       bestMove=iterBest;
       const i=moves.indexOf(iterBest);
       if(i>0){moves.splice(i,1);moves.unshift(iterBest);}
-      if(iterScore>=99999) break;
+      if(iterScore<=-99999) break;
     }
   }
   doMove(bestMove.fromR,bestMove.fromC,bestMove.move);
