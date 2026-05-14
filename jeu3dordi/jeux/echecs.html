@@ -558,7 +558,17 @@ function quiesce(brd,alpha,beta,maximizing){
   }
 }
 
-function minimax(brd,depth,alpha,beta,maximizing,ep,cast){
+// Vérifie qu'il reste des pièces non-roi/non-pion (évite null move en zugzwang)
+function hasNullMovePieces(brd,color){
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=brd[r][c];
+    if(p&&p.color===color&&p.type!==KING&&p.type!==PAWN) return true;
+  }
+  return false;
+}
+
+function minimax(brd,depth,alpha,beta,maximizing,ep,cast,allowNull){
+  if(allowNull===undefined) allowNull=true;
   if(_aborted) return 0;
   if(++_nodeCount%4096===0&&performance.now()>_deadline){_aborted=true;return 0;}
   const oa=alpha,ob=beta;
@@ -566,6 +576,15 @@ function minimax(brd,depth,alpha,beta,maximizing,ep,cast){
   if(_tKC[idx]===hk&&_tDC[idx]>=depth){const f=_tFC[idx],s=_tSC[idx];if(f===1)return s;if(f===2&&s>alpha)alpha=s;else if(f===3&&s<beta)beta=s;if(alpha>=beta)return s;}
   if(depth===0) return quiesce(brd,alpha,beta,maximizing);
   const color=maximizing?WHITE:BLACK;
+  // Null move pruning : si même en ne jouant pas on dépasse beta, on coupe
+  if(allowNull&&depth>=3&&!isInCheck(brd,color)&&hasNullMovePieces(brd,color)){
+    const R=depth>=6?3:2;
+    const nm=minimax(brd,depth-1-R,alpha,beta,!maximizing,null,cast,false);
+    if(!_aborted){
+      if(maximizing&&nm>=beta) return beta;
+      if(!maximizing&&nm<=alpha) return alpha;
+    }
+  }
   const moves=getAllMoves(brd,color);
   if(moves.length===0){
     if(isInCheck(brd,color)) return maximizing?-99999:99999;
@@ -577,9 +596,20 @@ function minimax(brd,depth,alpha,beta,maximizing,ep,cast){
     return vb-va;
   });
   let best=maximizing?-Infinity:Infinity;
+  let mi=0;
   for(const {fromR,fromC,move} of moves){
+    const isCapture=!!(brd[move.r]?.[move.c])||move.special==='enpassant';
     const nb=applyMove(brd,fromR,fromC,move,ep,cast);
-    const score=minimax(nb,depth-1,alpha,beta,!maximizing,null,cast);
+    let score;
+    // Late Move Reduction : réduit la profondeur des coups tardifs non-captures
+    if(depth>=3&&mi>=4&&!isCapture){
+      score=minimax(nb,depth-2,alpha,beta,!maximizing,null,cast,true);
+      if(!_aborted&&((maximizing&&score>alpha)||(!maximizing&&score<beta)))
+        score=minimax(nb,depth-1,alpha,beta,!maximizing,null,cast,true);
+    } else {
+      score=minimax(nb,depth-1,alpha,beta,!maximizing,null,cast,true);
+    }
+    mi++;
     if(_aborted) return best;
     if(maximizing){if(score>best)best=score;alpha=Math.max(alpha,score);}
     else{if(score<best)best=score;beta=Math.min(beta,score);}
@@ -590,7 +620,7 @@ function minimax(brd,depth,alpha,beta,maximizing,ep,cast){
 }
 
 // Budgets en ms par niveau (1→10)
-const _TIME_BUDGET=[0,100,100,150,200,300,400,500,600,800,900];
+const _TIME_BUDGET=[0,100,100,150,200,300,400,600,1000,1800,2800];
 
 function botMove(){
   if(onlineMode){return;}
