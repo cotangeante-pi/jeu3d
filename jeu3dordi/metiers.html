@@ -257,7 +257,10 @@
       CircuitVitesse.tick(delta);
       MondeTravail.tick(delta);
 
-      if (State.renderer) {
+      const _needs3D = Pompier._active || CircuitVitesse._active || MondeTravail._active;
+      const _cvCanvas = document.getElementById('game-canvas');
+      if (_cvCanvas) _cvCanvas.style.display = _needs3D ? 'block' : 'none';
+      if (_needs3D && State.renderer) {
         if      (Pompier._active)        State.renderer.render(Pompier._scene,        Pompier._camera);
         else if (CircuitVitesse._active) State.renderer.render(CircuitVitesse._scene, CircuitVitesse._camera);
         else if (MondeTravail._active)   State.renderer.render(MondeTravail._scene,   MondeTravail._camera);

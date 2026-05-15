@@ -180,7 +180,7 @@ const MondeTelepporte = {
       this._finishAthEvent(medal);
       return;
     }
-    s.progress = Math.max(0, s.progress - 0.012);
+    s.progress = Math.max(0, s.progress - 0.12 * delta);
     const msg = document.getElementById('ath-msg');
     if (msg) msg.textContent = `⏱ ${s.time.toFixed(1)}s  ·  🥇 <4.5s   🥈 <7s   🥉 <10.5s`;
   },
@@ -191,7 +191,7 @@ const MondeTelepporte = {
     const space = State.keys['Space'] || this._ath._mobile;
     if (j.airTime < 0) {
       j.legPhase += delta * 10;
-      j.runX = Math.max(0, j.runX - 0.008);
+      j.runX = Math.max(0, j.runX - 0.08 * delta);
       const aKey = State.keys['KeyA'] || State.keys['ArrowLeft'];
       const dKey = State.keys['KeyD'] || State.keys['ArrowRight'];
       if (aKey && j.lastKey !== 'a') { j.lastKey = 'a'; j.runX = Math.min(1, j.runX + 0.065); }
@@ -218,7 +218,7 @@ const MondeTelepporte = {
     if (j.done) return;
     const space = State.keys['Space'] || this._ath._mobile;
     if (j.airTime < 0) {
-      j.approach = Math.max(0, j.approach - 0.008);
+      j.approach = Math.max(0, j.approach - 0.08 * delta);
       const aKey = State.keys['KeyA'] || State.keys['ArrowLeft'];
       const dKey = State.keys['KeyD'] || State.keys['ArrowRight'];
       if (aKey && j.lastKey !== 'a') { j.lastKey = 'a'; j.approach = Math.min(1, j.approach + 0.08); }

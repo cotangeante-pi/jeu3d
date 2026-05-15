@@ -88,7 +88,11 @@ const CircuitVitesse = {
   _playerCar: null,
   _playerT: 0,
   _playerSpeed: 0,
-  _playerOffset: 0,
+  _playerX: 0,
+  _playerZ: 0,
+  _playerHeading: 0,
+  _playerProjT: 0,
+  _sfCooldownPlayer: 3,
   _playerLap: 0,
   _playerCpDone: null,
   _playerFinished: false,
@@ -289,7 +293,11 @@ const CircuitVitesse = {
     this._lapTimer = 0;
     this._playerT = 0;
     this._playerSpeed = 0;
-    this._playerOffset = 0;
+    this._playerX = 0;
+    this._playerZ = 0;
+    this._playerHeading = 0;
+    this._playerProjT = 0;
+    this._sfCooldownPlayer = 3;
     this._playerLap = 0;
     this._playerCpDone = new Set();
     this._playerFinished = false;
@@ -306,6 +314,14 @@ const CircuitVitesse = {
     }
     this._buildGhostCar();
 
+    // Init physique depuis le départ de la piste
+    if (this._curve) {
+      const sp = this._curve.getPointAt(0);
+      const st = this._curve.getTangentAt(0.01).normalize();
+      this._playerX = sp.x;
+      this._playerZ = sp.z;
+      this._playerHeading = Math.atan2(st.x, -st.z);
+    }
     // Ajuster la caméra pour le rendu circuit
     State.renderer.setSize(window.innerWidth, window.innerHeight);
     this._camera.aspect = window.innerWidth / window.innerHeight;
@@ -481,7 +497,7 @@ const CircuitVitesse = {
         mesh.position.copy(startPt).addScaledVector(right, side * 3.5);
         this._scene.add(mesh);
 
-        const baseSpeed = this._MAX_SPEED * (0.80 + Math.random() * 0.15);
+        const baseSpeed = this._MAX_SPEED * (0.95 + Math.random() * 0.10);
         this._aiCars.push({
           mesh,
           t: Math.max(0, (tOffset + 1) % 1),
@@ -548,31 +564,77 @@ const CircuitVitesse = {
   _updatePlayer(delta) {
     if (this._playerFinished) return;
     const isMobile = 'ontouchstart' in window;
+    const accel = State.keys['KeyW'] || State.keys['ArrowUp']   || (isMobile && State.keys['_cv_accel']);
     const brake = State.keys['KeyS'] || State.keys['ArrowDown'] || (isMobile && State.keys['_cv_brake']);
     const left  = State.keys['KeyA'] || State.keys['ArrowLeft']  || (isMobile && State.keys['_cv_left']);
     const right = State.keys['KeyD'] || State.keys['ArrowRight'] || (isMobile && State.keys['_cv_right']);
 
-    if (brake) this._playerSpeed = Math.max(0, this._playerSpeed - this._BRAKE * delta);
-    else this._playerSpeed = Math.min(this._MAX_SPEED, this._playerSpeed + this._ACCEL * delta);
+    if (accel) {
+      this._playerSpeed = Math.min(this._MAX_SPEED, this._playerSpeed + this._ACCEL * delta);
+    } else if (brake) {
+      this._playerSpeed = Math.max(-this._MAX_SPEED * 0.4, this._playerSpeed - this._BRAKE * delta);
+    } else {
+      this._playerSpeed *= Math.pow(this._DRAG, delta * 60);
+      if (Math.abs(this._playerSpeed) < 0.2) this._playerSpeed = 0;
+    }
 
-    const turnRate = this._STEER_SPEED * (this._playerSpeed / this._MAX_SPEED);
-    if (left)  this._playerOffset = Math.max(-this._TRACK_HALF + 0.9, this._playerOffset - turnRate * delta);
-    if (right) this._playerOffset = Math.min(this._TRACK_HALF - 0.9, this._playerOffset + turnRate * delta);
+    const turnRate = this._STEER_SPEED * (Math.abs(this._playerSpeed) / this._MAX_SPEED);
+    if (left)  this._playerHeading -= turnRate * delta;
+    if (right) this._playerHeading += turnRate * delta;
 
-    this._playerT += this._playerSpeed / this._trackLength * delta;
+    this._playerX += Math.sin(this._playerHeading) * this._playerSpeed * delta;
+    this._playerZ -= Math.cos(this._playerHeading) * this._playerSpeed * delta;
 
-    const t = ((this._playerT % 1) + 1) % 1;
-    const pt = this._curve.getPointAt(t);
-    const tan = this._curve.getTangentAt(t).normalize();
-    const rVec = new THREE.Vector3().crossVectors(tan, new THREE.Vector3(0, 1, 0)).normalize();
+    const projT = this._projectOnCurve(this._playerX, this._playerZ);
+    const pt = this._curve.getPointAt(projT);
+    this._playerCar.position.set(this._playerX, pt.y + 0.28, this._playerZ);
+    this._playerCar.rotation.y = -this._playerHeading;
 
-    this._playerCar.position.copy(pt).addScaledVector(rVec, this._playerOffset);
-    this._playerCar.position.y = pt.y + 0.28;
-    this._playerCar.rotation.y = Math.atan2(-tan.z, tan.x) - Math.PI / 2;
+    this._trackPlayerLap(projT, delta);
 
     if (this._mode === 'record') {
-      this._ghostFrames.push({ t: this._playerT, ms: this._raceTimer * 1000 });
+      this._ghostFrames.push({ t: projT, ms: this._raceTimer * 1000 });
     }
+  },
+
+  _projectOnCurve(x, z) {
+    const N = 150;
+    let bestT = 0, bestDist = Infinity;
+    for (let i = 0; i < N; i++) {
+      const t = i / N;
+      const pt = this._curve.getPointAt(t);
+      const dx = pt.x - x, dz = pt.z - z;
+      const d = dx * dx + dz * dz;
+      if (d < bestDist) { bestDist = d; bestT = t; }
+    }
+    return bestT;
+  },
+
+  _trackPlayerLap(curT, delta) {
+    this._sfCooldownPlayer = Math.max(0, this._sfCooldownPlayer - delta);
+    const lastT = this._playerProjT;
+    [0.25, 0.5, 0.75].forEach((cp, i) => {
+      if (Math.abs(curT - cp) < 0.05) this._playerCpDone.add(i);
+    });
+    if (lastT > 0.85 && curT < 0.15 && this._sfCooldownPlayer <= 0 && this._playerCpDone.size >= 3) {
+      this._playerLap++;
+      this._playerCpDone = new Set();
+      this._sfCooldownPlayer = 3;
+      const lapTime = this._lapTimer;
+      this._lapTimes.push(lapTime);
+      this._lapTimer = 0;
+      if (this._mode === 'record') {
+        const best = this._bestTime;
+        if (!best || lapTime < best) {
+          this._bestTime = lapTime;
+          const el = document.getElementById('cv-hud-best');
+          if (el) el.textContent = '🏆 ' + this._fmtTime(lapTime);
+        }
+      }
+      const tr = this._TRACKS[this._trackIdx];
+      if (this._playerLap >= tr.laps) this._onPlayerFinish();
+    }
+    this._playerProjT = curT;
   },
 
   _updateAI(delta) {
@@ -588,7 +650,7 @@ const CircuitVitesse = {
       const targetSpeed = ai.baseSpeed * Math.max(0.45, 1 - curvature * 4);
 
       // Rubber-band
-      const gap = this._playerT - ai.t;
+      const gap = (this._playerLap + this._playerProjT) - ai.t;
       const rubberBonus = gap > 0.05 ? 1.12 : gap < -0.05 ? 0.92 : 1.0;
       const finalTarget = targetSpeed * rubberBonus;
 
@@ -629,39 +691,6 @@ const CircuitVitesse = {
 
   _checkLap() {
     const tr = this._TRACKS[this._trackIdx];
-    const sfCooldownKey = '_sfCooldownPlayer';
-    if (!this[sfCooldownKey]) this[sfCooldownKey] = 3;
-    this[sfCooldownKey] -= 0.016;
-
-    const checkpoints = [0.25, 0.5, 0.75];
-    const t = ((this._playerT % 1) + 1) % 1;
-    checkpoints.forEach((cp, i) => {
-      if (Math.abs(t - cp) < 0.04) this._playerCpDone.add(i);
-    });
-
-    if (t < 0.04 && this[sfCooldownKey] <= 0 && this._playerCpDone.size >= 3) {
-      this._playerLap++;
-      this._playerCpDone = new Set();
-      this[sfCooldownKey] = 3;
-      const lapTime = this._lapTimer;
-      this._lapTimes.push(lapTime);
-      this._lapTimer = 0;
-
-      if (this._mode === 'record') {
-        const best = this._bestTime;
-        if (!best || lapTime < best) {
-          this._bestTime = lapTime;
-          const el = document.getElementById('cv-hud-best');
-          if (el) el.textContent = '🏆 ' + this._fmtTime(lapTime);
-        }
-      }
-
-      if (this._playerLap >= tr.laps) {
-        this._onPlayerFinish();
-      }
-    }
-
-    // Vérifier si les IA finissent
     this._aiCars.forEach(ai => {
       if (ai.finished) return;
       if (!ai.sfCooldown && ai.t > 0) {
@@ -764,12 +793,13 @@ const CircuitVitesse = {
   // ── Caméra ────────────────────────────────────────────────────────────────
   _updateCamera() {
     const pos = this._playerCar.position;
-    const t = ((this._playerT % 1) + 1) % 1;
-    const tan = this._curve.getTangentAt(t).normalize();
-    const camOffset = tan.clone().multiplyScalar(-7).add(new THREE.Vector3(0, 3, 0));
-    this._camera.position.copy(pos).add(camOffset);
-    const lookAt = pos.clone().add(tan.clone().multiplyScalar(6)).add(new THREE.Vector3(0, 0.5, 0));
-    this._camera.lookAt(lookAt);
+    const h = this._playerHeading;
+    this._camera.position.set(
+      pos.x - Math.sin(h) * 7,
+      pos.y + 3,
+      pos.z + Math.cos(h) * 7
+    );
+    this._camera.lookAt(pos.x + Math.sin(h) * 5, pos.y + 0.5, pos.z - Math.cos(h) * 5);
   },
 
   _rotateWheels(delta) {
@@ -853,8 +883,9 @@ const CircuitVitesse = {
     if (lapEl) lapEl.textContent = `Tour ${Math.min(this._playerLap + 1, tr.laps)} / ${tr.laps}`;
 
     if (this._mode === 'pistes') {
-      const finishedBefore = this._aiCars.filter(a => a.finished && a.t > this._playerT + 0.001).length;
-      const aheadCount = this._aiCars.filter(a => !a.finished && a.t > this._playerT + 0.001).length;
+      const playerTotal = this._playerLap + this._playerProjT;
+      const finishedBefore = this._aiCars.filter(a => a.finished && a.t > playerTotal + 0.001).length;
+      const aheadCount = this._aiCars.filter(a => !a.finished && a.t > playerTotal + 0.001).length;
       const pos = finishedBefore + aheadCount + 1;
       const posEl = document.getElementById('cv-hud-pos');
       if (posEl) posEl.textContent = pos + 'e / ' + (this._aiCars.length + 1);
@@ -927,7 +958,7 @@ const CircuitVitesse = {
     this._aiCars = [];
     this._curve = null;
     this._finishCounter = 0;
-    this[`_sfCooldownPlayer`] = null;
+    this._sfCooldownPlayer = 0;
     // Nettoyer les touches mobiles
     ['_cv_left','_cv_right','_cv_accel','_cv_brake'].forEach(k => { State.keys[k] = false; });
   },

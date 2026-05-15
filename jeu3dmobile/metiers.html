@@ -239,7 +239,10 @@
       CircuitVitesse.tick(delta);
       MondeTravail.tick(delta);
 
-      if (State.renderer) {
+      const _needs3D = CircuitVitesse._active || MondeTravail._active;
+      const _cvCanvas = document.getElementById('game-canvas');
+      if (_cvCanvas) _cvCanvas.style.display = _needs3D ? 'block' : 'none';
+      if (_needs3D && State.renderer) {
         if      (CircuitVitesse._active) State.renderer.render(CircuitVitesse._scene, CircuitVitesse._camera);
         else if (MondeTravail._active)   State.renderer.render(MondeTravail._scene,   MondeTravail._camera);
       }

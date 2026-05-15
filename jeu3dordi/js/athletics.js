@@ -68,6 +68,7 @@ const Athletics = {
     this._score      = 0;
     this._falls      = 0;
     this._fallFlash  = 0;
+    this._lastBonus  = -1;
     document.getElementById('ath-msg').textContent = '';
     this._el.style.display = 'flex';
   },
@@ -102,7 +103,7 @@ const Athletics = {
     if (rightKey) this._vel += 3.0 * delta;
 
     // Friction naturelle
-    this._vel *= Math.pow(0.05, delta);
+    this._vel *= Math.pow(0.5, delta);
     this._balance = Math.max(-1, Math.min(1, this._balance + this._vel * delta));
 
     // ── Scoring ───────────────────────────────────────────────────────────────

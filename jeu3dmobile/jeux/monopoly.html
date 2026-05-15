@@ -16,6 +16,7 @@ h1{color:#f1c40f;font-size:1.2rem;margin-bottom:6px;}
 .sq .sq-name{font-size:clamp(4px,1.2vw,8px);line-height:1.1;color:#aaa;overflow:hidden;text-overflow:ellipsis;max-height:2.5em;}
 .sq .sq-price{font-size:clamp(4px,1.1vw,7px);color:#f1c40f;}
 .sq .color-bar{position:absolute;top:0;left:0;right:0;height:4px;}
+.sq .house-bar{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:1px;padding:1px;}
 .sq.corner{background:#1a2035;font-size:clamp(6px,1.5vw,10px);color:#f1c40f;}
 .sq.chance{background:#1a1a35;color:#9b59b6;}
 .sq.tax{background:#1a2010;color:#e74c3c;}
@@ -32,14 +33,25 @@ h1{color:#f1c40f;font-size:1.2rem;margin-bottom:6px;}
 .player-card.eliminated{opacity:0.4;border-color:#555;}
 #action-zone{background:#0d1526;border-radius:8px;padding:8px;border:1px solid #2a3555;text-align:center;}
 #dice-display{font-size:2rem;margin-bottom:6px;}
+#action-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
 #roll-btn{background:#f1c40f;color:#000;border:none;padding:8px 20px;border-radius:16px;font-size:0.95rem;font-weight:bold;cursor:pointer;}
 #roll-btn:disabled{opacity:0.4;cursor:not-allowed;}
+#build-btn{background:#27ae60;color:#fff;border:none;padding:8px 16px;border-radius:16px;font-size:0.88rem;font-weight:bold;cursor:pointer;display:none;}
+#build-btn:disabled{opacity:0.4;cursor:not-allowed;}
 #log{background:#080c18;border-radius:8px;padding:8px;max-height:100px;overflow-y:auto;font-size:0.75rem;color:#aaa;border:1px solid #1a2035;}
 .log-line{border-bottom:1px solid #0d1526;padding:2px 0;}
 .log-line:last-child{color:#f1c40f;}
 #win-screen{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #f1c40f;border-radius:12px;padding:24px;text-align:center;z-index:100;width:80%;max-width:300px;}
 #win-screen h2{color:#f1c40f;margin-bottom:12px;}
 #win-screen button{background:#f1c40f;color:#000;border:none;padding:10px 24px;border-radius:20px;font-size:1rem;cursor:pointer;font-weight:bold;}
+#build-modal{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#0d1526;border:2px solid #27ae60;border-radius:12px;padding:16px;z-index:200;width:90%;max-width:340px;max-height:80vh;overflow-y:auto;}
+#build-modal h3{color:#27ae60;margin-bottom:10px;font-size:1rem;}
+.build-prop{display:flex;align-items:center;justify-content:space-between;background:#1a2535;border-radius:8px;padding:6px 10px;margin-bottom:6px;font-size:0.82rem;}
+.build-prop .bp-info{display:flex;align-items:center;gap:6px;}
+.build-prop .bp-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.build-prop button{background:#27ae60;color:#fff;border:none;padding:4px 10px;border-radius:8px;cursor:pointer;font-size:0.8rem;}
+.build-prop button:disabled{background:#555;cursor:not-allowed;}
+#build-modal-close{background:#555;color:#fff;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:0.85rem;margin-top:6px;width:100%;}
 </style>
 </head>
 <body>
@@ -52,7 +64,10 @@ h1{color:#f1c40f;font-size:1.2rem;margin-bottom:6px;}
     <div id="players-panel"></div>
     <div id="action-zone">
       <div id="dice-display">🎲🎲</div>
-      <button id="roll-btn" onclick="rollAndMove()">Lancer les dés</button>
+      <div id="action-btns">
+        <button id="roll-btn" onclick="rollAndMove()">Lancer les dés</button>
+        <button id="build-btn" onclick="openBuildMenu()">🏠 Construire</button>
+      </div>
     </div>
     <div id="log"></div>
   </div>
@@ -61,8 +76,21 @@ h1{color:#f1c40f;font-size:1.2rem;margin-bottom:6px;}
   <h2 id="win-text"></h2>
   <button onclick="initGame()">Rejouer</button>
 </div>
+<div id="build-modal">
+  <h3>🏠 Construire des maisons</h3>
+  <div id="build-list"></div>
+  <button id="build-modal-close" onclick="closeBuildMenu()">Fermer</button>
+</div>
 <script>
-// ============= MONOPOLY SIMPLIFIÉ =============
+// ============= MONOPOLY =============
+// House cost per color group
+const HOUSE_COST = {
+  '#7b3f00':50,'#87ceeb':50,'#d35400':100,'#27ae60':100,
+  '#e74c3c':150,'#e67e22':150,'#9b59b6':200,'#2c3e50':200
+};
+// Rent multipliers by house count (0=base,1-4=houses,5=hotel)
+const HOUSE_RENT_MUL = [1, 5, 10, 18, 28, 42];
+
 const SQUARES = [
   {name:'Départ',type:'go'},
   {name:'Méditerranée',type:'prop',price:60,rent:2,color:'#7b3f00'},
@@ -117,8 +145,8 @@ function initGame(){
     {name:'Bot 1',money:1500,pos:0,jailTurns:0,eliminated:false,isBot:true},
     {name:'Bot 2',money:1500,pos:0,jailTurns:0,eliminated:false,isBot:true},
   ];
-  // Reset property ownership
-  SQUARES.forEach(s=>{s.owner=null;});
+  // Reset property ownership and houses
+  SQUARES.forEach(s=>{s.owner=null;s.houses=0;});
   currentIdx=0;
   document.getElementById('win-screen').style.display='none';
   document.getElementById('roll-btn').disabled=false;
@@ -126,6 +154,7 @@ function initGame(){
   renderBoard();
   renderPlayers();
   log('Partie commencée ! 1500$ chacun.');
+  updateBuildBtn();
 }
 
 function renderBoard(){
@@ -166,9 +195,18 @@ function renderBoard(){
       } else {
         let nm=document.createElement('div');nm.className='sq-name';nm.textContent=sq.name;div.appendChild(nm);
       }
-      // Show owner color
+      // Show owner color + houses
       if(sq.owner!==null){
         let ob=document.createElement('div');ob.style.cssText=`position:absolute;bottom:0;left:0;right:0;height:3px;background:${PAWN_COLORS[sq.owner]};`;div.appendChild(ob);
+        if(sq.houses>0&&sq.type==='prop'){
+          let hb=document.createElement('div');hb.className='house-bar';
+          if(sq.houses===5){
+            let h=document.createElement('span');h.textContent='H';h.style.cssText='color:#e74c3c;font-size:6px;font-weight:bold;line-height:1;';hb.appendChild(h);
+          } else {
+            for(let hh=0;hh<sq.houses;hh++){let h=document.createElement('span');h.textContent='🟩';h.style.cssText='font-size:5px;line-height:1;';hb.appendChild(h);}
+          }
+          div.appendChild(hb);
+        }
       }
       // Show pawns
       let pawnsHere=players.filter((p,i)=>!p.eliminated&&p.pos===sqIdx);
@@ -245,8 +283,33 @@ function processSquare(idx, doubles){
   } else if(sq.type==='tax'){
     p.money-=sq.cost;log(`${p.name} paye taxe ${sq.cost}$`);
   } else if(sq.type==='chance'||sq.type==='chest'){
-    let amt=[50,100,-50,-75,200][Math.floor(Math.random()*5)];
-    p.money+=amt;log(`${p.name} ${amt>0?'gagne':'perd'} ${Math.abs(amt)}$ (carte)`);
+    const cards=sq.type==='chance'?[
+      {txt:'Avancez au Départ, +200$', fn:()=>{p.pos=0;p.money+=200;}},
+      {txt:'Payez amende 50$',          fn:()=>{p.money-=50;}},
+      {txt:'Bonne nouvelle ! +100$',    fn:()=>{p.money+=100;}},
+      {txt:'Allez en prison !',         fn:()=>{p.pos=10;p.jailTurns=1;}},
+      {txt:'Dividendes : +50$',         fn:()=>{p.money+=50;}},
+      {txt:'Réparations : -40$ / maison', fn:()=>{
+        const h=SQUARES.filter(s=>s.owner===idx).reduce((t,s)=>t+(s.houses||0),0);
+        p.money-=h*40; if(h) log(`(${h} maisons × 40$)`);
+      }},
+      {txt:'Avancez à Boardwalk',       fn:()=>{p.pos=39;}},
+      {txt:'Prix de beauté ! +50$',     fn:()=>{p.money+=50;}},
+    ]:[
+      {txt:'Payer loyer d\'hôpital -50$', fn:()=>{p.money-=50;}},
+      {txt:'Intérêts bancaires +200$',  fn:()=>{p.money+=200;}},
+      {txt:'Vente d\'actions +50$',     fn:()=>{p.money+=50;}},
+      {txt:'Erreur bancaire +100$',     fn:()=>{p.money+=100;}},
+      {txt:'Taxe d\'eau -75$',          fn:()=>{p.money-=75;}},
+      {txt:'Anniversaire ! Chaque joueur vous donne 10$', fn:()=>{
+        players.forEach((pl,i)=>{if(i!==idx&&!pl.eliminated){pl.money-=10;p.money+=10;}});
+      }},
+      {txt:'Sortez de prison gratuitement', fn:()=>{}},
+      {txt:'Remboursement d\'impôts +150$', fn:()=>{p.money+=150;}},
+    ];
+    const card=cards[Math.floor(Math.random()*cards.length)];
+    card.fn();
+    log(`${p.name} — ${sq.type==='chance'?'Chance':'Caisse Comm.'} : ${card.txt}`);
   } else if(sq.type==='prop'||sq.type==='station'||sq.type==='utility'){
     const shouldBuy = p.isBot ? (GameUtils.shouldRandomize() ? Math.random()<0.5 : true) : true;
     if(sq.owner===null&&p.money>=sq.price&&shouldBuy){
@@ -268,6 +331,7 @@ function processSquare(idx, doubles){
   if(active.length===1){endGame(active[0].name);return;}
   if(doubles&&!p.eliminated&&p.jailTurns===0){
     log(`${p.name} rejoue (doubles) !`);
+    if(!p.isBot) updateBuildBtn();
     setTimeout(()=>playFor(idx),1000);
   } else {
     nextTurn();
@@ -276,12 +340,86 @@ function processSquare(idx, doubles){
 
 function calcRent(sq, idx){
   if(sq.type==='station'){
-    // Count stations owned by same owner
     let count=SQUARES.filter(s=>s.type==='station'&&s.owner===sq.owner).length;
     return sq.rent*count;
   }
   if(sq.type==='utility') return 50;
-  return sq.rent;
+  // Houses boost rent
+  const mul = HOUSE_RENT_MUL[sq.houses||0];
+  return sq.rent * mul;
+}
+
+function ownsColorGroup(playerIdx, color){
+  const group=SQUARES.filter(s=>s.type==='prop'&&s.color===color);
+  return group.length>0 && group.every(s=>s.owner===playerIdx);
+}
+
+function getBuildableProps(playerIdx){
+  const colors=new Set(SQUARES.filter(s=>s.type==='prop'&&s.color).map(s=>s.color));
+  const buildable=[];
+  colors.forEach(color=>{
+    if(!ownsColorGroup(playerIdx,color)) return;
+    const group=SQUARES.filter(s=>s.type==='prop'&&s.color===color);
+    // Can build if min houses in group < 5 (even building rule)
+    const minH=Math.min(...group.map(s=>s.houses||0));
+    if(minH<5) group.forEach(s=>{ if((s.houses||0)===minH) buildable.push(s); });
+  });
+  return buildable;
+}
+
+function openBuildMenu(){
+  const p=players[currentIdx];
+  const buildable=getBuildableProps(currentIdx);
+  const list=document.getElementById('build-list');
+  list.innerHTML='';
+  if(buildable.length===0){
+    list.innerHTML='<p style="color:#aaa;font-size:0.85em">Possédez tout un groupe de couleur pour construire.</p>';
+  } else {
+    buildable.forEach(sq=>{
+      const cost=HOUSE_COST[sq.color]||100;
+      const label=sq.houses===4?'🏨 Hôtel':sq.houses===5?'Max':'🏠 Maison';
+      const row=document.createElement('div');row.className='build-prop';
+      row.innerHTML=`
+        <div class="bp-info">
+          <div class="bp-dot" style="background:${sq.color}"></div>
+          <span>${sq.name} — ${sq.houses===5?'COMPLET':sq.houses===4?'4 maisons':''+sq.houses+' maison'+(sq.houses>1?'s':'')}</span>
+        </div>
+        <button onclick="buildHouse(${SQUARES.indexOf(sq)})" ${sq.houses>=5||p.money<cost?'disabled':''}>
+          ${sq.houses<5?label+' ($'+cost+')':'MAX'}
+        </button>`;
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('build-modal').style.display='block';
+}
+
+function closeBuildMenu(){
+  document.getElementById('build-modal').style.display='none';
+}
+
+function buildHouse(sqIdx){
+  const sq=SQUARES[sqIdx];
+  const p=players[currentIdx];
+  const cost=HOUSE_COST[sq.color]||100;
+  if(p.money<cost||sq.houses>=5) return;
+  p.money-=cost;
+  sq.houses=(sq.houses||0)+1;
+  const label=sq.houses===5?'un hôtel':'une maison';
+  log(`Vous construisez ${label} sur ${sq.name} ($${cost})`);
+  renderBoard();renderPlayers();
+  openBuildMenu();
+}
+
+function updateBuildBtn(){
+  const btn=document.getElementById('build-btn');
+  if(!btn) return;
+  const p=players[currentIdx];
+  if(p&&!p.isBot&&!p.eliminated){
+    const buildable=getBuildableProps(currentIdx);
+    btn.style.display=buildable.length>0?'':'none';
+  } else {
+    btn.style.display='none';
+  }
 }
 
 function nextTurn(){
@@ -289,10 +427,29 @@ function nextTurn(){
   while(players[currentIdx].eliminated)currentIdx=(currentIdx+1)%players.length;
   renderPlayers();
   if(players[currentIdx].isBot){
+    document.getElementById('build-btn').style.display='none';
     setTimeout(()=>playFor(currentIdx),800);
   } else {
     document.getElementById('roll-btn').disabled=false;
     log('Votre tour — Lancez !');
+    updateBuildBtn();
+  }
+}
+
+function botBuild(idx){
+  const p=players[idx];
+  let built=true;
+  while(built){
+    built=false;
+    const buildable=getBuildableProps(idx);
+    for(const sq of buildable){
+      const cost=HOUSE_COST[sq.color]||100;
+      if(p.money-cost>=100&&sq.houses<5){
+        p.money-=cost;sq.houses=(sq.houses||0)+1;
+        log(`${p.name} construit sur ${sq.name}`);
+        built=true;break;
+      }
+    }
   }
 }
 
@@ -301,6 +458,7 @@ function playFor(idx){
   currentIdx=idx;
   let p=players[idx];
   if(p.eliminated){nextTurn();return;}
+  botBuild(idx);
   let{d1,d2,total,doubles}=rollDice();
   const faces=['','⚀','⚁','⚂','⚃','⚄','⚅'];
   document.getElementById('dice-display').textContent=faces[d1]+faces[d2];

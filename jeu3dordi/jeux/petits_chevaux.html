@@ -77,13 +77,14 @@ const STABLE_R = [{r:9,c:9},{r:9,c:10},{r:10,c:9},{r:10,c:10}];
 
 // Game state
 let state, currentTurn, diceVal, diceRolled, gameOver;
+let onlineMode=false, onlineIsHost=false, myTurn='Y';
 
 function startGame(){
   state = {
     Y: Array.from({length:4},()=>({pos:-1, homeStep:0, done:false})),
     R: Array.from({length:4},()=>({pos:-1, homeStep:0, done:false}))
   };
-let onlineMode=false, onlineIsHost=false; let myTurn='Y';
+  if (!onlineMode) { myTurn = 'Y'; }
   currentTurn = 'Y'; diceVal = 0; diceRolled = false; gameOver = false;
   document.getElementById('win-screen').style.display = 'none';
   document.getElementById('roll-btn').disabled = false;
