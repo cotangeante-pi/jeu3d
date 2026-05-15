@@ -243,32 +243,39 @@ function render(){
   // Balls
   balls.forEach(b=>{
     if(b.pocketed)return;
-    ctx.beginPath(); ctx.arc(b.x,b.y,R,0,Math.PI*2);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(b.x,b.y,R,0,Math.PI*2); ctx.clip();
     if(b.num===0){
-      ctx.fillStyle='#fff';
-    } else {
+      // Cue ball: plain white
+      ctx.fillStyle='#fff'; ctx.fillRect(b.x-R,b.y-R,R*2,R*2);
+    } else if(b.num>=9&&b.num<=15){
+      // Striped: white base + wide colored horizontal band
+      ctx.fillStyle='#fff'; ctx.fillRect(b.x-R,b.y-R,R*2,R*2);
       ctx.fillStyle=BALL_COLORS[b.num]||'#888';
+      ctx.fillRect(b.x-R,b.y-R*0.55,R*2,R*1.1);
+    } else {
+      // Solid (1-7) and 8-ball: full color
+      ctx.fillStyle=BALL_COLORS[b.num]||'#888';
+      ctx.fillRect(b.x-R,b.y-R,R*2,R*2);
     }
-    ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1;
-    ctx.stroke();
-    // Stripe pattern
-    if(b.num>=9&&b.num<=15){
-      ctx.fillStyle='#fff'; ctx.globalAlpha=0.7;
-      ctx.beginPath(); ctx.arc(b.x,b.y,R*0.7,0,Math.PI*2); ctx.fill();
-      ctx.globalAlpha=1;
-      ctx.beginPath(); ctx.arc(b.x,b.y,R*0.7,0,Math.PI*2);
-      ctx.fillStyle=BALL_COLORS[b.num]; ctx.fill();
+    // White center circle for numbered balls
+    if(b.num>0){
+      ctx.beginPath(); ctx.arc(b.x,b.y,R*0.42,0,Math.PI*2);
+      ctx.fillStyle='#fff'; ctx.fill();
     }
+    ctx.restore();
+    // Ball outline
+    ctx.beginPath(); ctx.arc(b.x,b.y,R,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1; ctx.stroke();
     // Number
     if(b.num>0){
-      ctx.fillStyle='#fff'; ctx.font=`bold ${R*0.8}px sans-serif`;
+      ctx.fillStyle='#111'; ctx.font=`bold ${R*0.75}px sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(b.num,b.x,b.y);
     }
     // Shine
-    ctx.beginPath(); ctx.arc(b.x-R*0.3,b.y-R*0.3,R*0.25,0,Math.PI*2);
-    ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x-R*0.3,b.y-R*0.3,R*0.22,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fill();
   });
 }
 
