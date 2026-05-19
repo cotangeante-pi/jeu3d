@@ -13,71 +13,114 @@ const CircuitVitesse = {
   // ── Pistes ────────────────────────────────────────────────────────────────
   _TRACKS: [
     {
-      id: 'ovale', name: 'Ovale', difficulty: 1, laps: 3,
+      id: 'epingle', name: 'Épingle', difficulty: 2, laps: 3,
       color: 0x4CAF50, skyColor: '#1a3a1a',
       gen() {
-        const pts = [];
-        for (let i = 0; i < 20; i++) {
-          const a = (i / 20) * Math.PI * 2;
-          pts.push(new THREE.Vector3(Math.cos(a) * 130, 0, Math.sin(a) * 65));
-        }
-        return pts;
+        return [
+          new THREE.Vector3(-50, 0, -60),
+          new THREE.Vector3(20, 0, -65),
+          new THREE.Vector3(70, 0, -55),
+          new THREE.Vector3(92, 0, -30),
+          new THREE.Vector3(92, 0,  5),
+          new THREE.Vector3(70, 0, 25),
+          new THREE.Vector3(35, 0, 20),
+          new THREE.Vector3(15, 0, 38),
+          new THREE.Vector3(35, 0, 55),
+          new THREE.Vector3(15, 0, 84),
+          new THREE.Vector3(-15, 0, 94),
+          new THREE.Vector3(-40, 0, 76),
+          new THREE.Vector3(-65, 0, 42),
+          new THREE.Vector3(-86, 0, 10),
+          new THREE.Vector3(-92, 0, -26),
+          new THREE.Vector3(-76, 0, -56),
+        ];
       }
     },
     {
-      id: 'lac', name: 'Lac', difficulty: 2, laps: 3,
+      id: 'cote', name: 'Côte', difficulty: 1, laps: 3,
       color: 0x2196F3, skyColor: '#0a1a2e',
       gen() {
         return [
-          new THREE.Vector3(0, 0, -160), new THREE.Vector3(80, 0, -140),
-          new THREE.Vector3(160, 0, -80), new THREE.Vector3(180, 0, 0),
-          new THREE.Vector3(140, 0, 90), new THREE.Vector3(60, 0, 140),
-          new THREE.Vector3(-40, 0, 160), new THREE.Vector3(-130, 0, 110),
-          new THREE.Vector3(-170, 0, 20), new THREE.Vector3(-150, 0, -80),
-          new THREE.Vector3(-80, 0, -150), new THREE.Vector3(-10, 0, -160),
+          new THREE.Vector3(-30, 0, -130),
+          new THREE.Vector3(40,  0, -120),
+          new THREE.Vector3(100, 0,  -80),
+          new THREE.Vector3(140, 0,  -30),
+          new THREE.Vector3(150, 0,   20),
+          new THREE.Vector3(130, 0,   70),
+          new THREE.Vector3(80,  0,  110),
+          new THREE.Vector3(50,  0,  124),
+          new THREE.Vector3(20,  0,  106),
+          new THREE.Vector3(-16, 0,  116),
+          new THREE.Vector3(-60, 0,   90),
+          new THREE.Vector3(-100,0,   58),
+          new THREE.Vector3(-122,0,   20),
+          new THREE.Vector3(-112,0,  -42),
+          new THREE.Vector3(-80, 0,  -90),
         ];
       }
     },
     {
-      id: 'montagne', name: 'Montagne', difficulty: 3, laps: 2,
+      id: 'alpin', name: 'Alpin', difficulty: 4, laps: 2,
       color: 0xFF5722, skyColor: '#2a1a0a',
       gen() {
         return [
-          new THREE.Vector3(0, 0, -120), new THREE.Vector3(60, 4, -90),
-          new THREE.Vector3(110, 10, -30), new THREE.Vector3(120, 14, 40),
-          new THREE.Vector3(80, 18, 100), new THREE.Vector3(20, 12, 130),
-          new THREE.Vector3(-50, 6, 120), new THREE.Vector3(-110, 2, 70),
-          new THREE.Vector3(-130, 0, 0), new THREE.Vector3(-110, 2, -70),
-          new THREE.Vector3(-60, 6, -110), new THREE.Vector3(-10, 2, -125),
+          new THREE.Vector3( 20, 0,  -80),
+          new THREE.Vector3( 70, 2,  -58),
+          new THREE.Vector3(100, 6,  -18),
+          new THREE.Vector3(100, 10,  22),
+          new THREE.Vector3( 58, 12,  52),
+          new THREE.Vector3( 18, 14,  40),
+          new THREE.Vector3(-22, 15,  62),
+          new THREE.Vector3(-62, 17,  50),
+          new THREE.Vector3(-82, 16,  10),
+          new THREE.Vector3(-72, 12, -32),
+          new THREE.Vector3(-32, 7,  -72),
+          new THREE.Vector3(  0, 3,  -90),
         ];
       }
     },
     {
-      id: 'cite', name: 'Circuit Urbain', difficulty: 4, laps: 3,
+      id: 'cite', name: 'Cité', difficulty: 3, laps: 3,
       color: 0x9C27B0, skyColor: '#0a0a1a',
       gen() {
         return [
-          new THREE.Vector3(0, 0, -90), new THREE.Vector3(30, 0, -90),
-          new THREE.Vector3(80, 0, -60), new THREE.Vector3(90, 0, 0),
-          new THREE.Vector3(80, 0, 40), new THREE.Vector3(40, 0, 80),
-          new THREE.Vector3(0, 0, 90), new THREE.Vector3(-40, 0, 80),
-          new THREE.Vector3(-80, 0, 40), new THREE.Vector3(-90, 0, -20),
-          new THREE.Vector3(-60, 0, -70), new THREE.Vector3(-20, 0, -90),
+          new THREE.Vector3(-70, 0, -60),
+          new THREE.Vector3( 40, 0, -60),
+          new THREE.Vector3( 72, 0, -38),
+          new THREE.Vector3( 72, 0,  12),
+          new THREE.Vector3( 50, 0,  36),
+          new THREE.Vector3( 20, 0,  42),
+          new THREE.Vector3(  0, 0,  62),
+          new THREE.Vector3(-30, 0,  62),
+          new THREE.Vector3(-60, 0,  40),
+          new THREE.Vector3(-82, 0,  10),
+          new THREE.Vector3(-92, 0, -22),
+          new THREE.Vector3(-80, 0, -52),
         ];
       }
     },
     {
-      id: 'infini', name: 'Infini ∞', difficulty: 5, laps: 3,
+      id: 'ruban', name: 'Ruban', difficulty: 5, laps: 3,
       color: 0xF44336, skyColor: '#1a0a1a',
       gen() {
-        const pts = [];
-        for (let i = 0; i < 28; i++) {
-          const t = (i / 28) * Math.PI * 2;
-          const x = Math.sin(t) * 140;
-          const z = Math.sin(t * 2) * 70;
-          pts.push(new THREE.Vector3(x, 0, z));
-        }
-        return pts;
+        return [
+          new THREE.Vector3(   0, 0, -10),
+          new THREE.Vector3(  40, 0, -32),
+          new THREE.Vector3(  80, 0, -60),
+          new THREE.Vector3( 132, 0, -50),
+          new THREE.Vector3( 152, 0,   0),
+          new THREE.Vector3( 132, 0,  50),
+          new THREE.Vector3(  80, 0,  72),
+          new THREE.Vector3(  40, 0,  42),
+          new THREE.Vector3(   0, 0,  10),
+          new THREE.Vector3( -40, 0,  42),
+          new THREE.Vector3( -80, 0,  62),
+          new THREE.Vector3(-132, 0,  50),
+          new THREE.Vector3(-152, 0,   0),
+          new THREE.Vector3(-132, 0, -50),
+          new THREE.Vector3( -80, 0, -70),
+          new THREE.Vector3( -40, 0, -42),
+        ];
       }
     },
   ],
@@ -591,18 +634,37 @@ const CircuitVitesse = {
     const projT = this._projectOnCurve(this._playerX, this._playerZ);
     const pt = this._curve.getPointAt(projT);
 
-    // Off-track detection (PolyTrack style: herbe freine, pas de mur)
+    // Off-track / mur detection
     const cTan = this._curve.getTangentAt(projT).normalize();
     const cRight = new THREE.Vector3().crossVectors(cTan, new THREE.Vector3(0,1,0)).normalize();
     const toPl = new THREE.Vector3(this._playerX - pt.x, 0, this._playerZ - pt.z);
     const latDist = Math.abs(toPl.dot(cRight));
     const offTrack = latDist > this._TRACK_WIDTH * 0.5 + 0.5;
-    if (offTrack) {
-      this._playerSpeed *= Math.pow(0.65, delta * 60);
-      const gMax = this._MAX_SPEED * 0.3;
-      if (Math.abs(this._playerSpeed) > gMax) this._playerSpeed = Math.sign(this._playerSpeed) * gMax;
-    }
     this._playerOffTrack = offTrack;
+    if (offTrack) {
+      const sign = toPl.dot(cRight) >= 0 ? 1 : -1;
+      if (this._mode === 'record') {
+        // Mur: ramener à la limite + rebond physique
+        const excess = latDist - this._TRACK_WIDTH * 0.5;
+        this._playerX -= cRight.x * sign * excess;
+        this._playerZ -= cRight.z * sign * excess;
+        const vx = Math.sin(this._playerHeading) * this._playerSpeed;
+        const vz = -Math.cos(this._playerHeading) * this._playerSpeed;
+        const outx = cRight.x * sign, outz = cRight.z * sign;
+        const vDotOut = vx * outx + vz * outz;
+        if (vDotOut > 0) {
+          const rvx = vx - 2 * vDotOut * outx;
+          const rvz = vz - 2 * vDotOut * outz;
+          this._playerSpeed = Math.sqrt(rvx*rvx + rvz*rvz) * 0.45;
+          this._playerHeading = Math.atan2(rvx, -rvz);
+        }
+      } else {
+        // Pistes: herbe/gravier (PolyTrack style)
+        this._playerSpeed *= Math.pow(0.65, delta * 60);
+        const gMax = this._MAX_SPEED * 0.3;
+        if (Math.abs(this._playerSpeed) > gMax) this._playerSpeed = Math.sign(this._playerSpeed) * gMax;
+      }
+    }
 
     this._playerCar.position.set(this._playerX, pt.y + 0.28, this._playerZ);
     this._playerCar.rotation.y = -this._playerHeading;
@@ -914,7 +976,7 @@ const CircuitVitesse = {
       if (posEl) posEl.textContent = pos + 'e / ' + (this._aiCars.length + 1);
     }
     const otEl = document.getElementById('cv-hud-offtrack');
-    if (otEl) otEl.style.display = this._playerOffTrack ? 'block' : 'none';
+    if (otEl) otEl.style.display = (this._playerOffTrack && this._mode !== 'record') ? 'block' : 'none';
   },
 
   _updateCountdown() {
