@@ -96,6 +96,7 @@ const CircuitVitesse = {
   _playerLap: 0,
   _playerCpDone: null,
   _playerFinished: false,
+  _playerOffTrack: false,
 
   _aiCars: [],
   _ghostCar: null,
@@ -429,23 +430,25 @@ const CircuitVitesse = {
   },
 
   _buildBarriers(N, TW) {
-    const barrMat = new THREE.MeshLambertMaterial({ color: 0xdd2222 });
-    const barrMat2 = new THREE.MeshLambertMaterial({ color: 0xffffff });
-    const step = Math.max(1, Math.floor(N / 80));
+    const redMat = new THREE.MeshBasicMaterial({ color: 0xdd2222, side: THREE.DoubleSide });
+    const whtMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const step = Math.max(1, Math.floor(N / 200));
+    const stripeW = 0.9;
     for (let i = 0; i < N; i += step) {
       const t = i / N;
       const pt = this._curve.getPointAt(t);
       const tan = this._curve.getTangentAt(t).normalize();
-      const right = new THREE.Vector3().crossVectors(tan, new THREE.Vector3(0, 1, 0)).normalize();
+      const right = new THREE.Vector3().crossVectors(tan, new THREE.Vector3(0,1,0)).normalize();
       const angle = Math.atan2(tan.x, tan.z);
-      const geo = new THREE.BoxGeometry(0.4, 0.9, step * this._trackLength / N + 0.2);
+      const segLen = step * this._trackLength / N + 0.05;
+      const mat = (Math.floor(i / step) % 2 === 0) ? redMat : whtMat;
       [-1, 1].forEach(side => {
-        const mat = (Math.floor(i / step) % 2 === 0) ? barrMat : barrMat2;
-        const barrier = new THREE.Mesh(geo, mat);
-        barrier.position.copy(pt).addScaledVector(right, side * (TW / 2 + 0.2));
-        barrier.position.y = 0.45;
-        barrier.rotation.y = angle;
-        this._scene.add(barrier);
+        const stripe = new THREE.Mesh(new THREE.PlaneGeometry(stripeW, segLen), mat);
+        stripe.rotation.x = -Math.PI / 2;
+        stripe.rotation.y = angle;
+        stripe.position.copy(pt).addScaledVector(right, side * (TW / 2 + stripeW * 0.5));
+        stripe.position.y = 0.03;
+        this._scene.add(stripe);
       });
     }
   },
@@ -587,6 +590,20 @@ const CircuitVitesse = {
 
     const projT = this._projectOnCurve(this._playerX, this._playerZ);
     const pt = this._curve.getPointAt(projT);
+
+    // Off-track detection (PolyTrack style: herbe freine, pas de mur)
+    const cTan = this._curve.getTangentAt(projT).normalize();
+    const cRight = new THREE.Vector3().crossVectors(cTan, new THREE.Vector3(0,1,0)).normalize();
+    const toPl = new THREE.Vector3(this._playerX - pt.x, 0, this._playerZ - pt.z);
+    const latDist = Math.abs(toPl.dot(cRight));
+    const offTrack = latDist > this._TRACK_WIDTH * 0.5 + 0.5;
+    if (offTrack) {
+      this._playerSpeed *= Math.pow(0.65, delta * 60);
+      const gMax = this._MAX_SPEED * 0.3;
+      if (Math.abs(this._playerSpeed) > gMax) this._playerSpeed = Math.sign(this._playerSpeed) * gMax;
+    }
+    this._playerOffTrack = offTrack;
+
     this._playerCar.position.set(this._playerX, pt.y + 0.28, this._playerZ);
     this._playerCar.rotation.y = -this._playerHeading;
 
@@ -687,6 +704,9 @@ const CircuitVitesse = {
         }
       }
     }
+    // Sync player physics state to pushed position
+    this._playerX = this._playerCar.position.x;
+    this._playerZ = this._playerCar.position.z;
   },
 
   _checkLap() {
@@ -701,7 +721,7 @@ const CircuitVitesse = {
             ai.lap = tr.laps;
             ai.finished = true;
             ai.sfCooldown = 999;
-            ai.finishPos = this._finishCounter = (this._finishCounter || 1) + 1;
+            ai.finishPos = this._finishCounter = (this._finishCounter || 0) + 1;
           }
         }
       }
@@ -852,6 +872,7 @@ const CircuitVitesse = {
         </div>
       </div>
       <div id="cv-hud-countdown" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4em;font-weight:bold;color:#f1c40f;text-shadow:0 4px 16px #000;pointer-events:none"></div>
+      <div id="cv-hud-offtrack" style="position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);font-size:1.6em;font-weight:bold;color:#ff4444;text-shadow:0 2px 8px #000;letter-spacing:2px;pointer-events:none;display:none">HORS PISTE</div>
       ${mobileCtrl}
     `;
     document.body.appendChild(hud);
@@ -892,6 +913,8 @@ const CircuitVitesse = {
       const posEl = document.getElementById('cv-hud-pos');
       if (posEl) posEl.textContent = pos + 'e / ' + (this._aiCars.length + 1);
     }
+    const otEl = document.getElementById('cv-hud-offtrack');
+    if (otEl) otEl.style.display = this._playerOffTrack ? 'block' : 'none';
   },
 
   _updateCountdown() {
