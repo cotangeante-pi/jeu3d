@@ -644,19 +644,32 @@ const CircuitVitesse = {
     if (offTrack) {
       const sign = toPl.dot(cRight) >= 0 ? 1 : -1;
       if (this._mode === 'record') {
-        // Mur: ramener à la limite + rebond physique
+        // Mur: ramener à la limite
         const excess = latDist - this._TRACK_WIDTH * 0.5;
         this._playerX -= cRight.x * sign * excess;
         this._playerZ -= cRight.z * sign * excess;
         const vx = Math.sin(this._playerHeading) * this._playerSpeed;
         const vz = -Math.cos(this._playerHeading) * this._playerSpeed;
         const outx = cRight.x * sign, outz = cRight.z * sign;
-        const vDotOut = vx * outx + vz * outz;
+        const vDotOut = vx * outx + vz * outz; // composante allant vers le mur
         if (vDotOut > 0) {
-          const rvx = vx - 2 * vDotOut * outx;
-          const rvz = vz - 2 * vDotOut * outz;
-          this._playerSpeed = Math.sqrt(rvx*rvx + rvz*rvz) * 0.45;
-          this._playerHeading = Math.atan2(rvx, -rvz);
+          // Composante parallèle (glissement le long du mur)
+          const parx = vx - vDotOut * outx;
+          const parz = vz - vDotOut * outz;
+          const parSpeed = Math.sqrt(parx * parx + parz * parz);
+          // Angle d'impact: 0 = effleuré, 1 = choc frontal
+          const totalSpeed = Math.hypot(vx, vz);
+          const impactRatio = totalSpeed > 0.1 ? Math.min(1, vDotOut / totalSpeed) : 0;
+          // Friction murale: un effleurage conserve presque toute la vitesse parallèle,
+          // un choc frontal l'annule presque totalement
+          const wallFriction = 0.25 + impactRatio * 0.65; // 0.25 → 0.9
+          const newParSpeed = parSpeed * (1 - wallFriction);
+          // Infime composante de rebond pour dégager du mur sans effet visuel de bounce
+          const nudge = vDotOut * 0.04;
+          const newvx = (parSpeed > 0.01 ? parx / parSpeed : 0) * newParSpeed - outx * nudge;
+          const newvz = (parSpeed > 0.01 ? parz / parSpeed : 0) * newParSpeed - outz * nudge;
+          this._playerSpeed = Math.hypot(newvx, newvz);
+          if (this._playerSpeed > 0.1) this._playerHeading = Math.atan2(newvx, -newvz);
         }
       } else {
         // Pistes: herbe/gravier (PolyTrack style)
