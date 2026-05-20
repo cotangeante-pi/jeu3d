@@ -140,6 +140,11 @@ const CircuitVitesse = {
   _playerCpDone: null,
   _playerFinished: false,
   _playerOffTrack: false,
+  _lastGroundY: 0,
+  _trackMesh: null,
+  _raycaster: null,
+  _rayOrigin: null,
+  _DOWN: null,
 
   _aiCars: [],
   _ghostCar: null,
@@ -348,6 +353,7 @@ const CircuitVitesse = {
     this._ghostFrames = [];
     this._lapTimes = [];
     this._position = 1;
+    this._lastGroundY = 0;
 
     const tr = this._TRACKS[this._trackIdx];
     this._bestTime = this._getBest(tr.id);
@@ -423,10 +429,16 @@ const CircuitVitesse = {
     geo.setIndex(indices);
     geo.computeVertexNormals();
 
-    // Couleur alternée par segments de 10 unités
     const trackMat = new THREE.MeshLambertMaterial({ color: 0x444444 });
     const trackMesh = new THREE.Mesh(geo, trackMat);
+    trackMesh.userData.surface = 'track';
+    this._trackMesh = trackMesh;
     this._scene.add(trackMesh);
+
+    // Raycaster pour détection de surface PolyTrack-style
+    this._raycaster = new THREE.Raycaster();
+    this._rayOrigin = new THREE.Vector3();
+    this._DOWN = new THREE.Vector3(0, -1, 0);
 
     // Marquages de piste (bandes blanches tous les ~20m)
     const markMat = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
@@ -673,7 +685,9 @@ const CircuitVitesse = {
       if (Math.abs(this._playerSpeed) < 0.2) this._playerSpeed = 0;
     }
 
-    const turnRate = this._STEER_SPEED * (Math.abs(this._playerSpeed) / this._MAX_SPEED);
+    // Direction adaptative : pleine à basse vitesse, réduite à haute (style PolyTrack)
+    const speedRatio = Math.abs(this._playerSpeed) / this._MAX_SPEED;
+    const turnRate = this._STEER_SPEED * Math.max(0.18, 1.0 - speedRatio * 0.78);
     if (left)  this._playerHeading -= turnRate * delta;
     if (right) this._playerHeading += turnRate * delta;
 
@@ -683,37 +697,40 @@ const CircuitVitesse = {
     const projT = this._projectOnCurve(this._playerX, this._playerZ);
     const pt = this._curve.getPointAt(projT);
 
-    // Off-track / mur detection
-    const cTan = this._curve.getTangentAt(projT).normalize();
-    const cRight = new THREE.Vector3().crossVectors(cTan, new THREE.Vector3(0,1,0)).normalize();
-    const toPl = new THREE.Vector3(this._playerX - pt.x, 0, this._playerZ - pt.z);
-    const latDist = Math.abs(toPl.dot(cRight));
-    const offTrack = latDist > this._TRACK_WIDTH * 0.5 + 0.5;
-    this._playerOffTrack = offTrack;
-    if (offTrack) {
+    // Raycast vers le bas pour détection de surface (style PolyTrack)
+    this._rayOrigin.set(this._playerX, 60, this._playerZ);
+    this._raycaster.set(this._rayOrigin, this._DOWN);
+    const hits = this._trackMesh ? this._raycaster.intersectObject(this._trackMesh, false) : [];
+    const onTrack = hits.length > 0;
+    const groundY = onTrack ? hits[0].point.y : this._lastGroundY;
+    if (onTrack) this._lastGroundY = groundY;
+    this._playerOffTrack = !onTrack;
+
+    if (!onTrack) {
+      // Direction de la bordure la plus proche pour le pushback
+      const cTan = this._curve.getTangentAt(projT).normalize();
+      const cRight = new THREE.Vector3().crossVectors(cTan, new THREE.Vector3(0,1,0)).normalize();
+      const toPl = new THREE.Vector3(this._playerX - pt.x, 0, this._playerZ - pt.z);
       const sign = toPl.dot(cRight) >= 0 ? 1 : -1;
+
       if (this._mode === 'record') {
-        // Mur: ramener à la limite
+        // Mur : ramener à la limite + friction selon angle d'impact
+        const latDist = Math.abs(toPl.dot(cRight));
         const excess = latDist - this._TRACK_WIDTH * 0.5;
         this._playerX -= cRight.x * sign * excess;
         this._playerZ -= cRight.z * sign * excess;
         const vx = Math.sin(this._playerHeading) * this._playerSpeed;
         const vz = -Math.cos(this._playerHeading) * this._playerSpeed;
         const outx = cRight.x * sign, outz = cRight.z * sign;
-        const vDotOut = vx * outx + vz * outz; // composante allant vers le mur
+        const vDotOut = vx * outx + vz * outz;
         if (vDotOut > 0) {
-          // Composante parallèle (glissement le long du mur)
           const parx = vx - vDotOut * outx;
           const parz = vz - vDotOut * outz;
           const parSpeed = Math.sqrt(parx * parx + parz * parz);
-          // Angle d'impact: 0 = effleuré, 1 = choc frontal
           const totalSpeed = Math.hypot(vx, vz);
           const impactRatio = totalSpeed > 0.1 ? Math.min(1, vDotOut / totalSpeed) : 0;
-          // Friction murale: un effleurage conserve presque toute la vitesse parallèle,
-          // un choc frontal l'annule presque totalement
-          const wallFriction = 0.25 + impactRatio * 0.65; // 0.25 → 0.9
+          const wallFriction = 0.25 + impactRatio * 0.65;
           const newParSpeed = parSpeed * (1 - wallFriction);
-          // Infime composante de rebond pour dégager du mur sans effet visuel de bounce
           const nudge = vDotOut * 0.04;
           const newvx = (parSpeed > 0.01 ? parx / parSpeed : 0) * newParSpeed - outx * nudge;
           const newvz = (parSpeed > 0.01 ? parz / parSpeed : 0) * newParSpeed - outz * nudge;
@@ -721,15 +738,18 @@ const CircuitVitesse = {
           if (this._playerSpeed > 0.1) this._playerHeading = Math.atan2(newvx, -newvz);
         }
       } else {
-        // Pistes: herbe/gravier (PolyTrack style)
+        // Pistes : herbe/gravier
         this._playerSpeed *= Math.pow(0.65, delta * 60);
         const gMax = this._MAX_SPEED * 0.3;
         if (Math.abs(this._playerSpeed) > gMax) this._playerSpeed = Math.sign(this._playerSpeed) * gMax;
       }
     }
 
-    this._playerCar.position.set(this._playerX, pt.y + 0.28, this._playerZ);
-    this._playerCar.rotation.y = -this._playerHeading;
+    // Inclinaison de la voiture selon la pente de la piste (pitch)
+    const pitchTan = this._curve.getTangentAt(projT);
+    const pitchAngle = Math.atan2(pitchTan.y, Math.sqrt(pitchTan.x * pitchTan.x + pitchTan.z * pitchTan.z));
+    this._playerCar.position.set(this._playerX, groundY + 0.28, this._playerZ);
+    this._playerCar.rotation.set(-pitchAngle, -this._playerHeading, 0, 'YXZ');
 
     this._trackPlayerLap(projT, delta);
 
@@ -805,7 +825,9 @@ const CircuitVitesse = {
 
       ai.mesh.position.copy(pt).addScaledVector(rVec, ai.offset);
       ai.mesh.position.y = pt.y + 0.28;
-      ai.mesh.rotation.y = Math.atan2(-aTan.z, aTan.x) - Math.PI / 2;
+      const aiHeading = Math.atan2(-aTan.z, aTan.x) - Math.PI / 2;
+      const aiPitch = Math.atan2(aTan.y, Math.sqrt(aTan.x * aTan.x + aTan.z * aTan.z));
+      ai.mesh.rotation.set(-aiPitch, aiHeading, 0, 'YXZ');
     });
   },
 
@@ -1104,6 +1126,7 @@ const CircuitVitesse = {
     this._ghostCar = null;
     this._aiCars = [];
     this._curve = null;
+    this._trackMesh = null;
     this._finishCounter = 0;
     this._sfCooldownPlayer = 0;
     // Nettoyer les touches mobiles
