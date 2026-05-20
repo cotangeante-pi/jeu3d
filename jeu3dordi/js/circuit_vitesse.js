@@ -384,15 +384,6 @@ const CircuitVitesse = {
     sun.position.set(80, 120, 60);
     scene.add(sun);
 
-    // Sol
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(2000, 2000),
-      new THREE.MeshLambertMaterial({ color: 0x1a2a0a })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.05;
-    scene.add(ground);
-
     this._scene = scene;
     this._camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 800);
   },
@@ -497,18 +488,72 @@ const CircuitVitesse = {
   },
 
   _buildDecor() {
+    const TW = this._TRACK_WIDTH;
+    const curvePoints = this._curve.getPoints(200);
+    const rng = () => (Math.random() - 0.5) * 2;
+
+    // Terrain vertex-coloré style PolyTrack
+    const terrainSize = 800;
+    const terrainSegs = 70;
+    const tGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegs, terrainSegs);
+    tGeo.rotateX(-Math.PI / 2);
+    const tPos = tGeo.attributes.position;
+    const tColors = [];
+    for (let vi = 0; vi < tPos.count; vi++) {
+      const vx = tPos.getX(vi), vz = tPos.getZ(vi);
+      let minDist = Infinity;
+      for (const p of curvePoints) {
+        const dx = p.x - vx, dz = p.z - vz;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < minDist) minDist = d;
+      }
+      let r, g, b;
+      const edge = TW * 0.5;
+      if (minDist < edge + 1.5) {
+        r = 0.35; g = 0.35; b = 0.32;
+      } else if (minDist < edge + 5) {
+        r = 0.52; g = 0.50; b = 0.46;
+      } else if (minDist < edge + 12) {
+        r = 0.38; g = 0.42; b = 0.30;
+      } else {
+        r = 0.13; g = 0.28; b = 0.09;
+      }
+      tColors.push(r, g, b);
+    }
+    tGeo.setAttribute('color', new THREE.Float32BufferAttribute(tColors, 3));
+    const terrain = new THREE.Mesh(tGeo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    terrain.position.y = -0.06;
+    this._scene.add(terrain);
+
+    // Collines décoratives (loin de la piste)
+    const hillMat = new THREE.MeshLambertMaterial({ color: 0x1a3a0a });
+    let placed = 0;
+    for (let attempt = 0; attempt < 200 && placed < 18; attempt++) {
+      const hx = rng() * 280, hz = rng() * 280;
+      const minD = curvePoints.reduce((mn, p) => {
+        const dx = p.x - hx, dz = p.z - hz;
+        return Math.min(mn, Math.sqrt(dx * dx + dz * dz));
+      }, Infinity);
+      if (minD < TW + 28) continue;
+      const hr = 8 + Math.random() * 14;
+      const hh = 5 + Math.random() * 12;
+      const hill = new THREE.Mesh(new THREE.ConeGeometry(hr, hh, 8), hillMat);
+      hill.position.set(hx, hh * 0.5 - 0.06, hz);
+      this._scene.add(hill);
+      placed++;
+    }
+
+    // Arbres
     const treeMat = new THREE.MeshLambertMaterial({ color: 0x228822 });
     const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5c3317 });
-    const rng = () => (Math.random() - 0.5) * 2;
-    const bb = 220;
-    for (let i = 0; i < 60; i++) {
-      const bx = rng() * bb, bz = rng() * bb;
-      // Ne pas placer d'arbre sur la piste (vérif grossière)
-      const nearby = this._curve.getPoints(40).some(p => {
+    placed = 0;
+    for (let attempt = 0; attempt < 500 && placed < 90; attempt++) {
+      const bx = rng() * 300, bz = rng() * 300;
+      const minD = curvePoints.reduce((mn, p) => {
         const dx = p.x - bx, dz = p.z - bz;
-        return dx * dx + dz * dz < 400;
-      });
-      if (nearby) continue;
+        return Math.min(mn, Math.sqrt(dx * dx + dz * dz));
+      }, Infinity);
+      if (minD < TW + 7) continue;
       const h = 4 + Math.random() * 4;
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, h * 0.4, 6), trunkMat);
       trunk.position.set(bx, h * 0.2, bz);
@@ -516,6 +561,7 @@ const CircuitVitesse = {
       const crown = new THREE.Mesh(new THREE.ConeGeometry(1.8 + Math.random(), h * 0.7, 7), treeMat);
       crown.position.set(bx, h * 0.4 + h * 0.35, bz);
       this._scene.add(crown);
+      placed++;
     }
   },
 
@@ -544,9 +590,12 @@ const CircuitVitesse = {
         this._scene.add(mesh);
 
         const baseSpeed = this._MAX_SPEED * (0.95 + Math.random() * 0.10);
+        const tStart = Math.max(0, (tOffset + 1) % 1);
         this._aiCars.push({
           mesh,
-          t: Math.max(0, (tOffset + 1) % 1),
+          t: tStart,
+          startT: tStart,
+          prevAt: tStart,
           speed: 0,
           offset: side * 3.2,
           lap: 0,
@@ -742,7 +791,7 @@ const CircuitVitesse = {
       const targetSpeed = ai.baseSpeed * Math.max(0.45, 1 - curvature * 4);
 
       // Rubber-band
-      const gap = (this._playerLap + this._playerProjT) - ai.t;
+      const gap = (this._playerLap + this._playerProjT) - (ai.t - ai.startT);
       const rubberBonus = gap > 0.05 ? 1.12 : gap < -0.05 ? 0.92 : 1.0;
       const finalTarget = targetSpeed * rubberBonus;
 
@@ -788,18 +837,16 @@ const CircuitVitesse = {
     const tr = this._TRACKS[this._trackIdx];
     this._aiCars.forEach(ai => {
       if (ai.finished) return;
-      if (!ai.sfCooldown && ai.t > 0) {
-        const at = ((ai.t % 1) + 1) % 1;
-        if (at < 0.04) {
-          const lapCount = Math.floor(ai.t);
-          if (lapCount >= tr.laps && ai.lap < tr.laps) {
-            ai.lap = tr.laps;
-            ai.finished = true;
-            ai.sfCooldown = 999;
-            ai.finishPos = this._finishCounter = (this._finishCounter || 0) + 1;
-          }
+      const at = ((ai.t % 1) + 1) % 1;
+      if (ai.sfCooldown <= 0 && ai.prevAt > 0.85 && at < 0.15) {
+        ai.lap++;
+        if (ai.lap >= tr.laps) {
+          ai.finished = true;
+          ai.sfCooldown = 999;
+          ai.finishPos = this._finishCounter = (this._finishCounter || 0) + 1;
         }
       }
+      ai.prevAt = at;
     });
   },
 
@@ -982,8 +1029,8 @@ const CircuitVitesse = {
 
     if (this._mode === 'pistes') {
       const playerTotal = this._playerLap + this._playerProjT;
-      const finishedBefore = this._aiCars.filter(a => a.finished && a.t > playerTotal + 0.001).length;
-      const aheadCount = this._aiCars.filter(a => !a.finished && a.t > playerTotal + 0.001).length;
+      const finishedBefore = this._aiCars.filter(a => a.finished && (a.t - a.startT) > playerTotal + 0.001).length;
+      const aheadCount = this._aiCars.filter(a => !a.finished && (a.t - a.startT) > playerTotal + 0.001).length;
       const pos = finishedBefore + aheadCount + 1;
       const posEl = document.getElementById('cv-hud-pos');
       if (posEl) posEl.textContent = pos + 'e / ' + (this._aiCars.length + 1);
