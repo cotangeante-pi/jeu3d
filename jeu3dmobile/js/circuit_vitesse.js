@@ -13,113 +13,127 @@ const CircuitVitesse = {
   // ── Pistes ────────────────────────────────────────────────────────────────
   _TRACKS: [
     {
-      id: 'epingle', name: 'Épingle', difficulty: 2, laps: 3,
+      id: 'decollage', name: 'Décollage', difficulty: 3, laps: 3,
       color: 0x4CAF50, skyColor: '#1a3a1a',
+      boostPads: [0.22],
       gen() {
         return [
           new THREE.Vector3(-50, 0, -60),
-          new THREE.Vector3(20, 0, -65),
-          new THREE.Vector3(70, 0, -55),
-          new THREE.Vector3(92, 0, -30),
-          new THREE.Vector3(92, 0,  5),
-          new THREE.Vector3(70, 0, 25),
-          new THREE.Vector3(35, 0, 20),
-          new THREE.Vector3(15, 0, 38),
-          new THREE.Vector3(35, 0, 55),
-          new THREE.Vector3(15, 0, 84),
-          new THREE.Vector3(-15, 0, 94),
-          new THREE.Vector3(-40, 0, 76),
-          new THREE.Vector3(-65, 0, 42),
-          new THREE.Vector3(-86, 0, 10),
-          new THREE.Vector3(-92, 0, -26),
-          new THREE.Vector3(-76, 0, -56),
+          new THREE.Vector3( 10, 0, -80),
+          new THREE.Vector3( 75, 0, -60),
+          new THREE.Vector3(100, 0, -20),
+          new THREE.Vector3( 90, 0,  25),
+          new THREE.Vector3( 60, 0,  45),
+          new THREE.Vector3( 30, 0,  35),
+          new THREE.Vector3( 15, 0,  52),
+          new THREE.Vector3(  5, 5,  68),
+          new THREE.Vector3( -5,12,  80),
+          new THREE.Vector3(-20,12,  88),
+          new THREE.Vector3(-42, 0, 100),
+          new THREE.Vector3(-70, 0,  90),
+          new THREE.Vector3(-95, 0,  55),
+          new THREE.Vector3(-100,0,  15),
+          new THREE.Vector3(-88, 0, -25),
+          new THREE.Vector3(-72, 0, -52),
         ];
       }
     },
     {
-      id: 'cote', name: 'Côte', difficulty: 1, laps: 3,
+      id: 'littoral', name: 'Littoral', difficulty: 2, laps: 3,
       color: 0x2196F3, skyColor: '#0a1a2e',
+      boostPads: [0.12, 0.65],
       gen() {
         return [
-          new THREE.Vector3(-30, 0, -130),
-          new THREE.Vector3(40,  0, -120),
-          new THREE.Vector3(100, 0,  -80),
-          new THREE.Vector3(140, 0,  -30),
-          new THREE.Vector3(150, 0,   20),
-          new THREE.Vector3(130, 0,   70),
-          new THREE.Vector3(80,  0,  110),
-          new THREE.Vector3(50,  0,  124),
-          new THREE.Vector3(20,  0,  106),
-          new THREE.Vector3(-16, 0,  116),
-          new THREE.Vector3(-60, 0,   90),
-          new THREE.Vector3(-100,0,   58),
-          new THREE.Vector3(-122,0,   20),
-          new THREE.Vector3(-112,0,  -42),
-          new THREE.Vector3(-80, 0,  -90),
+          new THREE.Vector3(-20, 0,-120),
+          new THREE.Vector3( 40, 0,-110),
+          new THREE.Vector3(100, 0, -85),
+          new THREE.Vector3(145, 0, -40),
+          new THREE.Vector3(155, 4,   5),
+          new THREE.Vector3(145, 0,  50),
+          new THREE.Vector3(110, 0,  90),
+          new THREE.Vector3( 55, 0, 120),
+          new THREE.Vector3( 15, 0, 128),
+          new THREE.Vector3(-10, 8, 118),
+          new THREE.Vector3(-25, 8, 108),
+          new THREE.Vector3(-50, 0,  95),
+          new THREE.Vector3(-90, 0,  65),
+          new THREE.Vector3(-120,0,  25),
+          new THREE.Vector3(-125,0, -30),
+          new THREE.Vector3(-80, 0, -80),
         ];
       }
     },
     {
       id: 'alpin', name: 'Alpin', difficulty: 4, laps: 2,
       color: 0xFF5722, skyColor: '#2a1a0a',
+      boostPads: [0.08],
       gen() {
         return [
-          new THREE.Vector3( 20, 0,  -80),
-          new THREE.Vector3( 70, 2,  -58),
-          new THREE.Vector3(100, 6,  -18),
-          new THREE.Vector3(100, 10,  22),
-          new THREE.Vector3( 58, 12,  52),
-          new THREE.Vector3( 18, 14,  40),
-          new THREE.Vector3(-22, 15,  62),
-          new THREE.Vector3(-62, 17,  50),
-          new THREE.Vector3(-82, 16,  10),
-          new THREE.Vector3(-72, 12, -32),
-          new THREE.Vector3(-32, 7,  -72),
-          new THREE.Vector3(  0, 3,  -90),
+          new THREE.Vector3( 20, 0, -80),
+          new THREE.Vector3( 70, 2, -58),
+          new THREE.Vector3(100, 6, -18),
+          new THREE.Vector3( 95,10,  22),
+          new THREE.Vector3( 55,13,  52),
+          new THREE.Vector3( 15,15,  42),
+          new THREE.Vector3(-10,17,  60),
+          new THREE.Vector3(-28,17,  70),
+          new THREE.Vector3(-55, 0,  80),
+          new THREE.Vector3(-80, 0,  48),
+          new THREE.Vector3(-78, 0,   5),
+          new THREE.Vector3(-62, 0, -32),
+          new THREE.Vector3(-28, 0, -52),
+          new THREE.Vector3(  0, 2, -72),
         ];
       }
     },
     {
       id: 'cite', name: 'Cité', difficulty: 3, laps: 3,
       color: 0x9C27B0, skyColor: '#0a0a1a',
+      boostPads: [0.08, 0.52],
       gen() {
         return [
-          new THREE.Vector3(-70, 0, -60),
-          new THREE.Vector3( 40, 0, -60),
-          new THREE.Vector3( 72, 0, -38),
-          new THREE.Vector3( 72, 0,  12),
-          new THREE.Vector3( 50, 0,  36),
-          new THREE.Vector3( 20, 0,  42),
-          new THREE.Vector3(  0, 0,  62),
-          new THREE.Vector3(-30, 0,  62),
-          new THREE.Vector3(-60, 0,  40),
-          new THREE.Vector3(-82, 0,  10),
-          new THREE.Vector3(-92, 0, -22),
-          new THREE.Vector3(-80, 0, -52),
+          new THREE.Vector3(-60, 0, -70),
+          new THREE.Vector3(  5, 0, -85),
+          new THREE.Vector3( 65, 0, -75),
+          new THREE.Vector3( 95, 0, -40),
+          new THREE.Vector3( 90, 0,   0),
+          new THREE.Vector3( 55, 0,  28),
+          new THREE.Vector3( 30, 6,  48),
+          new THREE.Vector3( 10,10,  62),
+          new THREE.Vector3(-10,10,  70),
+          new THREE.Vector3(-38, 0,  80),
+          new THREE.Vector3(-65, 0,  60),
+          new THREE.Vector3(-90, 0,  20),
+          new THREE.Vector3(-95, 0, -30),
+          new THREE.Vector3(-80, 0, -62),
         ];
       }
     },
     {
-      id: 'ruban', name: 'Ruban', difficulty: 5, laps: 3,
+      id: 'typhon', name: 'Typhon', difficulty: 5, laps: 3,
       color: 0xF44336, skyColor: '#1a0a1a',
+      boostPads: [0.08, 0.56],
       gen() {
         return [
-          new THREE.Vector3(   0, 0, -10),
-          new THREE.Vector3(  40, 0, -32),
-          new THREE.Vector3(  80, 0, -60),
-          new THREE.Vector3( 132, 0, -50),
-          new THREE.Vector3( 152, 0,   0),
-          new THREE.Vector3( 132, 0,  50),
-          new THREE.Vector3(  80, 0,  72),
-          new THREE.Vector3(  40, 0,  42),
-          new THREE.Vector3(   0, 0,  10),
-          new THREE.Vector3( -40, 0,  42),
-          new THREE.Vector3( -80, 0,  62),
-          new THREE.Vector3(-132, 0,  50),
-          new THREE.Vector3(-152, 0,   0),
-          new THREE.Vector3(-132, 0, -50),
-          new THREE.Vector3( -80, 0, -70),
-          new THREE.Vector3( -40, 0, -42),
+          new THREE.Vector3(  0, 0, -10),
+          new THREE.Vector3( 55, 0, -35),
+          new THREE.Vector3(115, 0, -20),
+          new THREE.Vector3(145, 0,  28),
+          new THREE.Vector3(140, 0,  80),
+          new THREE.Vector3(100, 0, 112),
+          new THREE.Vector3( 48, 0, 115),
+          new THREE.Vector3(  8, 6,  90),
+          new THREE.Vector3(-12,13,  68),
+          new THREE.Vector3(-28,13,  55),
+          new THREE.Vector3(-55, 0,  42),
+          new THREE.Vector3(-90, 0,  20),
+          new THREE.Vector3(-130,0,  -5),
+          new THREE.Vector3(-148,0, -45),
+          new THREE.Vector3(-115,0, -82),
+          new THREE.Vector3(-68, 0, -88),
+          new THREE.Vector3(-30, 7, -70),
+          new THREE.Vector3( -5,12, -48),
+          new THREE.Vector3( 18, 0, -28),
         ];
       }
     },
@@ -141,6 +155,14 @@ const CircuitVitesse = {
   _playerFinished: false,
   _playerOffTrack: false,
   _lastGroundY: 0,
+  _playerVY: 0,
+  _playerY: 0,
+  _velocityAngle: 0,
+  _airborne: false,
+  _isDrifting: false,
+  _onBoostPad: false,
+  _landingShake: 0,
+  _GRAVITY: 28,
   _trackMesh: null,
   _raycaster: null,
   _rayOrigin: null,
@@ -354,6 +376,11 @@ const CircuitVitesse = {
     this._lapTimes = [];
     this._position = 1;
     this._lastGroundY = 0;
+    this._playerVY = 0;
+    this._airborne = false;
+    this._isDrifting = false;
+    this._onBoostPad = false;
+    this._landingShake = 0;
 
     const tr = this._TRACKS[this._trackIdx];
     this._bestTime = this._getBest(tr.id);
@@ -371,6 +398,8 @@ const CircuitVitesse = {
       this._playerX = sp.x;
       this._playerZ = sp.z;
       this._playerHeading = Math.atan2(st.x, -st.z);
+      this._velocityAngle = this._playerHeading;
+      this._playerY = sp.y + 0.28;
     }
     // Ajuster la caméra pour le rendu circuit
     State.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -470,6 +499,25 @@ const CircuitVitesse = {
     sfLine.position.y = 0.06;
     sfLine.rotation.z = -Math.atan2(sfTan.z, sfTan.x);
     this._scene.add(sfLine);
+
+    // Boost pads visuels (3 bandes jaune/orange)
+    if (tr.boostPads) {
+      const bpMat1 = new THREE.MeshBasicMaterial({ color: 0xFFD700 });
+      const bpMat2 = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
+      for (const bt of tr.boostPads) {
+        for (let k = -1; k <= 1; k++) {
+          const bT = ((bt + k * 0.009) + 1) % 1;
+          const bPt = this._curve.getPointAt(bT);
+          const bTan = this._curve.getTangentAt(bT).normalize();
+          const bPad = new THREE.Mesh(new THREE.PlaneGeometry(TW * 0.78, 1.1), k === 0 ? bpMat1 : bpMat2);
+          bPad.rotation.x = -Math.PI / 2;
+          bPad.rotation.z = -Math.atan2(bTan.x, bTan.z);
+          bPad.position.copy(bPt);
+          bPad.position.y = 0.06;
+          this._scene.add(bPad);
+        }
+      }
+    }
 
     // Décors
     this._buildDecor();
@@ -676,83 +724,157 @@ const CircuitVitesse = {
     const left  = State.keys['KeyA'] || State.keys['ArrowLeft']  || (isMobile && State.keys['_cv_left']);
     const right = State.keys['KeyD'] || State.keys['ArrowRight'] || (isMobile && State.keys['_cv_right']);
 
-    if (accel) {
-      this._playerSpeed = Math.min(this._MAX_SPEED, this._playerSpeed + this._ACCEL * delta);
-    } else if (brake) {
-      this._playerSpeed = Math.max(-this._MAX_SPEED * 0.4, this._playerSpeed - this._BRAKE * delta);
-    } else {
-      this._playerSpeed *= Math.pow(this._DRAG, delta * 60);
-      if (Math.abs(this._playerSpeed) < 0.2) this._playerSpeed = 0;
+    // Vitesse scalaire (uniquement au sol)
+    if (!this._airborne) {
+      if (accel) {
+        this._playerSpeed = Math.min(this._MAX_SPEED, this._playerSpeed + this._ACCEL * delta);
+      } else if (brake) {
+        this._playerSpeed = Math.max(-this._MAX_SPEED * 0.4, this._playerSpeed - this._BRAKE * delta);
+      } else {
+        this._playerSpeed *= Math.pow(this._DRAG, delta * 60);
+        if (Math.abs(this._playerSpeed) < 0.2) this._playerSpeed = 0;
+      }
     }
 
-    // Direction adaptative : pleine à basse vitesse, réduite à haute (style PolyTrack)
+    // Direction adaptative (réduite en l'air)
     const speedRatio = Math.abs(this._playerSpeed) / this._MAX_SPEED;
-    const turnRate = this._STEER_SPEED * Math.max(0.18, 1.0 - speedRatio * 0.78);
+    const airFactor = this._airborne ? 0.25 : 1.0;
+    const turnRate = this._STEER_SPEED * Math.max(0.18, 1.0 - speedRatio * 0.78) * airFactor;
     if (left)  this._playerHeading -= turnRate * delta;
     if (right) this._playerHeading += turnRate * delta;
 
-    this._playerX += Math.sin(this._playerHeading) * this._playerSpeed * delta;
-    this._playerZ -= Math.cos(this._playerHeading) * this._playerSpeed * delta;
+    // Drift : séparation cap / direction de vitesse
+    if (!this._airborne) {
+      let diff = this._playerHeading - this._velocityAngle;
+      diff = ((diff + Math.PI) % (2 * Math.PI)) - Math.PI;
+      const slip = Math.abs(Math.sin(diff));
+      const grip = Math.max(0.08, 1.0 - speedRatio * slip * 1.4);
+      this._velocityAngle += diff * grip * Math.min(1, delta * 6);
+      this._isDrifting = slip > 0.28 && speedRatio > 0.45;
+    } else {
+      this._isDrifting = false;
+    }
+
+    // Mouvement XZ selon la direction réelle (velocityAngle)
+    this._playerX += Math.sin(this._velocityAngle) * this._playerSpeed * delta;
+    this._playerZ -= Math.cos(this._velocityAngle) * this._playerSpeed * delta;
 
     const projT = this._projectOnCurve(this._playerX, this._playerZ);
     const pt = this._curve.getPointAt(projT);
 
-    // Raycast vers le bas pour détection de surface (style PolyTrack)
-    this._rayOrigin.set(this._playerX, 60, this._playerZ);
+    // Raycast surface PolyTrack-style
+    this._rayOrigin.set(this._playerX, 100, this._playerZ);
     this._raycaster.set(this._rayOrigin, this._DOWN);
     const hits = this._trackMesh ? this._raycaster.intersectObject(this._trackMesh, false) : [];
-    const onTrack = hits.length > 0;
-    const groundY = onTrack ? hits[0].point.y : this._lastGroundY;
-    if (onTrack) this._lastGroundY = groundY;
-    this._playerOffTrack = !onTrack;
+    const trackSurfY = hits.length > 0 ? hits[0].point.y : null;
 
-    if (!onTrack) {
-      // Direction de la bordure la plus proche pour le pushback
-      const cTan = this._curve.getTangentAt(projT).normalize();
-      const cRight = new THREE.Vector3().crossVectors(cTan, new THREE.Vector3(0,1,0)).normalize();
-      const toPl = new THREE.Vector3(this._playerX - pt.x, 0, this._playerZ - pt.z);
-      const sign = toPl.dot(cRight) >= 0 ? 1 : -1;
+    // Physique verticale (saut / gravité / atterrissage)
+    const wasAirborne = this._airborne;
+    const prevVY = this._playerVY;
 
+    if (trackSurfY !== null && this._playerY <= trackSurfY + 0.15) {
+      // Sur la piste
+      this._playerY = trackSurfY;
+      this._playerVY = 0;
+      this._airborne = false;
+      this._playerOffTrack = false;
+      if (wasAirborne) {
+        this._landingShake = 0.3;
+        if (Math.abs(prevVY) > 8) this._playerSpeed *= 0.88;
+      }
+    } else if (trackSurfY !== null) {
+      // Au-dessus de la piste → saut
+      this._playerVY -= this._GRAVITY * delta;
+      this._playerY  += this._playerVY * delta;
+      this._airborne  = true;
+      this._playerOffTrack = false;
+      if (this._playerY <= trackSurfY) {
+        this._landingShake = 0.3;
+        if (Math.abs(this._playerVY) > 8) this._playerSpeed *= 0.88;
+        this._playerY = trackSurfY;
+        this._playerVY = 0;
+        this._airborne = false;
+      }
+    } else if (this._airborne) {
+      // En l'air hors ribbon (sorti latéralement pendant le saut)
+      this._playerVY -= this._GRAVITY * delta;
+      this._playerY  += this._playerVY * delta;
+      this._playerOffTrack = false;
+      if (this._playerY < -1) {
+        this._playerY = 0;
+        this._playerVY = 0;
+        this._airborne = false;
+        this._landingShake = 0.5;
+        this._playerSpeed *= 0.5;
+      }
+    } else {
+      // Hors piste latéral (pas en l'air)
+      this._playerY = this._lastGroundY;
+      this._playerOffTrack = true;
       if (this._mode === 'record') {
-        // Mur : ramener à la limite + friction selon angle d'impact
+        const cTan  = this._curve.getTangentAt(projT).normalize();
+        const cRight = new THREE.Vector3().crossVectors(cTan, new THREE.Vector3(0,1,0)).normalize();
+        const toPl  = new THREE.Vector3(this._playerX - pt.x, 0, this._playerZ - pt.z);
+        const sign  = toPl.dot(cRight) >= 0 ? 1 : -1;
         const latDist = Math.abs(toPl.dot(cRight));
-        const excess = latDist - this._TRACK_WIDTH * 0.5;
+        const excess  = latDist - this._TRACK_WIDTH * 0.5;
         this._playerX -= cRight.x * sign * excess;
         this._playerZ -= cRight.z * sign * excess;
-        const vx = Math.sin(this._playerHeading) * this._playerSpeed;
-        const vz = -Math.cos(this._playerHeading) * this._playerSpeed;
+        const vx = Math.sin(this._velocityAngle) * this._playerSpeed;
+        const vz = -Math.cos(this._velocityAngle) * this._playerSpeed;
         const outx = cRight.x * sign, outz = cRight.z * sign;
         const vDotOut = vx * outx + vz * outz;
         if (vDotOut > 0) {
-          const parx = vx - vDotOut * outx;
-          const parz = vz - vDotOut * outz;
-          const parSpeed = Math.sqrt(parx * parx + parz * parz);
+          const parx = vx - vDotOut * outx, parz = vz - vDotOut * outz;
+          const parSpeed = Math.sqrt(parx*parx + parz*parz);
           const totalSpeed = Math.hypot(vx, vz);
           const impactRatio = totalSpeed > 0.1 ? Math.min(1, vDotOut / totalSpeed) : 0;
-          const wallFriction = 0.25 + impactRatio * 0.65;
-          const newParSpeed = parSpeed * (1 - wallFriction);
+          const newParSpeed = parSpeed * (1 - (0.25 + impactRatio * 0.65));
           const nudge = vDotOut * 0.04;
-          const newvx = (parSpeed > 0.01 ? parx / parSpeed : 0) * newParSpeed - outx * nudge;
-          const newvz = (parSpeed > 0.01 ? parz / parSpeed : 0) * newParSpeed - outz * nudge;
+          const newvx = (parSpeed > 0.01 ? parx/parSpeed : 0) * newParSpeed - outx * nudge;
+          const newvz = (parSpeed > 0.01 ? parz/parSpeed : 0) * newParSpeed - outz * nudge;
           this._playerSpeed = Math.hypot(newvx, newvz);
-          if (this._playerSpeed > 0.1) this._playerHeading = Math.atan2(newvx, -newvz);
+          if (this._playerSpeed > 0.1) {
+            this._velocityAngle = Math.atan2(newvx, -newvz);
+            this._playerHeading = this._velocityAngle;
+          }
         }
       } else {
-        // Pistes : herbe/gravier
         this._playerSpeed *= Math.pow(0.65, delta * 60);
         const gMax = this._MAX_SPEED * 0.3;
         if (Math.abs(this._playerSpeed) > gMax) this._playerSpeed = Math.sign(this._playerSpeed) * gMax;
       }
     }
+    if (trackSurfY !== null) this._lastGroundY = trackSurfY;
 
-    // Inclinaison de la voiture selon la pente de la piste (pitch)
+    // Boost pads
+    const tr = this._TRACKS[this._trackIdx];
+    this._onBoostPad = false;
+    if (tr.boostPads && !this._airborne && this._playerSpeed > 5) {
+      for (const bt of tr.boostPads) {
+        const d = Math.abs(this._playerProjT - bt);
+        if (d < 0.022 || d > 0.978) {
+          this._playerSpeed = Math.min(this._MAX_SPEED * 1.35, this._playerSpeed + 22 * delta);
+          this._onBoostPad = true;
+          break;
+        }
+      }
+    }
+
+    this._landingShake = Math.max(0, this._landingShake - delta * 3);
+
+    // Orientation voiture (pitch + heading)
     const pitchTan = this._curve.getTangentAt(projT);
-    const pitchAngle = Math.atan2(pitchTan.y, Math.sqrt(pitchTan.x * pitchTan.x + pitchTan.z * pitchTan.z));
-    this._playerCar.position.set(this._playerX, groundY + 0.28, this._playerZ);
-    this._playerCar.rotation.set(-pitchAngle, -this._playerHeading, 0, 'YXZ');
+    const pitchAngle = Math.atan2(pitchTan.y, Math.sqrt(pitchTan.x*pitchTan.x + pitchTan.z*pitchTan.z));
+    this._playerCar.position.set(this._playerX, this._playerY + 0.28, this._playerZ);
+    if (!this._airborne) {
+      this._playerCar.rotation.set(-pitchAngle, -this._playerHeading, 0, 'YXZ');
+    } else {
+      const fallPitch = Math.max(-0.4, this._playerVY * 0.012);
+      this._playerCar.rotation.set(fallPitch, -this._playerHeading, 0, 'YXZ');
+    }
 
     this._trackPlayerLap(projT, delta);
-
     if (this._mode === 'record') {
       this._ghostFrames.push({ t: projT, ms: this._raceTimer * 1000 });
     }
@@ -958,9 +1080,12 @@ const CircuitVitesse = {
   _updateCamera() {
     const pos = this._playerCar.position;
     const h = this._playerHeading;
+    const shake = this._landingShake > 0
+      ? Math.sin(Date.now() * 0.08) * this._landingShake * 0.6
+      : 0;
     this._camera.position.set(
       pos.x - Math.sin(h) * 7,
-      pos.y + 3,
+      pos.y + 3 + shake,
       pos.z + Math.cos(h) * 7
     );
     this._camera.lookAt(pos.x + Math.sin(h) * 5, pos.y + 0.5, pos.z - Math.cos(h) * 5);
@@ -1017,6 +1142,9 @@ const CircuitVitesse = {
       </div>
       <div id="cv-hud-countdown" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:4em;font-weight:bold;color:#f1c40f;text-shadow:0 4px 16px #000;pointer-events:none"></div>
       <div id="cv-hud-offtrack" style="position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);font-size:1.6em;font-weight:bold;color:#ff4444;text-shadow:0 2px 8px #000;letter-spacing:2px;pointer-events:none;display:none">HORS PISTE</div>
+      <div id="cv-hud-airborne" style="position:fixed;top:32%;left:50%;transform:translate(-50%,-50%);font-size:2em;font-weight:bold;color:#00eeff;text-shadow:0 2px 12px #000;letter-spacing:3px;pointer-events:none;display:none">AIRBORNE!</div>
+      <div id="cv-hud-drift" style="position:fixed;bottom:22%;left:50%;transform:translateX(-50%);font-size:1.5em;font-weight:bold;color:#ff9900;text-shadow:0 2px 8px #000;letter-spacing:2px;pointer-events:none;display:none">DÉRIVE!</div>
+      <div id="cv-hud-boost" style="position:fixed;top:44%;left:50%;transform:translate(-50%,-50%);font-size:1.8em;font-weight:bold;color:#FFD700;text-shadow:0 2px 12px #000;letter-spacing:3px;pointer-events:none;display:none">⚡ BOOST!</div>
       ${mobileCtrl}
     `;
     document.body.appendChild(hud);
@@ -1059,6 +1187,12 @@ const CircuitVitesse = {
     }
     const otEl = document.getElementById('cv-hud-offtrack');
     if (otEl) otEl.style.display = (this._playerOffTrack && this._mode !== 'record') ? 'block' : 'none';
+    const airEl  = document.getElementById('cv-hud-airborne');
+    if (airEl)  airEl.style.display  = this._airborne   ? 'block' : 'none';
+    const driftEl = document.getElementById('cv-hud-drift');
+    if (driftEl) driftEl.style.display = this._isDrifting ? 'block' : 'none';
+    const boostEl = document.getElementById('cv-hud-boost');
+    if (boostEl) boostEl.style.display = this._onBoostPad ? 'block' : 'none';
   },
 
   _updateCountdown() {
