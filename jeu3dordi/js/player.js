@@ -88,6 +88,12 @@ const Player = {
       State.posZ -= State.velZ * delta;
     }
 
+    // Zone rivière
+    const rHalfW = CONFIG.RIVER_WIDTH / 2;
+    const rHalfL = CONFIG.RIVER_LENGTH / 2;
+    const inRiver = Math.abs(State.posX - CONFIG.RIVER_CENTER_X) < rHalfW &&
+                    Math.abs(State.posZ) < rHalfL;
+
     // Test Y (sol)
     State.posY += State.velY * delta;
     const groundLevel = CONFIG.GROUND_Y + CONFIG.PLAYER_HALF_H;
@@ -100,6 +106,15 @@ const Player = {
       State.onGround = false;
     }
 
+    // En rivière : bloquer au niveau de la surface (interdit de nager au dessus)
+    if (inRiver) {
+      const waterSurface = 0.05 + CONFIG.PLAYER_HALF_H;
+      if (State.posY > waterSurface) {
+        State.posY = waterSurface;
+        if (State.velY > 0) State.velY = 0;
+      }
+    }
+
     // ── Saut & escalade ──
     if (State.keys['Space'] && State.onGround) {
       Sound.jump();
@@ -107,7 +122,7 @@ const Player = {
       State.onGround = false;
       State.climbTimer = 0;
       State.isClimbing = false;
-    } else if (State.keys['Space'] && !State.onGround) {
+    } else if (State.keys['Space'] && !State.onGround && !inRiver) {
       // Espace maintenu en l'air → escalade si un mur est devant
       State.climbTimer += delta;
       if (State.climbTimer > 0.55) {

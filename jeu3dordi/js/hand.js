@@ -68,6 +68,8 @@ const Hand = {
   update(delta) {
     if (!this._group) return;
     const g = this._group;
+    g.visible = !State.inCar;
+    if (State.inCar) return;
     this._idleT += delta;
 
     // Pomme visible si item sélectionné = Pomme et pas en frappe
